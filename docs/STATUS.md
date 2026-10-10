@@ -17,7 +17,7 @@ Namespaces `f1x::openauto` und Binary `autoapp` bleiben, damit Upstream-Änderun
 | `aasdk-ref/` (GitHub-Fork `average-web-dev/aasdk`, Upstream `opencardev/aasdk` als Remote `upstream`) | `openhu` | aasdk + Navigation-State/Position, PhoneStatus |
 | `openhu-plugins/` (GitHub `average-web-dev/openhu-plugins`) | `main` | offizielle Plugins + Store-Index |
 
-Alle drei Repos sind gepusht. Die CI (`.github/workflows/ci.yml`) baut mit dem aasdk-Fork (Branch
+Gepusht ist der Stand vor Phase 7; Phase 7 (`openhu`) und die neue aasdk-README sind nur lokal committet. Die CI (`.github/workflows/ci.yml`) baut mit dem aasdk-Fork (Branch
 `openhu`); die alten opencardev-Workflows (APT-Publish, Release) sind entfernt.
 
 ## Phasen
@@ -32,7 +32,7 @@ Alle drei Repos sind gepusht. Die CI (`.github/workflows/ci.yml`) baut mit dem a
 | 5 | Plugins CAN, Lenkradtasten, Rückfahrkamera, Radio | erledigt; Kamera mit Webcam getestet, CAN/Radio nur Unit-Tests |
 | 7 | Einstellungen neu (QML), Legacy-UI und toten Code entfernen | erledigt (siehe unten) |
 | 6 | Plugin: Bluetooth-Audio an das Autoradio (A2DP-Source, AVRCP, HFP) | offen |
-| – | aasdk-README modernisieren mit KI-Hinweis | offen |
+| – | aasdk-README modernisieren mit KI-Hinweis | erledigt (aasdk `c7b91ed`) |
 | – | arm64-Build für den Raspberry Pi | ganz am Schluss |
 
 Plan im Detail: `~/.claude/plans/ich-h-tte-gene-folgenden-ethereal-lighthouse.md`.
