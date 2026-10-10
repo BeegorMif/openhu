@@ -30,8 +30,9 @@ namespace core
 
 // Resets connected phones on USB, as if they were unplugged and plugged in again: the phone
 // re-enumerates and Android Auto connects again. Devices in Android accessory mode are reset;
-// without one, phones of common Android vendors. Returns "vendor:product" of each reset device.
-QStringList resetAndroidUsbDevices();
+// without one, phones of common Android vendors (not with accessoryOnly). Returns "vendor:product" of each
+// reset device.
+QStringList resetAndroidUsbDevices(bool accessoryOnly = false);
 
 }
 }

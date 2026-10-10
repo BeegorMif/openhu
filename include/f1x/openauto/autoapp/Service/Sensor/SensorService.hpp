@@ -76,7 +76,7 @@ namespace f1x::openauto::autoapp::service::sensor {
     boost::asio::io_service::strand strand_;
     boost::asio::deadline_timer timer_;
     aasdk::channel::sensorsource::SensorSourceService::Pointer channel_;
-    struct gps_data_t gpsData_;
+    struct gps_data_t gpsData_{};
     bool gpsEnabled_ = false;
   };
 

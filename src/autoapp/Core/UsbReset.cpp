@@ -106,7 +106,7 @@ bool reset(const UsbDevice& device)
 
 }
 
-QStringList resetAndroidUsbDevices()
+QStringList resetAndroidUsbDevices(bool accessoryOnly)
 {
     const auto devices = usbDevices();
 
@@ -118,7 +118,7 @@ QStringList resetAndroidUsbDevices()
             targets.append(device);
         }
     }
-    if(targets.isEmpty())
+    if(targets.isEmpty() && !accessoryOnly)
     {
         for(const auto& device: devices)
         {

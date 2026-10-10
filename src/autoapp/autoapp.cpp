@@ -42,6 +42,7 @@
 #include <f1x/openauto/autoapp/Api/CoreMethods.hpp>
 #include <f1x/openauto/autoapp/Audio/VolumeController.hpp>
 #include <f1x/openauto/autoapp/Core/EventBus.hpp>
+#include <f1x/openauto/autoapp/Core/UsbReset.hpp>
 #include <f1x/openauto/autoapp/Input/ActionDispatcher.hpp>
 #include <f1x/openauto/autoapp/Plugins/PluginManager.hpp>
 #include <f1x/openauto/autoapp/Plugins/PluginMethods.hpp>
@@ -191,12 +192,15 @@ int main(int argc, char* argv[])
     engine.rootContext()->setContextProperty("api", &qmlApi);
     engine.rootContext()->setContextProperty("wireless", &wirelessController);
 
-    // std::exit skips destructors: take the hotspot down and end plugins first
+    // Clean up what outlives the process (hotspot, plugin processes), then end without running destructors:
+    // exit() from inside the event loop tears down Qt's globals while the QML engine still exists (crash).
     auto shutdown = [&]() {
         wirelessController.stop();
         pluginManager.stopAll();
         volumeController.stop();
-        std::exit(0);
+        configuration->save();
+        std::fflush(nullptr);
+        std::_Exit(0);
     };
     QObject::connect(&shellController, &autoapp::shell::ShellController::quitRequested, shutdown);
 
@@ -251,6 +255,12 @@ int main(int argc, char* argv[])
         window->showFullScreen();
     }
 
+    // A phone left in accessory mode by a previous run (restart, crash) still runs its old session and answers
+    // with data the new session cannot decrypt: reset it, it reconnects from scratch.
+    if(!autoapp::core::resetAndroidUsbDevices(true).isEmpty())
+    {
+        OPENAUTO_LOG(info) << "[AutoApp] phone was still in accessory mode, reset it";
+    }
     app->waitForUSBDevice();
     wirelessController.apply();
 

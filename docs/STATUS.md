@@ -100,6 +100,12 @@ Konfiguration `docker/config/openhu.ini` (Fallback `openauto.ini`), Plugin-Daten
 - Band Auto/5/2,4 GHz (Auto: 5 GHz, bei Fehler 2,4 GHz; eine Karte kann nicht beide gleichzeitig),
   erweitert: Kanal, Adresse/Gateway, DHCP-Bereich (NM `ipv4.shared-dhcp-range`, ab NM 1.42). Eigene DNS-Server
   gehen nicht: NM erlaubt `ipv4.dns` bei `method=shared` nicht.
+- Startprobleme mit Handy am Kabel behoben: (1) ein Handy, das vom vorigen Lauf noch im Accessory-Modus hängt,
+  wird beim Start per USB-Reset frisch verbunden (sonst SSL-Fehler „unexpected message“); (2) aasdk fragte
+  jedes USB-Gerät per AOAP an und schlief 1 s pro Gerät („VMware-Workaround“) → 22 s bis zum Handy; jetzt
+  Filter (Hubs/HID/Audio/Video übersprungen), Pause entfernt (aasdk-Fork) → Handy nach 1,7 s.
+- Abstürze behoben: `SensorService` las GPS ohne gpsd-Verbindung (uninitialisiertes `gps_data_t`);
+  beim Beenden `_Exit` nach dem Aufräumen statt `exit` (Qt-Abbau-Absturz in der QML-Engine).
 - API aus dem Hotspot-Netz standardmäßig abgewiesen, Schalter „API auch im WLAN-Hotspot“ (ungetestet).
 - Idee (nicht umgesetzt): versteckte SSID (ungewiss, ob Android Auto versteckte Netze findet).
 - Wichtiger Fix in `App::waitForDevice`: Der USB-Hub-Start lief inline auf dem App-Strand und blockierte ihn

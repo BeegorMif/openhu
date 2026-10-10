@@ -236,19 +236,17 @@ namespace f1x::openauto::autoapp::service::sensor {
           this->previous = this->isNight;
           this->sendNightData();
         }
+        // only with a gpsd connection (reading an unopened gps_data_t crashes) and when data is waiting
+        // (gps_read blocks otherwise)
         bool gpsDataAvailable = false;
+        if (this->gpsEnabled_ && gps_waiting(&this->gpsData_, 0)) {
 #if GPSD_API_MAJOR_VERSION >= 7
-        if (gps_read (&this->gpsData_, NULL, 0) != -1) {
-          gpsDataAvailable = true;
-        }
+          gpsDataAvailable = gps_read(&this->gpsData_, NULL, 0) != -1;
 #else
-        if (gps_read (&this->gpsData_) != -1) {
-                    gpsDataAvailable = true;
-                }
+          gpsDataAvailable = gps_read(&this->gpsData_) != -1;
 #endif
-        if ((this->gpsEnabled_) &&
-            (gps_waiting(&this->gpsData_, 0)) &&
-            (gpsDataAvailable == true) &&
+        }
+        if ((gpsDataAvailable == true) &&
             (this->gpsData_.fix.mode == MODE_2D || this->gpsData_.fix.mode == MODE_3D) &&
             (this->gpsData_.set & TIME_SET) &&
             (this->gpsData_.set & LATLON_SET))
