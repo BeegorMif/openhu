@@ -166,11 +166,15 @@ void QtVideoOutput::onStopPlayback()
 {
     OPENAUTO_LOG(info) << "[QtVideoOutput] onStopPlayback()";
     
-    std::lock_guard<std::mutex> lock(writeMutex_);
-    playerReady_ = false;
-    initialBufferingDone_ = false;
-    bytesWritten_ = 0;
-    
+    {
+        std::lock_guard<std::mutex> lock(writeMutex_);
+        playerReady_ = false;
+        initialBufferingDone_ = false;
+        bytesWritten_ = 0;
+    }
+
+    // Must run without writeMutex_: mediaPlayer_->stop() synchronously emits
+    // stateChanged(), and onStateChanged() locks writeMutex_ itself (deadlock).
     cleanupPlayer();
     
     OPENAUTO_LOG(info) << "[QtVideoOutput] onStopPlayback() complete";
