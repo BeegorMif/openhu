@@ -69,18 +69,9 @@ namespace f1x::openauto::autoapp::service::navigationstatus {
 
     // Both fields are required, without them the service discovery response cannot be serialized.
     auto *navigationStatus = service->mutable_navigation_status_service();
+    // Maneuvers as enums, the shell draws its own arrows
     navigationStatus->set_minimum_interval_ms(500);
-    // DEBUG: OA_NAV_TYPE=enum|image
-    if (qEnvironmentVariable("OA_NAV_TYPE") == "image") {
-      navigationStatus->set_type(aap_protobuf::service::navigationstatus::NavigationStatusService::IMAGE);
-      auto *imageOptions = navigationStatus->mutable_image_options();
-      imageOptions->set_width(256);
-      imageOptions->set_height(256);
-      imageOptions->set_colour_depth_bits(32);
-    } else {
-      navigationStatus->set_type(aap_protobuf::service::navigationstatus::NavigationStatusService::ENUM);
-    }
-    OPENAUTO_LOG(info) << "[NavigationStatusService] type " << navigationStatus->type();
+    navigationStatus->set_type(aap_protobuf::service::navigationstatus::NavigationStatusService::ENUM);
   }
 
   void NavigationStatusService::onChannelOpenRequest(

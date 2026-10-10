@@ -17,6 +17,7 @@
 
 #include <f1x/openauto/autoapp/Api/CoreMethods.hpp>
 #include <f1x/openauto/autoapp/Core/EventBus.hpp>
+#include <f1x/openauto/autoapp/Core/UsbReset.hpp>
 
 namespace f1x
 {
@@ -122,6 +123,10 @@ void registerCoreMethods(ApiServer& server, audio::VolumeController& volume, she
     });
     server.registerMethod("input.keymap", [&actions](const QVariantMap&) -> QVariant {
         return actions.keymap();
+    });
+
+    server.registerMethod("projection.reconnect", [](const QVariantMap&) -> QVariant {
+        return QVariantMap{{"reset", core::resetAndroidUsbDevices()}};
     });
 
     server.registerMethod("daynight.set", [&bus](const QVariantMap& params) -> QVariant {

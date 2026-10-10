@@ -68,18 +68,9 @@ namespace f1x::openauto::autoapp::service {
     serviceList.emplace_back(this->createSensorService(messenger));
     serviceList.emplace_back(this->createInputService(messenger));
     // Status channels: navigation, now playing and calls -> EventBus/API (nav.*, media.*, phone.*)
-    // DEBUG: OA_STATUS_CHANNELS="nav,media,phone" selects the offered channels (default: all).
-    const QString statusChannels = qEnvironmentVariable("OA_STATUS_CHANNELS", "nav,media,phone");
-    OPENAUTO_LOG(info) << "[ServiceFactory] status channels: '" << statusChannels.toStdString() << "'";
-    if (statusChannels.contains("nav")) {
-      serviceList.emplace_back(std::make_shared<navigationstatus::NavigationStatusService>(ioService_, messenger));
-    }
-    if (statusChannels.contains("media")) {
-      serviceList.emplace_back(std::make_shared<mediaplaybackstatus::MediaPlaybackStatusService>(ioService_, messenger));
-    }
-    if (statusChannels.contains("phone")) {
-      serviceList.emplace_back(std::make_shared<phonestatus::PhoneStatusService>(ioService_, messenger));
-    }
+    serviceList.emplace_back(std::make_shared<navigationstatus::NavigationStatusService>(ioService_, messenger));
+    serviceList.emplace_back(std::make_shared<mediaplaybackstatus::MediaPlaybackStatusService>(ioService_, messenger));
+    serviceList.emplace_back(std::make_shared<phonestatus::PhoneStatusService>(ioService_, messenger));
     if (configuration_->getWirelessProjectionEnabled())
     {
         // TODO: What is WiFi Projection Service?

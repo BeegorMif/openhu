@@ -24,6 +24,7 @@
 #include <QKeySequence>
 #include <f1x/openauto/autoapp/Input/ActionDispatcher.hpp>
 #include <f1x/openauto/autoapp/Core/EventBus.hpp>
+#include <f1x/openauto/autoapp/Core/UsbReset.hpp>
 #include <f1x/openauto/autoapp/Shell/AaBridge.hpp>
 #include <f1x/openauto/Common/Log.hpp>
 
@@ -119,6 +120,7 @@ QVariantMap ActionDispatcher::actions()
         {"volume.up", "Lauter"}, {"volume.down", "Leiser"}, {"volume.mute", "Stumm an/aus"},
         {"ui.home", "Shell: Startseite"}, {"ui.aa", "Shell: Android Auto anzeigen"},
         {"ui.back", "Zurück (Android Auto oder Shell)"},
+        {"aa.reconnect", "Telefon per USB-Reset neu verbinden"},
     };
 }
 
@@ -181,6 +183,16 @@ bool ActionDispatcher::trigger(const QString& action, Phase phase)
             return this->sendAaKey("aa.back", phase);
         }
         if(once) shell_.navigate("home");
+        return true;
+    }
+
+    if(action == QLatin1String("aa.reconnect"))
+    {
+        if(once)
+        {
+            const auto devices = core::resetAndroidUsbDevices();
+            shell_.toast(devices.isEmpty() ? "Kein Telefon am USB gefunden" : "Telefon wird neu verbunden …", 3000);
+        }
         return true;
     }
 

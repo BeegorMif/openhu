@@ -90,9 +90,19 @@ Rectangle {
             level: bar.signalLevel
         }
         PhoneIcon {
+            id: phoneIcon
             anchors.verticalCenter: parent.verticalCenter
             crossed: !bar.connected
             color: bar.inCall ? Theme.success : (bar.connected ? Theme.text : Theme.textDim)
         }
+    }
+
+    // Tap on the phone: reconnect (USB reset)
+    MouseArea {
+        anchors.right: parent.right
+        anchors.top: parent.top
+        anchors.bottom: parent.bottom
+        width: Theme.dockWidth
+        onClicked: actions.trigger("aa.reconnect")
     }
 }
