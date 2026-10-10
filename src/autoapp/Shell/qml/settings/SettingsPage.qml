@@ -379,6 +379,15 @@ Item {
                 }
             }
 
+            SettingChoice {
+                title: "Vorrang bei Kabel"
+                description: settings.values["wireless.priority"] === "wifi"
+                             ? "Das Telefon darf auch mit Kabel kabellos verbinden (das Kabel lädt dann nur)."
+                             : "Mit Kabel läuft Android Auto über USB (stabiler, lädt). Kabellos übernimmt nach dem Abziehen."
+                key: "wireless.priority"
+                options: [{ value: "usb", label: "USB" }, { value: "wifi", label: "WLAN" }]
+            }
+
             SectionTitle { text: "WLAN-Hotspot" }
             SettingText {
                 title: "Name (SSID)"

@@ -90,7 +90,12 @@ Konfiguration `docker/config/openhu.ini` (Fallback `openauto.ini`), Plugin-Daten
   (Pi ohne PipeWire) eigenes HSP-Profil wie bei den WLAN-Dongles.
 - Kopplung: Knopf „Koppeln“ (2 min sichtbar, Code-Bestätigung im Dialog, eigener BlueZ-Agent nur in dieser
   Zeit) oder über das USB-Kabel (AA-Bluetooth-Kanal meldet die Adresse, OpenHU akzeptiert genau dieses Handy
-  und schickt den Code über AA zurück) – Kabel-Kopplung noch ungetestet.
+  und schickt den Code über AA zurück). Das Handy wartet darauf, dass OpenHU die Kopplung startet (`Pair()`);
+  getestet: gekoppelt in < 2 s ohne Rückfrage.
+- Einstellung „Vorrang bei Kabel“ (`Wireless.Priority`): USB (Standard) – mit Kabel keine WLAN-Daten, TCP
+  abgewiesen, Einstecken beendet die WLAN-Sitzung; WLAN – Handy darf auch mit Kabel kabellos wechseln.
+- Ideen (nicht umgesetzt): Hotspot erst bei Bedarf starten (wenn sich das Handy per Bluetooth meldet),
+  versteckte SSID (ungewiss, ob Android Auto versteckte Netze findet).
 - Wichtiger Fix in `App::waitForDevice`: Der USB-Hub-Start lief inline auf dem App-Strand und blockierte ihn
   beim Programmstart 10–20 s (Hotplug-Enumeration aller USB-Geräte); das Handy gab nach 10 s ohne Daten auf.
   Jetzt eigener Worker-Aufruf → kabellos verbunden ca. 5 s nach dem Start.

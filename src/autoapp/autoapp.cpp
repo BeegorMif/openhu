@@ -209,6 +209,10 @@ int main(int argc, char* argv[])
 
     QObject::connect(&settingsController, &autoapp::shell::SettingsController::wirelessChanged,
                      &wirelessController, &autoapp::wireless::WirelessController::apply);
+    app->setPreferUsb(configuration->getWirelessSettings().priority != "wifi");
+    QObject::connect(&settingsController, &autoapp::shell::SettingsController::wirelessChanged, [&]() {
+        app->setPreferUsb(configuration->getWirelessSettings().priority != "wifi");
+    });
     QObject::connect(&shellController, &autoapp::shell::ShellController::restartRequested,
                      &settingsController, &autoapp::shell::SettingsController::restart);
     QObject::connect(&settingsController, &autoapp::shell::SettingsController::aboutToRestart, [&]() {

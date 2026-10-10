@@ -21,6 +21,7 @@
 #include <aasdk/USB/AOAPDevice.hpp>
 #include <aasdk/TCP/TCPEndpoint.hpp>
 #include <f1x/openauto/autoapp/App.hpp>
+#include <f1x/openauto/autoapp/Core/EventBus.hpp>
 #include <f1x/openauto/Common/Log.hpp>
 
 namespace f1x::openauto::autoapp {
@@ -59,6 +60,13 @@ namespace f1x::openauto::autoapp {
   void App::start(aasdk::tcp::ITCPEndpoint::SocketPointer socket) {
     strand_.dispatch([this, self = this->shared_from_this(), socket = std::move(socket)]() mutable {
       OPENAUTO_LOG(info) << "Start from socket";
+      if (androidAutoEntity_ != nullptr && usbSession_ && preferUsb_) {
+        OPENAUTO_LOG(info) << "[App] phone is on the cable (USB priority), wireless connection refused";
+        boost::system::error_code ec;
+        socket->close(ec);
+        startServerSocket();
+        return;
+      }
       if (androidAutoEntity_ != nullptr) {
 //            tcpWrapper_.close(*socket);
 //            OPENAUTO_LOG(warning) << "[App] android auto entity is still running.";
@@ -81,6 +89,8 @@ namespace f1x::openauto::autoapp {
 
         auto tcpEndpoint(std::make_shared<aasdk::tcp::TCPEndpoint>(tcpWrapper_, std::move(socket)));
         androidAutoEntity_ = androidAutoEntityFactory_.create(std::move(tcpEndpoint));
+        usbSession_ = false;
+        core::EventBus::instance().publish("projection.transport", {{"transport", "wifi"}});
         androidAutoEntity_->start(*this);
       }
       catch (const aasdk::error::Error &error) {
@@ -125,6 +135,16 @@ namespace f1x::openauto::autoapp {
   void App::aoapDeviceHandler(aasdk::usb::DeviceHandle deviceHandle) {
     OPENAUTO_LOG(info) << "[App] Device connected.";
 
+    if (androidAutoEntity_ != nullptr && !usbSession_ && preferUsb_) {
+      // plugged in during a wireless session: switch to the cable
+      OPENAUTO_LOG(info) << "[App] phone plugged in (USB priority), ending the wireless session";
+      try {
+        androidAutoEntity_->stop();
+      } catch (...) {
+        OPENAUTO_LOG(error) << "[App] aoapDeviceHandler: exception caused by androidAutoEntity_->stop();";
+      }
+      androidAutoEntity_.reset();
+    }
     if (androidAutoEntity_ != nullptr) {
       OPENAUTO_LOG(warning) << "[App] android auto entity is still running.";
       return;
@@ -138,6 +158,8 @@ namespace f1x::openauto::autoapp {
 
         auto aoapDevice(aasdk::usb::AOAPDevice::create(usbWrapper_, ioService_, deviceHandle));
         androidAutoEntity_ = androidAutoEntityFactory_.create(std::move(aoapDevice));
+        usbSession_ = true;
+        core::EventBus::instance().publish("projection.transport", {{"transport", "usb"}});
         androidAutoEntity_->start(*this);
       } else {
         OPENAUTO_LOG(info) << "[App] Start Android Auto not allowed - skip.";

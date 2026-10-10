@@ -76,7 +76,10 @@ WirelessController::WirelessController(configuration::IConfiguration::Pointer co
 
     expectTimer_.setSingleShot(true);
     connect(&expectTimer_, &QTimer::timeout, this, [this]() {
+        OPENAUTO_LOG(info) << "[WirelessController] pairing over the cable timed out";
         expectedAddress_.clear();
+        expectPairStarted_ = false;
+        this->stopDiscovery();
         this->updateAgent();
     });
 
@@ -111,6 +114,10 @@ WirelessController::WirelessController(configuration::IConfiguration::Pointer co
         if(topic == "projection.state")
         {
             this->onProjectionState(data.value("connected").toBool());
+        }
+        else if(topic == "projection.transport")
+        {
+            usbProjection_ = data.value("transport").toString() == "usb";
         }
         else if(topic == "bluetooth.expect")
         {
@@ -270,7 +277,7 @@ void WirelessController::stopBluetooth()
 
 void WirelessController::onBluezSignal()
 {
-    if(running_)
+    if(running_ || !expectedAddress_.isEmpty())
     {
         refreshTimer_.start();
     }
@@ -295,6 +302,10 @@ void WirelessController::refreshDevices()
     if(adapterPath_.isEmpty())
     {
         return;
+    }
+    if(!expectedAddress_.isEmpty() && !expectPairStarted_)
+    {
+        this->pairExpected();
     }
 
     QVariantList devices;
@@ -441,6 +452,13 @@ void WirelessController::closeHeadset(const QString& device)
 
 void WirelessController::onHandshakeConnection(const QString& device, int fd)
 {
+    if(projectionActive_ && usbProjection_ && configuration_->getWirelessSettings().priority != "wifi")
+    {
+        // on the cable with USB priority: no WiFi credentials, the phone would switch to wireless
+        OPENAUTO_LOG(info) << "[WirelessController] phone is on the cable, wireless setup skipped";
+        ::close(fd);
+        return;
+    }
     if(hotspot_.state() != Hotspot::State::On)
     {
         OPENAUTO_LOG(warning) << "[WirelessController] phone connected, but the hotspot is not running";
@@ -504,12 +522,59 @@ void WirelessController::expectPairing(const QString& address)
     {
         return;
     }
+    // the phone repeats its request every few seconds until the pairing is done
+    if(expectedAddress_ == address.toUpper())
+    {
+        return;
+    }
     OPENAUTO_LOG(info) << "[WirelessController] phone " << address.toStdString() << " pairs over the cable";
     expectedAddress_ = address.toUpper();
+    expectPairStarted_ = false;
     expectTimer_.start(60000);
     bluez::setProperty(adapterPath_, bluez::cAdapter, "Powered", true);
     bluez::setProperty(adapterPath_, bluez::cAdapter, "Pairable", true);
     this->updateAgent();
+    this->pairExpected();
+}
+
+void WirelessController::pairExpected()
+{
+    const BluezObjects objects = bluez::managedObjects();
+    for(auto it = objects.cbegin(); it != objects.cend(); ++it)
+    {
+        const QVariantMap device = it.value().value(bluez::cDevice);
+        if(device.value("Address").toString().toUpper() != expectedAddress_
+           || device.value("Adapter").value<QDBusObjectPath>().path() != adapterPath_)
+        {
+            continue;
+        }
+        expectPairStarted_ = true;
+        this->stopDiscovery();
+        if(device.value("Paired").toBool())
+        {
+            return;
+        }
+        OPENAUTO_LOG(info) << "[WirelessController] pairing with " << expectedAddress_.toStdString();
+        bluez::callAsync(it.key().path(), bluez::cDevice, "Pair");
+        return;
+    }
+
+    // BlueZ only knows devices it has seen: search until the phone shows up
+    if(!discovering_)
+    {
+        bluez::call(adapterPath_, bluez::cAdapter, "SetDiscoveryFilter", {QVariantMap{{"Transport", "bredr"}}});
+        discovering_ = bluez::call(adapterPath_, bluez::cAdapter, "StartDiscovery").isEmpty();
+        OPENAUTO_LOG(info) << "[WirelessController] searching the phone " << (discovering_ ? "" : "failed");
+    }
+}
+
+void WirelessController::stopDiscovery()
+{
+    if(discovering_)
+    {
+        discovering_ = false;
+        bluez::call(adapterPath_, bluez::cAdapter, "StopDiscovery");
+    }
 }
 
 void WirelessController::onConfirmation(const QString& device, const QString& passkey)
@@ -527,6 +592,7 @@ void WirelessController::onConfirmation(const QString& device, const QString& pa
         configuration_->setWirelessSettings(settings);
         configuration_->save();
         expectedAddress_.clear();
+        expectPairStarted_ = false;
         expectTimer_.stop();
         // unregistering right away would cancel the pairing that is still running
         QTimer::singleShot(5000, this, &WirelessController::updateAgent);
@@ -561,8 +627,19 @@ void WirelessController::onProjectionState(bool active)
     }
     if(wireless)
     {
-        // the phone does not retry by itself after a failed or ended wireless session
-        this->restartPhoneLink();
+        // The phone does not retry by itself after a failed or ended wireless session. Wait a moment:
+        // when it was plugged in (USB takes over) Bluetooth stays connected.
+        QTimer::singleShot(1500, this, [this]() {
+            if(!projectionActive_)
+            {
+                this->restartPhoneLink();
+            }
+            else
+            {
+                handshake_.reset();
+                this->setPhase("idle");
+            }
+        });
     }
     else
     {

@@ -18,6 +18,8 @@
 
 #pragma once
 
+#include <atomic>
+
 #include <aasdk/USB/IUSBHub.hpp>
 #include <aasdk/USB/IConnectedAccessoriesEnumerator.hpp>
 #include <aasdk/USB/USBWrapper.hpp>
@@ -48,6 +50,8 @@ public:
     void resume();
     void onAndroidAutoQuit() override;
     bool disableAutostartEntity = false;
+    // Wireless.Priority: true = USB session wins over wireless, false = wireless replaces the USB session
+    void setPreferUsb(bool value) { preferUsb_ = value; }
 
 private:
     using std::enable_shared_from_this<App>::shared_from_this;
@@ -66,6 +70,10 @@ private:
     boost::asio::ip::tcp::acceptor acceptor_;
     service::IAndroidAutoEntity::Pointer androidAutoEntity_;
     bool isStopped_;
+    // the running session uses the cable
+    bool usbSession_ = false;
+    // phone on the cable while wireless is possible: the cable wins (charging, latency)
+    std::atomic<bool> preferUsb_{true};
 
     void startServerSocket();
 

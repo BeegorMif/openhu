@@ -54,6 +54,7 @@ const std::string cWirelessBandKey = "Wireless.Band";
 const std::string cWirelessCountryKey = "Wireless.Country";
 const std::string cWirelessInterfaceKey = "Wireless.Interface";
 const std::string cWirelessLastDeviceKey = "Wireless.LastDevice";
+const std::string cWirelessPriorityKey = "Wireless.Priority";
 const std::string cAudioMediaKey = "AudioChannel.MediaEnabled";
 const std::string cAudioGuidanceKey = "AudioChannel.GuidanceEnabled";
 const std::string cAudioSystemKey = "AudioChannel.SystemEnabled";
@@ -109,6 +110,7 @@ void Configuration::load()
         wireless_.country = ini.get<std::string>(cWirelessCountryKey, wireless_.country);
         wireless_.interface = ini.get<std::string>(cWirelessInterfaceKey, wireless_.interface);
         wireless_.lastDevice = ini.get<std::string>(cWirelessLastDeviceKey, wireless_.lastDevice);
+        wireless_.priority = ini.get<std::string>(cWirelessPriorityKey, wireless_.priority);
 
         audioChannelEnabledMedia_ = ini.get<bool>(cAudioMediaKey, audioChannelEnabledMedia_);
         audioChannelEnabledGuidance_ = ini.get<bool>(cAudioGuidanceKey, audioChannelEnabledGuidance_);
@@ -141,7 +143,7 @@ void Configuration::reset()
     bluetoothAdapterAddress_ = "";
     // off by default: it turns the WiFi card into a hotspot
     wirelessProjectionEnabled_ = false;
-    wireless_ = WirelessSettings{"", "", "5", "DE", "", ""};
+    wireless_ = WirelessSettings{"", "", "5", "DE", "", "", "usb"};
     audioChannelEnabledMedia_ = true;
     audioChannelEnabledGuidance_ = true;
     audioChannelEnabledSystem_ = true;
@@ -173,6 +175,7 @@ void Configuration::save()
     ini.put<std::string>(cWirelessCountryKey, wireless_.country);
     ini.put<std::string>(cWirelessInterfaceKey, wireless_.interface);
     ini.put<std::string>(cWirelessLastDeviceKey, wireless_.lastDevice);
+    ini.put<std::string>(cWirelessPriorityKey, wireless_.priority);
     ini.put<bool>(cAudioMediaKey, audioChannelEnabledMedia_);
     ini.put<bool>(cAudioGuidanceKey, audioChannelEnabledGuidance_);
     ini.put<bool>(cAudioSystemKey, audioChannelEnabledSystem_);

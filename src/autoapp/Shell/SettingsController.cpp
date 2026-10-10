@@ -102,6 +102,7 @@ QVariantMap SettingsController::values() const
         {"wireless.password", QString::fromStdString(wireless.password)},
         {"wireless.band", QString::fromStdString(wireless.band)},
         {"wireless.country", QString::fromStdString(wireless.country)},
+        {"wireless.priority", wireless.priority == "wifi" ? "wifi" : "usb"},
         {"aa.audioMedia", configuration_->musicAudioChannelEnabled()},
         {"aa.audioGuidance", configuration_->guidanceAudioChannelEnabled()},
         {"aa.audioTelephony", configuration_->telephonyAudioChannelEnabled()},
@@ -243,6 +244,10 @@ QString SettingsController::set(const QString& key, const QVariant& value)
         else if(key == "wireless.band")
         {
             wireless.band = text == "2.4" ? "2.4" : "5";
+        }
+        else if(key == "wireless.priority")
+        {
+            wireless.priority = text == "wifi" ? "wifi" : "usb";
         }
         else if(key == "wireless.country")
         {

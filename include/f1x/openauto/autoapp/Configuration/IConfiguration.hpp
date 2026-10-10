@@ -46,6 +46,7 @@ struct WirelessSettings
     std::string country;    // regulatory domain, e.g. "DE" (5 GHz needs it)
     std::string interface;  // empty: first WiFi device
     std::string lastDevice; // Bluetooth address of the last phone, connected first
+    std::string priority;   // phone on the cable and wireless: "usb" (default) or "wifi" wins
 };
 
 // Settings in openhu.ini (edited on the shell's settings page).

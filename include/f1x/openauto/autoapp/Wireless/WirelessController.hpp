@@ -92,6 +92,9 @@ private:
     bool findAdapter();
     void updateAgent();
     void expectPairing(const QString& address);
+    // pairing over the cable is started by OpenHU: find the phone (discovery) and call Pair()
+    void pairExpected();
+    void stopDiscovery();
     void onConfirmation(const QString& device, const QString& passkey);
     void onProjectionState(bool active);
     // wireless session ended or the phone got stuck: reconnect Bluetooth so it starts over
@@ -118,11 +121,14 @@ private:
     // pairing over the USB cable: this phone is accepted without asking
     QString expectedAddress_;
     QTimer expectTimer_;
+    bool expectPairStarted_ = false;
+    bool discovering_ = false;
     // no TCP connection after the WiFi handshake
     QTimer stuckTimer_;
     QString phaseDevicePath_;
     QTimer refreshTimer_;
     bool projectionActive_ = false;
+    bool usbProjection_ = false;
     QString phase_ = "idle";
     QString phaseDetail_;
     QString phaseDevice_;
