@@ -20,16 +20,20 @@ Item {
         onTriggered: home.now = new Date()
     }
 
-    RowLayout {
+    // Clock next to the widgets, in portrait above them
+    GridLayout {
         anchors.fill: parent
         anchors.margins: Theme.spacing * 1.5
-        spacing: Theme.spacing * 1.5
+        columns: home.width >= home.height ? 2 : 1
+        columnSpacing: Theme.spacing * 1.5
+        rowSpacing: Theme.spacing * 1.5
 
         // Clock
         ColumnLayout {
             Layout.fillWidth: true
             Layout.fillHeight: true
             Layout.preferredWidth: 45
+            Layout.preferredHeight: 30
             spacing: 0
 
             Item { Layout.fillHeight: true }
@@ -52,6 +56,7 @@ Item {
             Layout.fillWidth: true
             Layout.fillHeight: true
             Layout.preferredWidth: 55
+            Layout.preferredHeight: 70
             spacing: Theme.spacing
 
             NavigationCard {

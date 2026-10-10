@@ -52,8 +52,16 @@ VolumeController::VolumeController(QObject* parent)
 
 VolumeController::~VolumeController()
 {
-    subscribe_.kill();
-    subscribe_.waitForFinished(500);
+    this->stop();
+}
+
+void VolumeController::stop()
+{
+    if(subscribe_.state() != QProcess::NotRunning)
+    {
+        subscribe_.kill();
+        subscribe_.waitForFinished(500);
+    }
 }
 
 int VolumeController::volume() const

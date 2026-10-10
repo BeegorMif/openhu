@@ -16,9 +16,7 @@
 *  along with openauto. If not, see <http://www.gnu.org/licenses/>.
 */
 
-#include <QApplication>
-#include <QGuiApplication>
-#include <QScreen>
+#include <QCoreApplication>
 #include <mutex>
 #include <f1x/openauto/autoapp/Projection/QtVideoOutput.hpp>
 #include <f1x/openauto/autoapp/Shell/AaBridge.hpp>
@@ -39,7 +37,7 @@ QtVideoOutput::QtVideoOutput(configuration::IConfiguration::Pointer configuratio
     , initialBufferingDone_(false)
     , bytesWritten_(0)
 {
-    this->moveToThread(QApplication::instance()->thread());
+    this->moveToThread(QCoreApplication::instance()->thread());
     connect(this, &QtVideoOutput::startPlayback, this, &QtVideoOutput::onStartPlayback, Qt::BlockingQueuedConnection);
     connect(this, &QtVideoOutput::stopPlayback, this, &QtVideoOutput::onStopPlayback, Qt::BlockingQueuedConnection);
     QMetaObject::invokeMethod(this, "createVideoOutput", Qt::BlockingQueuedConnection);
@@ -61,13 +59,10 @@ void QtVideoOutput::createVideoOutput()
 {
     OPENAUTO_LOG(info) << "[QtVideoOutput] createVideoOutput()";
     mediaPlayer_ = std::make_unique<QMediaPlayer>(nullptr, QMediaPlayer::StreamPlayback);
-
-    if (shell::AaBridge::instance().enabled()) {
-        // Shell mode: the QML VideoOutput (source: aaBridge) renders the player inside the main window.
-        shell::AaBridge::instance().setMediaPlayer(mediaPlayer_.get());
-    } else {
-        videoWidget_ = std::make_unique<QVideoWidget>();
-    }
+    // New session: resolution/margins from the settings apply from now on
+    shell::AaBridge::instance().configure(configuration_);
+    // The shell's QML VideoOutput (source: aaBridge) renders the player inside the main window.
+    shell::AaBridge::instance().setMediaPlayer(mediaPlayer_.get());
 }
 
 
@@ -108,40 +103,9 @@ void QtVideoOutput::write(uint64_t, const aasdk::common::DataConstBuffer& buffer
     }
 }
 
-void QtVideoOutput::showVideoWidget()
-{
-    videoWidget_->setAttribute(Qt::WA_OpaquePaintEvent, true);
-    videoWidget_->setAttribute(Qt::WA_NoSystemBackground, true);
-    videoWidget_->setAspectRatioMode(Qt::IgnoreAspectRatio);
-    videoWidget_->setWindowFlags(Qt::Window | Qt::FramelessWindowHint);
-    
-    // Get the physical screen geometry and set widget to exactly match it
-    QScreen *screen = QGuiApplication::primaryScreen();
-    if (screen != nullptr) {
-        QRect screenGeometry = screen->geometry();
-        videoWidget_->setGeometry(screenGeometry);
-        OPENAUTO_LOG(info) << "[QtVideoOutput] Set video widget geometry to: " 
-                           << screenGeometry.width() << "x" << screenGeometry.height()
-                           << " at (" << screenGeometry.x() << "," << screenGeometry.y() << ")";
-    } else {
-        // Fallback to fullscreen if screen detection fails
-        videoWidget_->setFullScreen(true);
-        OPENAUTO_LOG(warning) << "[QtVideoOutput] Could not detect screen, using setFullScreen()";
-    }
-    
-    videoWidget_->raise();
-    videoWidget_->show();
-    videoWidget_->setFocus();
-    videoWidget_->activateWindow();
-}
-
 void QtVideoOutput::onStartPlayback()
 {
     OPENAUTO_LOG(info) << "[QtVideoOutput] onStartPlayback()";
-
-    if (videoWidget_) {
-        showVideoWidget();
-    }
 
     // Connect state change signals to track when player is ready
     connect(mediaPlayer_.get(), &QMediaPlayer::mediaStatusChanged, this, &QtVideoOutput::onMediaStatusChanged);
@@ -149,9 +113,6 @@ void QtVideoOutput::onStartPlayback()
     connect(mediaPlayer_.get(), static_cast<void(QMediaPlayer::*)(QMediaPlayer::Error)>(&QMediaPlayer::error), 
             this, &QtVideoOutput::onError);
     
-    if (videoWidget_) {
-        mediaPlayer_->setVideoOutput(videoWidget_.get());
-    }
     mediaPlayer_->setMedia(QMediaContent(), &videoBuffer_);
     mediaPlayer_->play();
     
@@ -161,9 +122,7 @@ void QtVideoOutput::onStartPlayback()
         playerReady_ = true;
     }
 
-    if (!videoWidget_) {
-        shell::AaBridge::instance().setVideoActive(true);
-    }
+    shell::AaBridge::instance().setVideoActive(true);
     OPENAUTO_LOG(info) << "[QtVideoOutput] Player started and marked ready";
     OPENAUTO_LOG(debug) << "[QtVideoOutput] Player error state -> " << mediaPlayer_->errorString().toStdString();
 }
@@ -177,11 +136,6 @@ void QtVideoOutput::cleanupPlayer()
         mediaPlayer_->setMedia(QMediaContent());
     }
     
-    // Hide video widget
-    if (videoWidget_) {
-        videoWidget_->hide();
-        videoWidget_->clearFocus();
-    }
     // A late-destroyed output of a previous session must not hide the current one.
     if (mediaPlayer_ && shell::AaBridge::instance().mediaObject() == mediaPlayer_.get()) {
         shell::AaBridge::instance().setVideoActive(false);

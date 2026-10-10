@@ -41,12 +41,6 @@ Rectangle {
             }
         }
 
-        DockButton {
-            icon: "qrc:/list-hot.png"
-            label: "Apps"
-            active: dock.currentPage === "apps" || dock.currentPage === "store"
-            onClicked: dock.pageSelected("apps")
-        }
     }
 
     Column {
@@ -58,12 +52,8 @@ Rectangle {
         DockButton {
             icon: "qrc:/settings-hot.png"
             label: "Einstellungen"
-            onClicked: shell.openSettings()
-        }
-        DockButton {
-            icon: "qrc:/power-hot.png"
-            label: "Beenden"
-            onClicked: shell.quit()
+            active: dock.currentPage === "settings"
+            onClicked: dock.pageSelected("settings")
         }
     }
 }

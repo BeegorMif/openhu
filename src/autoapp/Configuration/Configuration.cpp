@@ -16,82 +16,45 @@
 *  along with openauto. If not, see <http://www.gnu.org/licenses/>.
 */
 
+#include <fstream>
+#include <boost/property_tree/ini_parser.hpp>
+#include <QCryptographicHash>
 #include <f1x/openauto/autoapp/Configuration/Configuration.hpp>
 #include <f1x/openauto/Common/Log.hpp>
-#include <QTouchDevice>
-
-
-
 
 namespace f1x::openauto::autoapp::configuration
 {
 
-const std::string Configuration::cConfigFileName = "openhu.ini";
-// read once when openhu.ini does not exist yet (configuration of OpenAuto)
-const std::string Configuration::cLegacyConfigFileName = "openauto.ini";
+namespace
+{
 
-const std::string Configuration::cGeneralShowClockKey = "General.ShowClock";
+const std::string cConfigFileName = "openhu.ini";
+// read when openhu.ini does not exist yet (configuration of OpenAuto)
+const std::string cLegacyConfigFileName = "openauto.ini";
 
-const std::string Configuration::cGeneralShowBigClockKey = "General.ShowBigClock";
-const std::string Configuration::cGeneralOldGUIKey = "General.OldGUI";
-const std::string Configuration::cGeneralAlphaTransKey = "General.AlphaTrans";
-const std::string Configuration::cGeneralHideMenuToggleKey = "General.HideMenuToggle";
-const std::string Configuration::cGeneralHideAlphaKey = "General.HideAlpha";
-const std::string Configuration::cGeneralShowLuxKey = "General.ShowLux";
-const std::string Configuration::cGeneralShowCursorKey = "General.ShowCursor";
-const std::string Configuration::cGeneralHideBrightnessControlKey = "General.HideBrightnessControl";
-const std::string Configuration::cGeneralShowNetworkinfoKey = "General.ShowNetworkinfo";
-const std::string Configuration::cGeneralHideWarningKey = "General.HideWarning";
-const std::string Configuration::cGeneralUiModeKey = "General.UI";
-const std::string Configuration::cApiPortKey = "Api.Port";
-const std::string Configuration::cApiListenKey = "Api.Listen";
+// Key names are the ones of OpenAuto, so existing configurations keep working.
+const std::string cHandednessKey = "General.HandednessOfTrafficType";
+const std::string cShowCursorKey = "General.ShowCursor";
+const std::string cNameSuffixKey = "General.NameSuffix";
+const std::string cVideoResolutionAutoKey = "Video.AutoResolution";
+const std::string cApiPortKey = "Api.Port";
+const std::string cApiListenKey = "Api.Listen";
+const std::string cVideoFPSKey = "Video.FPS";
+const std::string cVideoResolutionKey = "Video.Resolution";
+const std::string cVideoScreenDPIKey = "Video.ScreenDPI";
+const std::string cVideoMarginWidthKey = "Video.MarginWidth";
+const std::string cVideoMarginHeightKey = "Video.MarginHeight";
+const std::string cTouchscreenKey = "Input.EnableTouchscreen";
+const std::string cBluetoothAdapterTypeKey = "Bluetooth.AdapterType";
+const std::string cBluetoothAdapterAddressKey = "Bluetooth.AdapterAddress";
+const std::string cWirelessProjectionKey = "Bluetooth.WirelessProjectionEnabled";
+const std::string cAudioMediaKey = "AudioChannel.MediaEnabled";
+const std::string cAudioGuidanceKey = "AudioChannel.GuidanceEnabled";
+const std::string cAudioSystemKey = "AudioChannel.SystemEnabled";
+const std::string cAudioTelephonyKey = "AudioChannel.TelephonyEnabled";
+const std::string cAudioOutputBackendKey = "Audio.OutputBackendType";
 
-const std::string Configuration::cGeneralHandednessOfTrafficTypeKey = "General.HandednessOfTrafficType";
-
-const std::string Configuration::cGeneralMp3MasterPathKey = "General.Mp3MasterPath";
-const std::string Configuration::cGeneralMp3SubFolderKey = "General.Mp3SubFolder";
-const std::string Configuration::cGeneralMp3TrackKey = "General.Mp3Track";
-const std::string Configuration::cGeneralMp3AutoPlayKey = "General.Mp3AutoPlay";
-const std::string Configuration::cGeneralShowAutoPlayKey = "General.ShowAutoPlay";
-const std::string Configuration::cGeneralInstantPlayKey = "General.InstantPlay";
-
-const std::string Configuration::cVideoFPSKey = "Video.FPS";
-const std::string Configuration::cVideoResolutionKey = "Video.Resolution";
-const std::string Configuration::cVideoScreenDPIKey = "Video.ScreenDPI";
-const std::string Configuration::cVideoOMXLayerIndexKey = "Video.OMXLayerIndex";
-const std::string Configuration::cVideoMarginWidth = "Video.MarginWidth";
-const std::string Configuration::cVideoMarginHeight = "Video.MarginHeight";
-
-const std::string Configuration::cAudioChannelMediaEnabled = "AudioChannel.MediaEnabled";
-const std::string Configuration::cAudioChannelGuidanceEnabled = "AudioChannel.GuidanceEnabled";
-const std::string Configuration::cAudioChannelSystemEnabled = "AudioChannel.SystemEnabled";
-const std::string Configuration::cAudioChannelTelephonyEnabled = "AudioChannel.TelephonyEnabled";
-
-const std::string Configuration::cAudioOutputBackendType = "Audio.OutputBackendType";
-
-const std::string Configuration::cBluetoothAdapterTypeKey = "Bluetooth.AdapterType";
-const std::string Configuration::cBluetoothAdapterAddressKey = "Bluetooth.AdapterAddress";
-const std::string Configuration::cBluetoothWirelessProjectionEnabledKey = "Bluetooth.WirelessProjectionEnabled";
-
-const std::string Configuration::cInputEnableTouchscreenKey = "Input.EnableTouchscreen";
-const std::string Configuration::cInputEnablePlayerControlKey = "Input.EnablePlayerControl";
-const std::string Configuration::cInputPlayButtonKey = "Input.PlayButton";
-const std::string Configuration::cInputPauseButtonKey = "Input.PauseButton";
-const std::string Configuration::cInputTogglePlayButtonKey = "Input.TogglePlayButton";
-const std::string Configuration::cInputNextTrackButtonKey = "Input.NextTrackButton";
-const std::string Configuration::cInputPreviousTrackButtonKey = "Input.PreviousTrackButton";
-const std::string Configuration::cInputHomeButtonKey = "Input.HomeButton";
-const std::string Configuration::cInputPhoneButtonKey = "Input.PhoneButton";
-const std::string Configuration::cInputCallEndButtonKey = "Input.CallEndButton";
-const std::string Configuration::cInputVoiceCommandButtonKey = "Input.VoiceCommandButton";
-const std::string Configuration::cInputLeftButtonKey = "Input.LeftButton";
-const std::string Configuration::cInputRightButtonKey = "Input.RightButton";
-const std::string Configuration::cInputUpButtonKey = "Input.UpButton";
-const std::string Configuration::cInputDownButtonKey = "Input.DownButton";
-const std::string Configuration::cInputScrollWheelButtonKey = "Input.ScrollWheelButton";
-const std::string Configuration::cInputBackButtonKey = "Input.BackButton";
-const std::string Configuration::cInputEnterButtonKey = "Input.EnterButton";
-const std::string Configuration::cInputNavButtonKey = "Input.NavButton";
+}
 
 Configuration::Configuration()
 {
@@ -100,70 +63,51 @@ Configuration::Configuration()
 
 void Configuration::load()
 {
-    boost::property_tree::ptree iniConfig;
+    this->reset();
 
+    const bool useLegacy = !std::ifstream(cConfigFileName).good() && std::ifstream(cLegacyConfigFileName).good();
+    const std::string fileName = useLegacy ? cLegacyConfigFileName : cConfigFileName;
     try
     {
-        const bool hasConfig = std::ifstream(cConfigFileName).good();
-        boost::property_tree::ini_parser::read_ini(hasConfig || !std::ifstream(cLegacyConfigFileName).good()
-                                                   ? cConfigFileName : cLegacyConfigFileName, iniConfig);
+        if(!std::ifstream(fileName).good())
+        {
+            throw boost::property_tree::ptree_error(cConfigFileName + " not found");
+        }
 
-        handednessOfTrafficType_ = static_cast<HandednessOfTrafficType>(iniConfig.get<uint32_t>(cGeneralHandednessOfTrafficTypeKey,
-                                                                                              static_cast<uint32_t>(HandednessOfTrafficType::LEFT_HAND_DRIVE)));
-        showClock_ = iniConfig.get<bool>(cGeneralShowClockKey, true);
-        showBigClock_ = iniConfig.get<bool>(cGeneralShowBigClockKey, false);
-        oldGUI_ = iniConfig.get<bool>(cGeneralOldGUIKey, false);
-        alphaTrans_ = iniConfig.get<size_t>(cGeneralAlphaTransKey, 50);
-        hideMenuToggle_ = iniConfig.get<bool>(cGeneralHideMenuToggleKey, false);
-        hideAlpha_ = iniConfig.get<bool>(cGeneralHideAlphaKey, false);
-        showLux_ = iniConfig.get<bool>(cGeneralShowLuxKey, false);
-        showCursor_ = iniConfig.get<bool>(cGeneralShowCursorKey, false);
-        hideBrightnessControl_ = iniConfig.get<bool>(cGeneralHideBrightnessControlKey, false);
-        hideWarning_ = iniConfig.get<bool>(cGeneralHideWarningKey, false);
-        uiMode_ = iniConfig.get<std::string>(cGeneralUiModeKey, "qml");
-        apiPort_ = iniConfig.get<uint16_t>(cApiPortKey, 5520);
-        apiListenAddress_ = iniConfig.get<std::string>(cApiListenKey, "127.0.0.1");
-        showNetworkinfo_ = iniConfig.get<bool>(cGeneralShowNetworkinfoKey, false);
-        mp3MasterPath_ = iniConfig.get<std::string>(cGeneralMp3MasterPathKey, "/media/MYMEDIA");
-        mp3SubFolder_ = iniConfig.get<std::string>(cGeneralMp3SubFolderKey, "/");
-        mp3Track_ = iniConfig.get<size_t>(cGeneralMp3TrackKey, 0);
-        mp3AutoPlay_ = iniConfig.get<bool>(cGeneralMp3AutoPlayKey, false);
-        showAutoPlay_ = iniConfig.get<bool>(cGeneralShowAutoPlayKey, false);
-        instantPlay_ = iniConfig.get<bool>(cGeneralInstantPlayKey, false);
+        boost::property_tree::ptree ini;
+        boost::property_tree::ini_parser::read_ini(fileName, ini);
 
-        videoFPS_ = static_cast<aap_protobuf::service::media::sink::message::VideoFrameRateType>(iniConfig.get<uint32_t>(cVideoFPSKey,
-                                                                                             aap_protobuf::service::media::sink::message::VideoFrameRateType::VIDEO_FPS_30));
+        handednessOfTrafficType_ = static_cast<HandednessOfTrafficType>(
+            ini.get<uint32_t>(cHandednessKey, static_cast<uint32_t>(handednessOfTrafficType_)));
+        showCursor_ = ini.get<bool>(cShowCursorKey, showCursor_);
+        nameSuffix_ = ini.get<std::string>(cNameSuffixKey, nameSuffix_);
+        apiPort_ = ini.get<uint16_t>(cApiPortKey, apiPort_);
+        apiListenAddress_ = ini.get<std::string>(cApiListenKey, apiListenAddress_);
 
-        videoResolution_ = static_cast<aap_protobuf::service::media::sink::message::VideoCodecResolutionType>(iniConfig.get<uint32_t>(cVideoResolutionKey,
-                                                                                                           aap_protobuf::service::media::sink::message::VideoCodecResolutionType::VIDEO_800x480));
-        screenDPI_ = iniConfig.get<size_t>(cVideoScreenDPIKey, 140);
+        videoFPS_ = static_cast<aap_protobuf::service::media::sink::message::VideoFrameRateType>(
+            ini.get<uint32_t>(cVideoFPSKey, videoFPS_));
+        videoResolution_ = static_cast<aap_protobuf::service::media::sink::message::VideoCodecResolutionType>(
+            ini.get<uint32_t>(cVideoResolutionKey, videoResolution_));
+        videoResolutionAuto_ = ini.get<bool>(cVideoResolutionAutoKey, videoResolutionAuto_);
+        screenDPI_ = ini.get<size_t>(cVideoScreenDPIKey, screenDPI_);
+        videoMargins_ = QRect(0, 0, ini.get<int32_t>(cVideoMarginWidthKey, 0), ini.get<int32_t>(cVideoMarginHeightKey, 0));
+        enableTouchscreen_ = ini.get<bool>(cTouchscreenKey, enableTouchscreen_);
 
-        omxLayerIndex_ = iniConfig.get<int32_t>(cVideoOMXLayerIndexKey, 1);
-        videoMargins_ = QRect(0, 0, iniConfig.get<int32_t>(cVideoMarginWidth, 0), iniConfig.get<int32_t>(cVideoMarginHeight, 0));
+        bluetoothAdapterType_ = static_cast<BluetoothAdapterType>(
+            ini.get<uint32_t>(cBluetoothAdapterTypeKey, static_cast<uint32_t>(bluetoothAdapterType_)));
+        bluetoothAdapterAddress_ = ini.get<std::string>(cBluetoothAdapterAddressKey, bluetoothAdapterAddress_);
+        wirelessProjectionEnabled_ = ini.get<bool>(cWirelessProjectionKey, wirelessProjectionEnabled_);
 
-        enableTouchscreen_ = iniConfig.get<bool>(cInputEnableTouchscreenKey, true);
-        enablePlayerControl_ = iniConfig.get<bool>(cInputEnablePlayerControlKey, false);
-        this->readButtonCodes(iniConfig);
-
-        bluetoothAdapterType_ = static_cast<BluetoothAdapterType>(iniConfig.get<uint32_t>(cBluetoothAdapterTypeKey,
-                                                                                          static_cast<uint32_t>(BluetoothAdapterType::NONE)));
-
-        wirelessProjectionEnabled_ = iniConfig.get<bool>(cBluetoothWirelessProjectionEnabledKey, true);
-
-        bluetoothAdapterAddress_ = iniConfig.get<std::string>(cBluetoothAdapterAddressKey, "");
-
-        _audioChannelEnabledMedia = iniConfig.get<bool>(cAudioChannelMediaEnabled, true);
-        _audioChannelEnabledGuidance = iniConfig.get<bool>(cAudioChannelGuidanceEnabled, true);
-        _audioChannelEnabledSystem = iniConfig.get<bool>(cAudioChannelSystemEnabled, true);
-        _audioChannelEnabledTelephony = iniConfig.get<bool>(cAudioChannelTelephonyEnabled, true);
-
-         audioOutputBackendType_ = static_cast<AudioOutputBackendType>(iniConfig.get<uint32_t>(cAudioOutputBackendType, static_cast<uint32_t>(AudioOutputBackendType::RTAUDIO)));
+        audioChannelEnabledMedia_ = ini.get<bool>(cAudioMediaKey, audioChannelEnabledMedia_);
+        audioChannelEnabledGuidance_ = ini.get<bool>(cAudioGuidanceKey, audioChannelEnabledGuidance_);
+        audioChannelEnabledSystem_ = ini.get<bool>(cAudioSystemKey, audioChannelEnabledSystem_);
+        audioChannelEnabledTelephony_ = ini.get<bool>(cAudioTelephonyKey, audioChannelEnabledTelephony_);
+        audioOutputBackendType_ = static_cast<AudioOutputBackendType>(
+            ini.get<uint32_t>(cAudioOutputBackendKey, static_cast<uint32_t>(audioOutputBackendType_)));
     }
-    catch(const boost::property_tree::ini_parser_error& e)
+    catch(const boost::property_tree::ptree_error& e)
     {
-        OPENAUTO_LOG(warning) << "[Configuration] failed to read configuration file: " << cConfigFileName
-                            << ", error: " << e.what()
-                            << ". Using default configuration.";
+        OPENAUTO_LOG(warning) << "[Configuration] failed to read " << fileName << ": " << e.what() << ", using defaults";
         this->reset();
     }
 }
@@ -171,113 +115,58 @@ void Configuration::load()
 void Configuration::reset()
 {
     handednessOfTrafficType_ = HandednessOfTrafficType::LEFT_HAND_DRIVE;
-    showClock_ = true;
-    showBigClock_ = false;
-    oldGUI_ = false;
-    alphaTrans_ = 50;
-    hideMenuToggle_ = false;
-    hideAlpha_ = false;
-    showLux_ = false;
     showCursor_ = false;
-    hideBrightnessControl_ = false;
-    hideWarning_ = false;
-    uiMode_ = "qml";
+    nameSuffix_ = "";
+    videoResolutionAuto_ = true;
     apiPort_ = 5520;
     apiListenAddress_ = "127.0.0.1";
-    showNetworkinfo_ = false;
-    mp3MasterPath_ = "/media/MYMEDIA";
-    mp3SubFolder_ = "/";
-    mp3Track_ = 0;
-    mp3AutoPlay_ = false;
-    showAutoPlay_ = false;
-    instantPlay_ = false;
     videoFPS_ = aap_protobuf::service::media::sink::message::VideoFrameRateType::VIDEO_FPS_30;
     videoResolution_ = aap_protobuf::service::media::sink::message::VideoCodecResolutionType::VIDEO_800x480;
     screenDPI_ = 140;
-    omxLayerIndex_ = 1;
     videoMargins_ = QRect(0, 0, 0, 0);
     enableTouchscreen_ = true;
-    enablePlayerControl_ = false;
-    buttonCodes_.clear();
     bluetoothAdapterType_ = BluetoothAdapterType::NONE;
     bluetoothAdapterAddress_ = "";
-
-   _audioChannelEnabledMedia = true;
-   _audioChannelEnabledGuidance = true;
-   _audioChannelEnabledSystem = true;
-   _audioChannelEnabledTelephony = true;
-
-    audioOutputBackendType_ = AudioOutputBackendType::QT;
     wirelessProjectionEnabled_ = true;
+    audioChannelEnabledMedia_ = true;
+    audioChannelEnabledGuidance_ = true;
+    audioChannelEnabledSystem_ = true;
+    audioChannelEnabledTelephony_ = true;
+    audioOutputBackendType_ = AudioOutputBackendType::RTAUDIO;
 }
 
 void Configuration::save()
 {
-    boost::property_tree::ptree iniConfig;
-    iniConfig.put<uint32_t>(cGeneralHandednessOfTrafficTypeKey, static_cast<uint32_t>(handednessOfTrafficType_));
+    boost::property_tree::ptree ini;
+    ini.put<uint32_t>(cHandednessKey, static_cast<uint32_t>(handednessOfTrafficType_));
+    ini.put<bool>(cShowCursorKey, showCursor_);
+    ini.put<std::string>(cNameSuffixKey, nameSuffix_);
+    ini.put<bool>(cVideoResolutionAutoKey, videoResolutionAuto_);
+    ini.put<uint16_t>(cApiPortKey, apiPort_);
+    ini.put<std::string>(cApiListenKey, apiListenAddress_);
+    ini.put<uint32_t>(cVideoFPSKey, static_cast<uint32_t>(videoFPS_));
+    ini.put<uint32_t>(cVideoResolutionKey, static_cast<uint32_t>(videoResolution_));
+    ini.put<size_t>(cVideoScreenDPIKey, screenDPI_);
+    ini.put<int32_t>(cVideoMarginWidthKey, videoMargins_.width());
+    ini.put<int32_t>(cVideoMarginHeightKey, videoMargins_.height());
+    ini.put<bool>(cTouchscreenKey, enableTouchscreen_);
+    ini.put<uint32_t>(cBluetoothAdapterTypeKey, static_cast<uint32_t>(bluetoothAdapterType_));
+    ini.put<std::string>(cBluetoothAdapterAddressKey, bluetoothAdapterAddress_);
+    ini.put<bool>(cWirelessProjectionKey, wirelessProjectionEnabled_);
+    ini.put<bool>(cAudioMediaKey, audioChannelEnabledMedia_);
+    ini.put<bool>(cAudioGuidanceKey, audioChannelEnabledGuidance_);
+    ini.put<bool>(cAudioSystemKey, audioChannelEnabledSystem_);
+    ini.put<bool>(cAudioTelephonyKey, audioChannelEnabledTelephony_);
+    ini.put<uint32_t>(cAudioOutputBackendKey, static_cast<uint32_t>(audioOutputBackendType_));
 
-    iniConfig.put<bool>(cGeneralShowClockKey, showClock_);
-    iniConfig.put<bool>(cGeneralShowBigClockKey, showBigClock_);
-    iniConfig.put<bool>(cGeneralOldGUIKey, oldGUI_);
-    iniConfig.put<size_t>(cGeneralAlphaTransKey, alphaTrans_);
-    iniConfig.put<bool>(cGeneralHideMenuToggleKey, hideMenuToggle_);
-    iniConfig.put<bool>(cGeneralHideAlphaKey, hideAlpha_);
-    iniConfig.put<bool>(cGeneralShowLuxKey, showLux_);
-    iniConfig.put<bool>(cGeneralShowCursorKey, showCursor_);
-    iniConfig.put<bool>(cGeneralHideBrightnessControlKey, hideBrightnessControl_);
-    iniConfig.put<bool>(cGeneralHideWarningKey, hideWarning_);
-    iniConfig.put<std::string>(cGeneralUiModeKey, uiMode_);
-    iniConfig.put<uint16_t>(cApiPortKey, apiPort_);
-    iniConfig.put<std::string>(cApiListenKey, apiListenAddress_);
-    iniConfig.put<bool>(cGeneralShowNetworkinfoKey, showNetworkinfo_);
-    iniConfig.put<std::string>(cGeneralMp3MasterPathKey, mp3MasterPath_);
-    iniConfig.put<std::string>(cGeneralMp3SubFolderKey, mp3SubFolder_);
-    iniConfig.put<int32_t>(cGeneralMp3TrackKey, mp3Track_);
-    iniConfig.put<bool>(cGeneralMp3AutoPlayKey, mp3AutoPlay_);
-    iniConfig.put<bool>(cGeneralShowAutoPlayKey, showAutoPlay_);
-    iniConfig.put<bool>(cGeneralInstantPlayKey, instantPlay_);
-
-    iniConfig.put<uint32_t>(cVideoFPSKey, static_cast<uint32_t>(videoFPS_));
-    iniConfig.put<uint32_t>(cVideoResolutionKey, static_cast<uint32_t>(videoResolution_));
-    iniConfig.put<size_t>(cVideoScreenDPIKey, screenDPI_);
-    iniConfig.put<int32_t>(cVideoOMXLayerIndexKey, omxLayerIndex_);
-    iniConfig.put<uint32_t>(cVideoMarginWidth, videoMargins_.width());
-    iniConfig.put<uint32_t>(cVideoMarginHeight, videoMargins_.height());
-
-    iniConfig.put<bool>(cInputEnableTouchscreenKey, enableTouchscreen_);
-    iniConfig.put<bool>(cInputEnablePlayerControlKey, enablePlayerControl_);
-    this->writeButtonCodes(iniConfig);
-
-    iniConfig.put<uint32_t>(cBluetoothAdapterTypeKey, static_cast<uint32_t>(bluetoothAdapterType_));
-    iniConfig.put<std::string>(cBluetoothAdapterAddressKey, bluetoothAdapterAddress_);
-    iniConfig.put<bool>(cBluetoothWirelessProjectionEnabledKey, wirelessProjectionEnabled_);
-
-    iniConfig.put<bool>(cAudioChannelMediaEnabled, _audioChannelEnabledMedia);
-    iniConfig.put<bool>(cAudioChannelGuidanceEnabled, _audioChannelEnabledGuidance);
-    iniConfig.put<bool>(cAudioChannelSystemEnabled, _audioChannelEnabledSystem);
-    iniConfig.put<bool>(cAudioChannelTelephonyEnabled, _audioChannelEnabledTelephony);
-
-  iniConfig.put<uint32_t>(cAudioOutputBackendType, static_cast<uint32_t>(audioOutputBackendType_));
-    boost::property_tree::ini_parser::write_ini(cConfigFileName, iniConfig);
-}
-
-bool Configuration::hasTouchScreen() const
-{
-    auto touchdevs = QTouchDevice::devices();
-
-    OPENAUTO_LOG(info) << "[Touchdev] " <<
-                          "Querying available touch devices [" <<
-                          touchdevs.length() << " available]";
-
-    for (int i = 0; i < touchdevs.length(); i++) {
-        if (touchdevs[i]->type() == QTouchDevice::TouchScreen) {
-            OPENAUTO_LOG(info) << "[Touchdev] Device " << i <<
-                                  ": " << touchdevs[i]->name().toStdString() <<
-                                  ", type " << touchdevs[i]->type();
-            return true;
-        }
+    try
+    {
+        boost::property_tree::ini_parser::write_ini(cConfigFileName, ini);
     }
-    return false;
+    catch(const boost::property_tree::ini_parser_error& e)
+    {
+        OPENAUTO_LOG(error) << "[Configuration] failed to write " << cConfigFileName << ": " << e.what();
+    }
 }
 
 void Configuration::setHandednessOfTrafficType(HandednessOfTrafficType value)
@@ -290,76 +179,6 @@ HandednessOfTrafficType Configuration::getHandednessOfTrafficType() const
     return handednessOfTrafficType_;
 }
 
-void Configuration::showClock(bool value)
-{
-    showClock_ = value;
-}
-
-bool Configuration::showClock() const
-{
-    return showClock_;
-}
-
-void Configuration::showBigClock(bool value)
-{
-    showBigClock_ = value;
-}
-
-bool Configuration::showBigClock() const
-{
-    return showBigClock_;
-}
-
-void Configuration::oldGUI(bool value)
-{
-    oldGUI_ = value;
-}
-
-bool Configuration::oldGUI() const
-{
-    return oldGUI_;
-}
-
-size_t Configuration::getAlphaTrans() const
-{
-    return alphaTrans_;
-}
-
-void Configuration::setAlphaTrans(size_t value)
-{
-    alphaTrans_ = value;
-}
-
-void Configuration::hideMenuToggle(bool value)
-{
-    hideMenuToggle_ = value;
-}
-
-bool Configuration::hideMenuToggle() const
-{
-    return hideMenuToggle_;
-}
-
-void Configuration::hideAlpha(bool value)
-{
-    hideAlpha_ = value;
-}
-
-bool Configuration::hideAlpha() const
-{
-    return hideAlpha_;
-}
-
-void Configuration::showLux(bool value)
-{
-    showLux_ = value;
-}
-
-bool Configuration::showLux() const
-{
-    return showLux_;
-}
-
 void Configuration::showCursor(bool value)
 {
     showCursor_ = value;
@@ -370,34 +189,36 @@ bool Configuration::showCursor() const
     return showCursor_;
 }
 
-void Configuration::hideBrightnessControl(bool value)
+std::string Configuration::getNameSuffix() const
 {
-    hideBrightnessControl_ = value;
+    return nameSuffix_;
 }
 
-bool Configuration::hideBrightnessControl() const
+void Configuration::setNameSuffix(const std::string& value)
 {
-    return hideBrightnessControl_;
+    nameSuffix_ = value;
 }
 
-void Configuration::hideWarning(bool value)
+std::string Configuration::getVehicleId() const
 {
-    hideWarning_ = value;
+    // without suffix the id OpenAuto always used, so existing phones keep recognizing the head unit
+    if(nameSuffix_.empty())
+    {
+        return "2024110822150988";
+    }
+    const QByteArray hash = QCryptographicHash::hash(QByteArray::fromStdString("OpenHU|" + nameSuffix_),
+                                                     QCryptographicHash::Sha1);
+    return hash.toHex().left(16).toStdString();
 }
 
-bool Configuration::hideWarning() const
+bool Configuration::getVideoResolutionAuto() const
 {
-    return hideWarning_;
+    return videoResolutionAuto_;
 }
 
-std::string Configuration::getUiMode() const
+void Configuration::setVideoResolutionAuto(bool value)
 {
-    return uiMode_;
-}
-
-void Configuration::setUiMode(const std::string& value)
-{
-    uiMode_ = value;
+    videoResolutionAuto_ = value;
 }
 
 uint16_t Configuration::getApiPort() const
@@ -405,79 +226,19 @@ uint16_t Configuration::getApiPort() const
     return apiPort_;
 }
 
+void Configuration::setApiPort(uint16_t value)
+{
+    apiPort_ = value;
+}
+
 std::string Configuration::getApiListenAddress() const
 {
     return apiListenAddress_;
 }
 
-void Configuration::showNetworkinfo(bool value)
+void Configuration::setApiListenAddress(const std::string& value)
 {
-    showNetworkinfo_ = value;
-}
-
-bool Configuration::showNetworkinfo() const
-{
-    return showNetworkinfo_;
-}
-
-std::string Configuration::getMp3MasterPath() const
-{
-    return mp3MasterPath_;
-}
-
-void Configuration::setMp3MasterPath(const std::string& value)
-{
-    mp3MasterPath_ = value;
-}
-
-std::string Configuration::getMp3SubFolder() const
-{
-    return mp3SubFolder_;
-}
-
-void Configuration::setMp3Track(int32_t value)
-{
-    mp3Track_ = value;
-}
-
-void Configuration::setMp3SubFolder(const std::string& value)
-{
-    mp3SubFolder_ = value;
-}
-
-int32_t Configuration::getMp3Track() const
-{
-    return mp3Track_;
-}
-
-void Configuration::mp3AutoPlay(bool value)
-{
-    mp3AutoPlay_ = value;
-}
-
-bool Configuration::mp3AutoPlay() const
-{
-    return mp3AutoPlay_;
-}
-
-void Configuration::showAutoPlay(bool value)
-{
-    showAutoPlay_ = value;
-}
-
-bool Configuration::showAutoPlay() const
-{
-    return showAutoPlay_;
-}
-
-void Configuration::instantPlay(bool value)
-{
-    instantPlay_ = value;
-}
-
-bool Configuration::instantPlay() const
-{
-    return instantPlay_;
+    apiListenAddress_ = value;
 }
 
 aap_protobuf::service::media::sink::message::VideoFrameRateType Configuration::getVideoFPS() const
@@ -510,16 +271,6 @@ void Configuration::setScreenDPI(size_t value)
     screenDPI_ = value;
 }
 
-void Configuration::setOMXLayerIndex(int32_t value)
-{
-    omxLayerIndex_ = value;
-}
-
-int32_t Configuration::getOMXLayerIndex() const
-{
-    return omxLayerIndex_;
-}
-
 void Configuration::setVideoMargins(QRect value)
 {
     videoMargins_ = value;
@@ -538,26 +289,6 @@ bool Configuration::getTouchscreenEnabled() const
 void Configuration::setTouchscreenEnabled(bool value)
 {
     enableTouchscreen_ = value;
-}
-
-bool Configuration::playerButtonControl() const
-{
-    return enablePlayerControl_;
-}
-
-void Configuration::playerButtonControl(bool value)
-{
-    enablePlayerControl_ = value;
-}
-
-Configuration::ButtonCodes Configuration::getButtonCodes() const
-{
-    return buttonCodes_;
-}
-
-void Configuration::setButtonCodes(const ButtonCodes& value)
-{
-    buttonCodes_ = value;
 }
 
 BluetoothAdapterType Configuration::getBluetoothAdapterType() const
@@ -580,53 +311,55 @@ void Configuration::setBluetoothAdapterAddress(const std::string& value)
     bluetoothAdapterAddress_ = value;
 }
 
-bool Configuration::getWirelessProjectionEnabled() const {
+bool Configuration::getWirelessProjectionEnabled() const
+{
     return wirelessProjectionEnabled_;
 }
 
-void Configuration::setWirelessProjectionEnabled(bool value) {
+void Configuration::setWirelessProjectionEnabled(bool value)
+{
     wirelessProjectionEnabled_ = value;
 }
 
 bool Configuration::musicAudioChannelEnabled() const
 {
-  return _audioChannelEnabledMedia;
+    return audioChannelEnabledMedia_;
 }
 
 void Configuration::setMusicAudioChannelEnabled(bool value)
 {
-  _audioChannelEnabledMedia = value;
+    audioChannelEnabledMedia_ = value;
 }
 
 bool Configuration::guidanceAudioChannelEnabled() const
 {
-    return _audioChannelEnabledGuidance;
+    return audioChannelEnabledGuidance_;
 }
 
 void Configuration::setGuidanceAudioChannelEnabled(bool value)
 {
-  _audioChannelEnabledGuidance = value;
+    audioChannelEnabledGuidance_ = value;
 }
 
-  bool Configuration::systemAudioChannelEnabled() const
-  {
-    return _audioChannelEnabledSystem;
-  }
+bool Configuration::systemAudioChannelEnabled() const
+{
+    return audioChannelEnabledSystem_;
+}
 
-  void Configuration::setSystemAudioChannelEnabled(bool value)
-  {
-    _audioChannelEnabledSystem = value;
-  }
+void Configuration::setSystemAudioChannelEnabled(bool value)
+{
+    audioChannelEnabledSystem_ = value;
+}
 
-  bool Configuration::telephonyAudioChannelEnabled() const
-  {
-    return _audioChannelEnabledTelephony;
-  }
+bool Configuration::telephonyAudioChannelEnabled() const
+{
+    return audioChannelEnabledTelephony_;
+}
 
-  void Configuration::setTelephonyAudioChannelEnabled(bool value)
-  {
-    _audioChannelEnabledTelephony = value;
-  }
+void Configuration::setTelephonyAudioChannelEnabled(bool value)
+{
+    audioChannelEnabledTelephony_ = value;
+}
 
 AudioOutputBackendType Configuration::getAudioOutputBackendType() const
 {
@@ -638,180 +371,19 @@ void Configuration::setAudioOutputBackendType(AudioOutputBackendType value)
     audioOutputBackendType_ = value;
 }
 
-QString Configuration::getCSValue(QString searchString) const
-{
-    using namespace std;
-    ifstream inFile;
-    ifstream inFile2;
-    string line;
-    searchString = searchString.append("=");
-    inFile.open("/boot/crankshaft/crankshaft_env.sh");
-    inFile2.open("/opt/crankshaft/crankshaft_default_env.sh");
-
-    size_t pos;
-
-    if(inFile) {
-        while(inFile.good())
-        {
-            getline(inFile,line); // get line from file
-            if (line[0] != '#') {
-                pos=line.find(searchString.toStdString()); // search
-                if(pos!=std::string::npos) // string::npos is returned if string is not found
-                {
-                    int equalPosition = line.find("=");
-                    QString value = line.substr(equalPosition + 1).c_str();
-                    value.replace("\"","");
-                    OPENAUTO_LOG(debug) << "[Configuration] CS param found: " << searchString.toStdString() << " Value:" << value.toStdString();
-                    return value;
-                }
-            }
-        }
-        OPENAUTO_LOG(warning) << "[Configuration] unable to find cs param: " << searchString.toStdString();
-        OPENAUTO_LOG(warning) << "[Configuration] Fallback to /opt/crankshaft/crankshaft_default_env.sh)";
-        while(inFile2.good())
-        {
-            getline(inFile2,line); // get line from file
-            if (line[0] != '#') {
-                pos=line.find(searchString.toStdString()); // search
-                if(pos!=std::string::npos) // string::npos is returned if string is not found
-                {
-                    int equalPosition = line.find("=");
-                    QString value = line.substr(equalPosition + 1).c_str();
-                    value.replace("\"","");
-                    OPENAUTO_LOG(debug) << "[Configuration] CS param found: " << searchString.toStdString() << " Value:" << value.toStdString();
-                    return value;
-                }
-            }
-        }
-        return "";
-    } else {
-        OPENAUTO_LOG(warning) << "[Configuration] unable to open cs param file (/boot/crankshaft/crankshaft_env.sh)";
-        OPENAUTO_LOG(warning) << "[Configuration] Fallback to /opt/crankshaft/crankshaft_default_env.sh)";
-
-        while(inFile2.good())
-        {
-            getline(inFile2,line); // get line from file
-            if (line[0] != '#') {
-                pos=line.find(searchString.toStdString()); // search
-                if(pos!=std::string::npos) // string::npos is returned if string is not found
-                {
-                    int equalPosition = line.find("=");
-                    QString value = line.substr(equalPosition + 1).c_str();
-                    value.replace("\"","");
-                    OPENAUTO_LOG(debug) << "[Configuration] CS param found: " << searchString.toStdString() << " Value:" << value.toStdString();
-                    return value;
-                }
-            }
-        }
-        return "";
-    }
-}
-
 QString Configuration::getParamFromFile(QString fileName, QString searchString) const
 {
-    OPENAUTO_LOG(debug) << "[Configuration] Request param from file: " << fileName.toStdString() << " param: " << searchString.toStdString();
-    using namespace std;
-    ifstream inFile;
-    string line;
-    if (!searchString.contains("dtoverlay")) {
-        searchString = searchString.append("=");
-    }
-    inFile.open(fileName.toStdString());
-
-    size_t pos;
-
-    if(inFile) {
-        while(inFile.good())
-        {
-            getline(inFile,line); // get line from file
-            if (line[0] != '#') {
-                pos=line.find(searchString.toStdString()); // search
-                if(pos!=std::string::npos) // string::npos is returned if string is not found
-                {
-                    int equalPosition = line.find("=");
-                    QString value = line.substr(equalPosition + 1).c_str();
-                    value.replace("\"","");
-                    OPENAUTO_LOG(debug) << "[Configuration] Param from file: " << fileName.toStdString() << " found: " << searchString.toStdString() << " Value:" << value.toStdString();
-                    return value;
-                }
-            }
-        }
-        return "";
-    } else {
-        return "";
-    }
-}
-
-QString Configuration::readFileContent(QString fileName) const
-{
-    using namespace std;
-    ifstream inFile;
-    string line;
-    inFile.open(fileName.toStdString());
-    string result = "";
-    if(inFile) {
-        while(inFile.good())
-        {
-            getline(inFile,line); // get line from file
-            result.append(line);
-        }
-        return result.c_str();
-    } else {
-        return "";
-    }
-}
-
-void Configuration::readButtonCodes(boost::property_tree::ptree& iniConfig)
-{
-    this->insertButtonCode(iniConfig, cInputPlayButtonKey, aap_protobuf::service::media::sink::message::KeyCode::KEYCODE_MEDIA_PLAY);
-    this->insertButtonCode(iniConfig, cInputPauseButtonKey, aap_protobuf::service::media::sink::message::KeyCode::KEYCODE_MEDIA_PAUSE);
-    this->insertButtonCode(iniConfig, cInputTogglePlayButtonKey, aap_protobuf::service::media::sink::message::KeyCode::KEYCODE_MEDIA_PLAY_PAUSE);
-    this->insertButtonCode(iniConfig, cInputNextTrackButtonKey, aap_protobuf::service::media::sink::message::KeyCode::KEYCODE_MEDIA_NEXT);
-    this->insertButtonCode(iniConfig, cInputPreviousTrackButtonKey, aap_protobuf::service::media::sink::message::KeyCode::KEYCODE_MEDIA_PREVIOUS);
-    this->insertButtonCode(iniConfig, cInputHomeButtonKey, aap_protobuf::service::media::sink::message::KeyCode::KEYCODE_HOME);
-    this->insertButtonCode(iniConfig, cInputPhoneButtonKey, aap_protobuf::service::media::sink::message::KeyCode::KEYCODE_CALL);
-    this->insertButtonCode(iniConfig, cInputCallEndButtonKey, aap_protobuf::service::media::sink::message::KeyCode::KEYCODE_ENDCALL);
-    this->insertButtonCode(iniConfig, cInputVoiceCommandButtonKey, aap_protobuf::service::media::sink::message::KeyCode::KEYCODE_SEARCH);
-    this->insertButtonCode(iniConfig, cInputLeftButtonKey, aap_protobuf::service::media::sink::message::KeyCode::KEYCODE_DPAD_LEFT);
-    this->insertButtonCode(iniConfig, cInputRightButtonKey, aap_protobuf::service::media::sink::message::KeyCode::KEYCODE_DPAD_RIGHT);
-    this->insertButtonCode(iniConfig, cInputUpButtonKey, aap_protobuf::service::media::sink::message::KeyCode::KEYCODE_DPAD_UP);
-    this->insertButtonCode(iniConfig, cInputDownButtonKey, aap_protobuf::service::media::sink::message::KeyCode::KEYCODE_DPAD_DOWN);
-    this->insertButtonCode(iniConfig, cInputScrollWheelButtonKey, aap_protobuf::service::media::sink::message::KeyCode::KEYCODE_ROTARY_CONTROLLER);
-    this->insertButtonCode(iniConfig, cInputBackButtonKey, aap_protobuf::service::media::sink::message::KeyCode::KEYCODE_BACK);
-    this->insertButtonCode(iniConfig, cInputEnterButtonKey, aap_protobuf::service::media::sink::message::KeyCode::KEYCODE_DPAD_CENTER);
-    this->insertButtonCode(iniConfig, cInputNavButtonKey, aap_protobuf::service::media::sink::message::KeyCode::KEYCODE_NAVIGATION);
-}
-
-void Configuration::insertButtonCode(boost::property_tree::ptree& iniConfig, const std::string& buttonCodeKey, aap_protobuf::service::media::sink::message::KeyCode buttonCode)
-{
-    if(iniConfig.get<bool>(buttonCodeKey, false))
+    std::ifstream file(fileName.toStdString());
+    const std::string key = searchString.toStdString() + "=";
+    std::string line;
+    while(std::getline(file, line))
     {
-        buttonCodes_.push_back(buttonCode);
+        if(!line.empty() && line[0] != '#' && line.compare(0, key.size(), key) == 0)
+        {
+            return QString::fromStdString(line.substr(key.size())).remove('"').trimmed();
+        }
     }
-}
-
-void Configuration::writeButtonCodes(boost::property_tree::ptree& iniConfig)
-{
-    iniConfig.put<bool>(cInputPlayButtonKey, std::find(buttonCodes_.begin(), buttonCodes_.end(), aap_protobuf::service::media::sink::message::KeyCode::KEYCODE_MEDIA_PLAY) != buttonCodes_.end());
-    iniConfig.put<bool>(cInputPauseButtonKey, std::find(buttonCodes_.begin(), buttonCodes_.end(), aap_protobuf::service::media::sink::message::KeyCode::KEYCODE_MEDIA_PAUSE) != buttonCodes_.end());
-    iniConfig.put<bool>(cInputTogglePlayButtonKey, std::find(buttonCodes_.begin(), buttonCodes_.end(), aap_protobuf::service::media::sink::message::KeyCode::KEYCODE_MEDIA_PLAY_PAUSE) != buttonCodes_.end());
-    iniConfig.put<bool>(cInputNextTrackButtonKey, std::find(buttonCodes_.begin(), buttonCodes_.end(), aap_protobuf::service::media::sink::message::KeyCode::KEYCODE_MEDIA_NEXT) != buttonCodes_.end());
-    iniConfig.put<bool>(cInputPreviousTrackButtonKey, std::find(buttonCodes_.begin(), buttonCodes_.end(), aap_protobuf::service::media::sink::message::KeyCode::KEYCODE_MEDIA_PREVIOUS) != buttonCodes_.end());
-    iniConfig.put<bool>(cInputHomeButtonKey, std::find(buttonCodes_.begin(), buttonCodes_.end(), aap_protobuf::service::media::sink::message::KeyCode::KEYCODE_HOME) != buttonCodes_.end());
-    iniConfig.put<bool>(cInputPhoneButtonKey, std::find(buttonCodes_.begin(), buttonCodes_.end(), aap_protobuf::service::media::sink::message::KeyCode::KEYCODE_CALL) != buttonCodes_.end());
-    iniConfig.put<bool>(cInputCallEndButtonKey, std::find(buttonCodes_.begin(), buttonCodes_.end(), aap_protobuf::service::media::sink::message::KeyCode::KEYCODE_ENDCALL) != buttonCodes_.end());
-    iniConfig.put<bool>(cInputVoiceCommandButtonKey, std::find(buttonCodes_.begin(), buttonCodes_.end(), aap_protobuf::service::media::sink::message::KeyCode::KEYCODE_SEARCH) != buttonCodes_.end());
-    iniConfig.put<bool>(cInputLeftButtonKey, std::find(buttonCodes_.begin(), buttonCodes_.end(), aap_protobuf::service::media::sink::message::KeyCode::KEYCODE_DPAD_LEFT) != buttonCodes_.end());
-    iniConfig.put<bool>(cInputRightButtonKey, std::find(buttonCodes_.begin(), buttonCodes_.end(), aap_protobuf::service::media::sink::message::KeyCode::KEYCODE_DPAD_RIGHT) != buttonCodes_.end());
-    iniConfig.put<bool>(cInputUpButtonKey, std::find(buttonCodes_.begin(), buttonCodes_.end(), aap_protobuf::service::media::sink::message::KeyCode::KEYCODE_DPAD_UP) != buttonCodes_.end());
-    iniConfig.put<bool>(cInputDownButtonKey, std::find(buttonCodes_.begin(), buttonCodes_.end(), aap_protobuf::service::media::sink::message::KeyCode::KEYCODE_DPAD_DOWN) != buttonCodes_.end());
-    iniConfig.put<bool>(cInputScrollWheelButtonKey, std::find(buttonCodes_.begin(), buttonCodes_.end(), aap_protobuf::service::media::sink::message::KeyCode::KEYCODE_ROTARY_CONTROLLER) != buttonCodes_.end());
-    iniConfig.put<bool>(cInputBackButtonKey, std::find(buttonCodes_.begin(), buttonCodes_.end(), aap_protobuf::service::media::sink::message::KeyCode::KEYCODE_BACK) != buttonCodes_.end());
-    iniConfig.put<bool>(cInputEnterButtonKey, std::find(buttonCodes_.begin(), buttonCodes_.end(), aap_protobuf::service::media::sink::message::KeyCode::KEYCODE_DPAD_CENTER) != buttonCodes_.end());
-    iniConfig.put<bool>(cInputNavButtonKey, std::find(buttonCodes_.begin(), buttonCodes_.end(), aap_protobuf::service::media::sink::message::KeyCode::KEYCODE_NAVIGATION) != buttonCodes_.end());
+    return QString();
 }
 
 }
-
-
-

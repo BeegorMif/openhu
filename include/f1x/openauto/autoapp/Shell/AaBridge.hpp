@@ -26,6 +26,7 @@
 #include <QMediaPlayer>
 #include <f1x/openauto/autoapp/Configuration/IConfiguration.hpp>
 #include <f1x/openauto/autoapp/Projection/InputEvent.hpp>
+#include <aap_protobuf/service/media/sink/message/VideoCodecResolutionType.pb.h>
 
 namespace f1x
 {
@@ -56,9 +57,8 @@ class AaBridge: public QObject
 public:
     static AaBridge& instance();
 
-    // Called once at startup (GUI thread). Only an enabled bridge takes over video and touch.
+    // Called once at startup (GUI thread).
     void configure(configuration::IConfiguration::Pointer configuration);
-    bool enabled() const;
 
     QObject* mediaObject() const;
     void setMediaPlayer(QMediaPlayer* player);
@@ -70,6 +70,8 @@ public:
     bool surfaceVisible() const;
     void setSurfaceVisible(bool visible);
 
+    // Resolution announced to the phone (configured, or matching the Android Auto area). Thread safe.
+    aap_protobuf::service::media::sink::message::VideoCodecResolutionType resolution() const;
     QSize videoSize() const;
     // Part of the video frame that contains the Android Auto UI (video frame minus margins).
     QRect contentRect() const;
@@ -97,13 +99,17 @@ private:
     AaBridge() = default;
     void updateMargins();
 
-    bool enabled_ = false;
     QPointer<QMediaPlayer> mediaPlayer_;
     bool videoActive_ = false;
     bool surfaceVisible_ = false;
 
     mutable std::mutex mutex_;
     QSize videoSize_{800, 480};
+    bool autoResolution_ = true;
+    aap_protobuf::service::media::sink::message::VideoCodecResolutionType configuredResolution_ =
+        aap_protobuf::service::media::sink::message::VideoCodecResolutionType::VIDEO_800x480;
+    aap_protobuf::service::media::sink::message::VideoCodecResolutionType resolution_ =
+        aap_protobuf::service::media::sink::message::VideoCodecResolutionType::VIDEO_800x480;
     QSize configuredMargins_;
     QSize viewportSize_;
     QSize margins_;

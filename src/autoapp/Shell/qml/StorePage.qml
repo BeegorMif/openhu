@@ -21,12 +21,12 @@ Item {
         return result
     }
 
-    function pluginEnabled(id) {
+    function pluginInfo(id) {
         var list = plugins.plugins
         for (var i = 0; i < list.length; ++i)
             if (list[i].id === id)
-                return list[i].enabled
-        return false
+                return list[i]
+        return {}
     }
 
     Component.onCompleted: if (store.packages.length === 0) store.refresh()
@@ -171,9 +171,22 @@ Item {
                         }
                     }
 
+                    Button {
+                        visible: modelData.installed && page.pluginInfo(modelData.id).page !== undefined
+                                 && page.pluginInfo(modelData.id).page !== "" && page.pluginInfo(modelData.id).enabled
+                        text: "Öffnen"
+                        onClicked: shell.navigate("plugin:" + modelData.id)
+                    }
+                    Switch {
+                        visible: modelData.installed && !!page.pluginInfo(modelData.id).page
+                        text: "Im Dock"
+                        checked: !!page.pluginInfo(modelData.id).dock
+                        onToggled: api.request("plugin.setDock", { id: modelData.id, dock: checked })
+                    }
                     Switch {
                         visible: modelData.installed
-                        checked: page.pluginEnabled(modelData.id)
+                        text: "Aktiv"
+                        checked: !!page.pluginInfo(modelData.id).enabled
                         onToggled: api.request(checked ? "plugin.enable" : "plugin.disable", { id: modelData.id })
                     }
                     Button {

@@ -19,7 +19,6 @@
 #pragma once
 
 #include <QMediaPlayer>
-#include <QVideoWidget>
 #include <mutex>
 #include <boost/noncopyable.hpp>
 #include <f1x/openauto/autoapp/Projection/VideoOutput.hpp>
@@ -59,10 +58,8 @@ protected slots:
     void onError(QMediaPlayer::Error error);
 
 private:
-    void showVideoWidget();
     void cleanupPlayer();
     SequentialBuffer videoBuffer_;
-    std::unique_ptr<QVideoWidget> videoWidget_;
     std::unique_ptr<QMediaPlayer> mediaPlayer_;
     bool playerReady_;
     bool initialBufferingDone_;

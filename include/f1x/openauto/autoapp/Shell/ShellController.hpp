@@ -37,8 +37,8 @@ class ShellController: public QObject
 public:
     using QObject::QObject;
 
-    Q_INVOKABLE void openSettings() { emit settingsRequested(); }
     Q_INVOKABLE void quit() { emit quitRequested(); }
+    Q_INVOKABLE void restart() { emit restartRequested(); }
     // Main.qml reports page changes -> "ui.page" {page}
     Q_INVOKABLE void setCurrentPage(const QString& page)
     {
@@ -46,12 +46,12 @@ public:
     }
 
     // Requested through the API (ui.navigate, ui.toast), handled in Main.qml.
-    void navigate(const QString& page) { emit navigateRequested(page); }
+    Q_INVOKABLE void navigate(const QString& page) { emit navigateRequested(page); }
     void toast(const QString& text, int durationMs) { emit toastRequested(text, durationMs); }
 
 signals:
-    void settingsRequested();
     void quitRequested();
+    void restartRequested();
     void navigateRequested(const QString& page);
     void toastRequested(const QString& text, int durationMs);
 };

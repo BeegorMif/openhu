@@ -35,7 +35,7 @@ namespace f1x {
         }
 
         aap_protobuf::service::media::sink::message::VideoCodecResolutionType VideoOutput::getVideoResolution() const {
-          return configuration_->getVideoResolution();
+          return shell::AaBridge::instance().resolution();
         }
 
         size_t VideoOutput::getScreenDPI() const {
@@ -43,10 +43,8 @@ namespace f1x {
         }
 
         QRect VideoOutput::getVideoMargins() const {
-          if (shell::AaBridge::instance().enabled()) {
-            return shell::AaBridge::instance().videoMargins();
-          }
-          return configuration_->getVideoMargins();
+          // configured margins or computed for the shell's Android Auto area
+          return shell::AaBridge::instance().videoMargins();
         }
 
       }

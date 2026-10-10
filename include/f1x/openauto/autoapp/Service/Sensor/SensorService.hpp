@@ -68,7 +68,6 @@ namespace f1x::openauto::autoapp::service::sensor {
     void sendGPSLocationData();
 
     bool isNightMode();
-    bool is_file_exist(const char *filename);
 
     void sensorPolling();
 

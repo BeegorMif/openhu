@@ -18,11 +18,12 @@
 
 #pragma once
 
+#include <memory>
 #include <string>
 #include <QRect>
+#include <QString>
 #include <aap_protobuf/service/media/sink/message/VideoFrameRateType.pb.h>
 #include <aap_protobuf/service/media/sink/message/VideoCodecResolutionType.pb.h>
-#include <aap_protobuf/service/media/sink/message/KeyCode.pb.h>
 #include <f1x/openauto/autoapp/Configuration/BluetoothAdapterType.hpp>
 #include <f1x/openauto/autoapp/Configuration/HandednessOfTrafficType.hpp>
 #include <f1x/openauto/autoapp/Configuration/AudioOutputBackendType.hpp>
@@ -36,11 +37,11 @@ namespace autoapp
 namespace configuration
 {
 
+// Settings in openhu.ini (edited on the shell's settings page).
 class IConfiguration
 {
 public:
     typedef std::shared_ptr<IConfiguration> Pointer;
-    typedef std::vector<aap_protobuf::service::media::sink::message::KeyCode> ButtonCodes;
 
     virtual ~IConfiguration() = default;
 
@@ -48,74 +49,41 @@ public:
     virtual void reset() = 0;
     virtual void save() = 0;
 
-    virtual bool hasTouchScreen() const = 0;
-
+    // General
     virtual void setHandednessOfTrafficType(HandednessOfTrafficType value) = 0;
     virtual HandednessOfTrafficType getHandednessOfTrafficType() const = 0;
-    virtual void showClock(bool value) = 0;
-    virtual bool showClock() const = 0;
-    virtual void showBigClock(bool value) = 0;
-    virtual bool showBigClock() const = 0;
-    virtual void oldGUI(bool value) = 0;
-    virtual bool oldGUI() const = 0;
-    virtual void setAlphaTrans(size_t value) = 0;
-    virtual size_t getAlphaTrans() const = 0;
-    virtual void hideMenuToggle(bool value) = 0;
-    virtual bool hideMenuToggle() const = 0;
-    virtual void hideAlpha(bool value) = 0;
-    virtual bool hideAlpha() const = 0;
-    virtual void showLux(bool value) = 0;
-    virtual bool showLux() const = 0;
     virtual void showCursor(bool value) = 0;
     virtual bool showCursor() const = 0;
-    virtual void hideBrightnessControl(bool value) = 0;
-    virtual bool hideBrightnessControl() const = 0;
-    virtual void showNetworkinfo(bool value) = 0;
-    virtual bool showNetworkinfo() const = 0;
-    virtual void hideWarning(bool value) = 0;
-    virtual bool hideWarning() const = 0;
-    // "qml" (new shell, default) or "legacy" (old widget UI)
-    virtual std::string getUiMode() const = 0;
-    virtual void setUiMode(const std::string& value) = 0;
+    // Shown on the phone as "OpenHU <suffix>", to tell several head units apart
+    virtual std::string getNameSuffix() const = 0;
+    virtual void setNameSuffix(const std::string& value) = 0;
+    // Derived from the name suffix: the phone keeps its settings per vehicle id, so differently named
+    // head units are separate cars and the same name stays the same car (also after reinstalling)
+    virtual std::string getVehicleId() const = 0;
+
     // WebSocket API (docs/api.md)
     virtual uint16_t getApiPort() const = 0;
+    virtual void setApiPort(uint16_t value) = 0;
     virtual std::string getApiListenAddress() const = 0;
+    virtual void setApiListenAddress(const std::string& value) = 0;
 
-    virtual std::string getMp3MasterPath() const = 0;
-    virtual void setMp3MasterPath(const std::string& value) = 0;
-    virtual std::string getMp3SubFolder() const = 0;
-    virtual void setMp3SubFolder(const std::string& value) = 0;
-    virtual int32_t getMp3Track() const = 0;
-    virtual void setMp3Track(int32_t value) = 0;
-    virtual bool mp3AutoPlay() const = 0;
-    virtual void mp3AutoPlay(bool value) = 0;
-    virtual bool showAutoPlay() const = 0;
-    virtual void showAutoPlay(bool value) = 0;
-    virtual bool instantPlay() const = 0;
-    virtual void instantPlay(bool value) = 0;
-
-    virtual QString getCSValue(QString searchString) const = 0;
-    virtual QString readFileContent(QString fileName) const = 0;
-    virtual QString getParamFromFile(QString fileName, QString searchString) const = 0;
-
+    // Android Auto video and input
     virtual aap_protobuf::service::media::sink::message::VideoFrameRateType getVideoFPS() const = 0;
     virtual void setVideoFPS(aap_protobuf::service::media::sink::message::VideoFrameRateType value) = 0;
     virtual aap_protobuf::service::media::sink::message::VideoCodecResolutionType getVideoResolution() const = 0;
     virtual void setVideoResolution(aap_protobuf::service::media::sink::message::VideoCodecResolutionType value) = 0;
+    // true: the shell picks the resolution matching its Android Auto area (getVideoResolution() is ignored)
+    virtual bool getVideoResolutionAuto() const = 0;
+    virtual void setVideoResolutionAuto(bool value) = 0;
     virtual size_t getScreenDPI() const = 0;
     virtual void setScreenDPI(size_t value) = 0;
-    virtual void setOMXLayerIndex(int32_t value) = 0;
-    virtual int32_t getOMXLayerIndex() const = 0;
+    // 0x0 = margins computed by the shell
     virtual void setVideoMargins(QRect value) = 0;
     virtual QRect getVideoMargins() const = 0;
-
     virtual bool getTouchscreenEnabled() const = 0;
     virtual void setTouchscreenEnabled(bool value) = 0;
-    virtual bool playerButtonControl() const = 0;
-    virtual void playerButtonControl(bool value) = 0;
-    virtual ButtonCodes getButtonCodes() const = 0;
-    virtual void setButtonCodes(const ButtonCodes& value) = 0;
 
+    // Bluetooth and wireless Android Auto
     virtual BluetoothAdapterType getBluetoothAdapterType() const = 0;
     virtual void setBluetoothAdapterType(BluetoothAdapterType value) = 0;
     virtual std::string getBluetoothAdapterAddress() const = 0;
@@ -123,6 +91,7 @@ public:
     virtual bool getWirelessProjectionEnabled() const = 0;
     virtual void setWirelessProjectionEnabled(bool value) = 0;
 
+    // Android Auto audio channels and output
     virtual bool musicAudioChannelEnabled() const = 0;
     virtual void setMusicAudioChannelEnabled(bool value) = 0;
     virtual bool guidanceAudioChannelEnabled() const = 0;
@@ -133,6 +102,9 @@ public:
     virtual void setTelephonyAudioChannelEnabled(bool value) = 0;
     virtual AudioOutputBackendType getAudioOutputBackendType() const = 0;
     virtual void setAudioOutputBackendType(AudioOutputBackendType value) = 0;
+
+    // "key=value" from a system file (wireless Android Auto reads the hotspot SSID/password from hostapd.conf)
+    virtual QString getParamFromFile(QString fileName, QString searchString) const = 0;
 };
 
 }

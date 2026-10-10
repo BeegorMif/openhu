@@ -18,12 +18,13 @@
 
 #pragma once
 
-#include <QObject>
-#include <QKeyEvent>
-#include <QTouchEvent>
+#include <map>
+#include <mutex>
+#include <QEvent>
 #include <QRect>
 #include <QSizeF>
-#include <map>
+#include <QTouchEvent>
+#include <boost/noncopyable.hpp>
 #include <f1x/openauto/autoapp/Projection/IInputDevice.hpp>
 #include <f1x/openauto/autoapp/Configuration/IConfiguration.hpp>
 
@@ -36,44 +37,37 @@ namespace autoapp
 namespace projection
 {
 
-class InputDevice: public QObject, public IInputDevice, boost::noncopyable
+// Input of one Android Auto session: touches from the shell's AaSurface and keys from the
+// ActionDispatcher (keyboard, steering wheel, API), both passed on through the AaBridge.
+class InputDevice: public IInputDevice, boost::noncopyable
 {
-    Q_OBJECT
-
 public:
-    InputDevice(QObject& parent, configuration::IConfiguration::Pointer configuration, const QRect& touchscreenGeometry, const QRect& videoGeometry);
+    InputDevice(configuration::IConfiguration::Pointer configuration, const QRect& videoGeometry);
 
     void start(IInputDeviceEventHandler& eventHandler) override;
     void stop() override;
     ButtonCodes getSupportedButtonCodes() const override;
-    bool eventFilter(QObject* obj, QEvent* event) override;
     bool hasTouchscreen() const override;
     QRect getTouchscreenGeometry() const override;
 
-    // Pointer event from the shell's Android Auto surface (item coordinates). contentRect is the part
-    // of the video frame showing the Android Auto UI; the surface is mapped onto it.
+    // Pointer event in AaSurface item coordinates. contentRect is the part of the video frame
+    // showing the Android Auto UI; the surface is mapped onto it.
     void handleSurfaceEvent(QEvent* event, const QSizeF& surfaceSize, const QRect& contentRect);
-    // Button event from the ActionDispatcher (keyboard, steering wheel, API). False without session.
+    // False without a running session or for a key the phone was not told about.
     bool injectButton(const ButtonEvent& event);
 
 private:
-    void setVideoGeometry();
-    bool handleKeyEvent(QEvent* event, QKeyEvent* key);
-    void dispatchKeyEvent(ButtonEvent event);
-    bool handleTouchEvent(QEvent* event);
-    bool handleMultiTouchEvent(QTouchEvent* touchEvent);
+    void handleMouseEvent(QEvent* event);
+    void handleTouchEvent(QTouchEvent* touchEvent);
     void translateTouchPoint(const QTouchEvent::TouchPoint& qtPoint, TouchPoint& ourPoint);
-    void mapToDisplay(const QPointF& pos, uint32_t& x, uint32_t& y) const;
+    void mapToVideo(const QPointF& pos, uint32_t& x, uint32_t& y) const;
 
-    QObject& parent_;
     configuration::IConfiguration::Pointer configuration_;
-    QRect touchscreenGeometry_;
-    QRect displayGeometry_;
+    QRect videoGeometry_;
     IInputDeviceEventHandler* eventHandler_;
     std::mutex mutex_;
-    std::map<int, uint32_t> touchPointIdMap_; // Maps Qt touch IDs to our sequential IDs
+    std::map<int, uint32_t> touchPointIdMap_; // Qt touch ids -> sequential pointer ids
     uint32_t nextTouchPointId_;
-    bool surfaceMode_;
     QSizeF surfaceSize_;
     QRect surfaceContentRect_;
 };

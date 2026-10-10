@@ -63,7 +63,7 @@ cmd_build() {
     fi
 
     echo '=== openhu ==='
-    cmake -S /src -B /build/openhu -DCMAKE_BUILD_TYPE=Release -DNOPI=ON \
+    cmake -S /src -B /build/openhu -DCMAKE_BUILD_TYPE=Release \
           -DCPACK_PROJECT_CONFIG_FILE=/src/cmake_modules/CPackProjectConfig.cmake >/dev/null
     cmake --build /build/openhu -j\$(nproc)
     touch /tmp/cpack-stamp

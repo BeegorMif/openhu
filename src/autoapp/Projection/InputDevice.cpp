@@ -16,11 +16,12 @@
 *  along with openauto. If not, see <http://www.gnu.org/licenses/>.
 */
 
+#include <algorithm>
+#include <QMouseEvent>
 #include <f1x/openauto/Common/Log.hpp>
 #include <f1x/openauto/autoapp/Projection/IInputDeviceEventHandler.hpp>
 #include <f1x/openauto/autoapp/Projection/InputDevice.hpp>
 #include <f1x/openauto/autoapp/Shell/AaBridge.hpp>
-#include <algorithm>
 
 namespace f1x
 {
@@ -31,56 +32,84 @@ namespace autoapp
 namespace projection
 {
 
-InputDevice::InputDevice(QObject& parent, configuration::IConfiguration::Pointer configuration, const QRect& touchscreenGeometry, const QRect& displayGeometry)
-    : parent_(parent)
-    , configuration_(std::move(configuration))
-    , touchscreenGeometry_(touchscreenGeometry)
-    , displayGeometry_(displayGeometry)
+using PointerAction = aap_protobuf::service::inputsource::message::PointerAction;
+
+InputDevice::InputDevice(configuration::IConfiguration::Pointer configuration, const QRect& videoGeometry)
+    : configuration_(std::move(configuration))
+    , videoGeometry_(videoGeometry)
     , eventHandler_(nullptr)
     , nextTouchPointId_(0)
-    , surfaceMode_(shell::AaBridge::instance().enabled())
 {
-    this->moveToThread(parent.thread());
-    // Note: Touch events are accepted automatically when we install the event filter
-    // No need to set WA_AcceptTouchEvents on QApplication parent
 }
 
 void InputDevice::start(IInputDeviceEventHandler& eventHandler)
 {
     {
         std::lock_guard<decltype(mutex_)> lock(mutex_);
-
         OPENAUTO_LOG(info) << "[InputDevice] start()";
         eventHandler_ = &eventHandler;
-        parent_.installEventFilter(this);
     }
 
     // Outside of mutex_: AaBridge locks its own mutex before calling into us.
-    if(surfaceMode_)
-    {
-        shell::AaBridge::instance().attachInputDevice(this);
-    }
+    shell::AaBridge::instance().attachInputDevice(this);
 }
 
 void InputDevice::stop()
 {
-    if(surfaceMode_)
-    {
-        shell::AaBridge::instance().detachInputDevice(this);
-    }
+    shell::AaBridge::instance().detachInputDevice(this);
 
     std::lock_guard<decltype(mutex_)> lock(mutex_);
-
     OPENAUTO_LOG(info) << "[InputDevice] stop()";
-    parent_.removeEventFilter(this);
     eventHandler_ = nullptr;
+}
+
+IInputDevice::ButtonCodes InputDevice::getSupportedButtonCodes() const
+{
+    // Everything the actions (keyboard, steering wheel, CAN, API) can produce
+    using KeyCode = aap_protobuf::service::media::sink::message::KeyCode;
+    return {KeyCode::KEYCODE_HOME, KeyCode::KEYCODE_BACK, KeyCode::KEYCODE_CALL, KeyCode::KEYCODE_ENDCALL,
+            KeyCode::KEYCODE_DPAD_UP, KeyCode::KEYCODE_DPAD_DOWN, KeyCode::KEYCODE_DPAD_LEFT,
+            KeyCode::KEYCODE_DPAD_RIGHT, KeyCode::KEYCODE_DPAD_CENTER, KeyCode::KEYCODE_SEARCH,
+            KeyCode::KEYCODE_MEDIA_PLAY_PAUSE, KeyCode::KEYCODE_MEDIA_NEXT, KeyCode::KEYCODE_MEDIA_PREVIOUS,
+            KeyCode::KEYCODE_MEDIA_PLAY, KeyCode::KEYCODE_MEDIA_PAUSE, KeyCode::KEYCODE_ROTARY_CONTROLLER,
+            KeyCode::KEYCODE_MEDIA, KeyCode::KEYCODE_NAVIGATION, KeyCode::KEYCODE_TEL};
+}
+
+bool InputDevice::hasTouchscreen() const
+{
+    return configuration_->getTouchscreenEnabled();
+}
+
+QRect InputDevice::getTouchscreenGeometry() const
+{
+    return videoGeometry_;
+}
+
+bool InputDevice::injectButton(const ButtonEvent& event)
+{
+    std::lock_guard<decltype(mutex_)> lock(mutex_);
+
+    if(eventHandler_ == nullptr)
+    {
+        return false;
+    }
+
+    const auto buttonCodes = this->getSupportedButtonCodes();
+    if(std::find(buttonCodes.begin(), buttonCodes.end(), event.code) == buttonCodes.end())
+    {
+        OPENAUTO_LOG(warning) << "[InputDevice] key code not announced to the phone: " << event.code;
+        return false;
+    }
+
+    eventHandler_->onButtonEvent(event);
+    return true;
 }
 
 void InputDevice::handleSurfaceEvent(QEvent* event, const QSizeF& surfaceSize, const QRect& contentRect)
 {
     std::lock_guard<decltype(mutex_)> lock(mutex_);
 
-    if(eventHandler_ == nullptr)
+    if(eventHandler_ == nullptr || !configuration_->getTouchscreenEnabled())
     {
         return;
     }
@@ -94,414 +123,154 @@ void InputDevice::handleSurfaceEvent(QEvent* event, const QSizeF& surfaceSize, c
     case QEvent::TouchUpdate:
     case QEvent::TouchEnd:
     case QEvent::TouchCancel:
-        this->handleMultiTouchEvent(static_cast<QTouchEvent*>(event));
+        this->handleTouchEvent(static_cast<QTouchEvent*>(event));
         break;
     case QEvent::MouseButtonPress:
     case QEvent::MouseButtonRelease:
     case QEvent::MouseMove:
-        this->handleTouchEvent(event);
+        this->handleMouseEvent(event);
         break;
     default:
         break;
     }
 }
 
-void InputDevice::mapToDisplay(const QPointF& pos, uint32_t& x, uint32_t& y) const
+void InputDevice::mapToVideo(const QPointF& pos, uint32_t& x, uint32_t& y) const
 {
-    if(surfaceMode_)
-    {
-        const double fx = std::clamp(pos.x() / surfaceSize_.width(), 0.0, 1.0);
-        const double fy = std::clamp(pos.y() / surfaceSize_.height(), 0.0, 1.0);
-        x = static_cast<uint32_t>(surfaceContentRect_.x() + fx * (surfaceContentRect_.width() - 1));
-        y = static_cast<uint32_t>(surfaceContentRect_.y() + fy * (surfaceContentRect_.height() - 1));
-    }
-    else
-    {
-        x = static_cast<uint32_t>((pos.x() / touchscreenGeometry_.width()) * displayGeometry_.width());
-        y = static_cast<uint32_t>((pos.y() / touchscreenGeometry_.height()) * displayGeometry_.height());
-    }
+    const double fx = std::clamp(pos.x() / surfaceSize_.width(), 0.0, 1.0);
+    const double fy = std::clamp(pos.y() / surfaceSize_.height(), 0.0, 1.0);
+    x = static_cast<uint32_t>(surfaceContentRect_.x() + fx * (surfaceContentRect_.width() - 1));
+    y = static_cast<uint32_t>(surfaceContentRect_.y() + fy * (surfaceContentRect_.height() - 1));
 }
 
-bool InputDevice::eventFilter(QObject* obj, QEvent* event)
+void InputDevice::handleMouseEvent(QEvent* event)
 {
-    std::lock_guard<decltype(mutex_)> lock(mutex_);
-
-    if(eventHandler_ != nullptr)
-    {
-        if(surfaceMode_)
-        {
-            // Shell mode: pointer events arrive via handleSurfaceEvent(), keys via the ActionDispatcher (injectButton()).
-            return QObject::eventFilter(obj, event);
-        }
-
-        if(event->type() == QEvent::KeyPress || event->type() == QEvent::KeyRelease)
-        {
-            QKeyEvent* key = static_cast<QKeyEvent*>(event);
-            if(!key->isAutoRepeat())
-            {
-                return this->handleKeyEvent(event, key);
-            }
-        }
-        else if(event->type() == QEvent::TouchBegin || 
-                event->type() == QEvent::TouchUpdate || 
-                event->type() == QEvent::TouchEnd ||
-                event->type() == QEvent::TouchCancel)
-        {
-            return this->handleMultiTouchEvent(static_cast<QTouchEvent*>(event));
-        }
-        else if(event->type() == QEvent::MouseButtonPress || event->type() == QEvent::MouseButtonRelease || event->type() == QEvent::MouseMove)
-        {
-            // Fallback to mouse events if touch events are not available
-            return this->handleTouchEvent(event);
-        }
-    }
-
-    return QObject::eventFilter(obj, event);
-}
-
-bool InputDevice::handleKeyEvent(QEvent* event, QKeyEvent* key)
-{
-    auto eventType = event->type() == QEvent::KeyPress ? ButtonEventType::PRESS : ButtonEventType::RELEASE;
-    aap_protobuf::service::media::sink::message::KeyCode buttonCode;
-    WheelDirection wheelDirection = WheelDirection::NONE;
-
-    switch(key->key())
-    {
-    case Qt::Key_Return:
-    case Qt::Key_Enter:
-        buttonCode = aap_protobuf::service::media::sink::message::KeyCode::KEYCODE_DPAD_CENTER;
-        break;
-
-    case Qt::Key_Left:
-        buttonCode = aap_protobuf::service::media::sink::message::KeyCode::KEYCODE_DPAD_LEFT;
-        break;
-
-    case Qt::Key_Right:
-        buttonCode = aap_protobuf::service::media::sink::message::KeyCode::KEYCODE_DPAD_RIGHT;
-        break;
-
-    case Qt::Key_Up:
-        buttonCode = aap_protobuf::service::media::sink::message::KeyCode::KEYCODE_DPAD_UP;
-        break;
-
-    case Qt::Key_Down:
-        buttonCode = aap_protobuf::service::media::sink::message::KeyCode::KEYCODE_DPAD_DOWN;
-        break;
-
-    case Qt::Key_Escape:
-        buttonCode = aap_protobuf::service::media::sink::message::KeyCode::KEYCODE_BACK;
-        break;
-
-    case Qt::Key_H:
-        buttonCode = aap_protobuf::service::media::sink::message::KeyCode::KEYCODE_HOME;
-        break;
-
-    case Qt::Key_P:
-        buttonCode = aap_protobuf::service::media::sink::message::KeyCode::KEYCODE_CALL;
-        break;
-
-    case Qt::Key_O:
-        buttonCode = aap_protobuf::service::media::sink::message::KeyCode::KEYCODE_ENDCALL;
-        break;
-
-    case Qt::Key_MediaPlay:
-    case Qt::Key_X:
-        buttonCode = aap_protobuf::service::media::sink::message::KeyCode::KEYCODE_MEDIA_PLAY;
-        break;
-
-    case Qt::Key_MediaPause:
-    case Qt::Key_C:
-        buttonCode = aap_protobuf::service::media::sink::message::KeyCode::KEYCODE_MEDIA_PAUSE;
-        break;
-
-    case Qt::Key_MediaPrevious:
-    case Qt::Key_V:
-        buttonCode = aap_protobuf::service::media::sink::message::KeyCode::KEYCODE_MEDIA_PREVIOUS;
-        break;
-
-    case Qt::Key_MediaTogglePlayPause:
-    case Qt::Key_B:
-        buttonCode = aap_protobuf::service::media::sink::message::KeyCode::KEYCODE_MEDIA_PLAY_PAUSE;
-        break;
-
-    case Qt::Key_MediaNext:
-    case Qt::Key_N:
-        buttonCode = aap_protobuf::service::media::sink::message::KeyCode::KEYCODE_MEDIA_NEXT;
-        break;
-
-    case Qt::Key_M:
-        buttonCode = aap_protobuf::service::media::sink::message::KeyCode::KEYCODE_SEARCH;
-        break;
-
-    case Qt::Key_1:
-        wheelDirection = WheelDirection::LEFT;
-        eventType = ButtonEventType::NONE;
-        buttonCode = aap_protobuf::service::media::sink::message::KeyCode::KEYCODE_ROTARY_CONTROLLER;
-        break;
-
-    case Qt::Key_2:
-        wheelDirection = WheelDirection::RIGHT;
-        eventType = ButtonEventType::NONE;
-        buttonCode = aap_protobuf::service::media::sink::message::KeyCode::KEYCODE_ROTARY_CONTROLLER;
-        break;
-
-    case Qt::Key_F:
-        buttonCode = aap_protobuf::service::media::sink::message::KeyCode::KEYCODE_NAVIGATION;
-        break;
-
-    default:
-        return true;
-    }
-
-    const auto& buttonCodes = this->getSupportedButtonCodes();
-    if(std::find(buttonCodes.begin(), buttonCodes.end(), buttonCode) != buttonCodes.end())
-    {
-        if(buttonCode != aap_protobuf::service::media::sink::message::KeyCode::KEYCODE_ROTARY_CONTROLLER || event->type() == QEvent::KeyRelease)
-        {
-            eventHandler_->onButtonEvent({eventType, wheelDirection, buttonCode});
-        }
-    }
-
-    return true;
-}
-
-bool InputDevice::handleTouchEvent(QEvent* event)
-{
-    if(!configuration_->getTouchscreenEnabled())
-    {
-        return true;
-    }
-
-    aap_protobuf::service::inputsource::message::PointerAction type;
-
+    // Mouse as single finger (desktop/development)
+    PointerAction type;
     switch(event->type())
     {
     case QEvent::MouseButtonPress:
-        type = aap_protobuf::service::inputsource::message::PointerAction::ACTION_DOWN;
+        type = PointerAction::ACTION_DOWN;
         break;
     case QEvent::MouseButtonRelease:
-        type = aap_protobuf::service::inputsource::message::PointerAction::ACTION_UP;
-        break;
-    case QEvent::MouseMove:
-        type = aap_protobuf::service::inputsource::message::PointerAction::ACTION_MOVED;
+        type = PointerAction::ACTION_UP;
         break;
     default:
-        return true;
-    };
-
-    QMouseEvent* mouse = static_cast<QMouseEvent*>(event);
-    if(event->type() == QEvent::MouseButtonRelease || mouse->buttons().testFlag(Qt::LeftButton))
-    {
-        uint32_t x = 0;
-        uint32_t y = 0;
-        this->mapToDisplay(mouse->localPos(), x, y);
-        
-        // Create single-touch event for mouse fallback
-        TouchEvent event;
-        event.type = type;
-        event.actionIndex = 0;
-        event.pointers.push_back({x, y, 0});
-        
-        eventHandler_->onTouchEvent(event);
+        type = PointerAction::ACTION_MOVED;
+        break;
     }
 
-    return true;
-}
-
-bool InputDevice::hasTouchscreen() const
-{
-    return configuration_->getTouchscreenEnabled();
-}
-
-QRect InputDevice::getTouchscreenGeometry() const
-{
-    return touchscreenGeometry_;
-}
-
-IInputDevice::ButtonCodes InputDevice::getSupportedButtonCodes() const
-{
-    auto codes = configuration_->getButtonCodes();
-
-    if(surfaceMode_)
+    auto* mouse = static_cast<QMouseEvent*>(event);
+    if(event->type() != QEvent::MouseButtonRelease && !mouse->buttons().testFlag(Qt::LeftButton))
     {
-        // Shell mode: actions (keyboard, steering wheel, CAN, API) can produce all of these.
-        using KeyCode = aap_protobuf::service::media::sink::message::KeyCode;
-        for(auto code: {KeyCode::KEYCODE_HOME, KeyCode::KEYCODE_BACK, KeyCode::KEYCODE_CALL, KeyCode::KEYCODE_ENDCALL,
-                        KeyCode::KEYCODE_DPAD_UP, KeyCode::KEYCODE_DPAD_DOWN, KeyCode::KEYCODE_DPAD_LEFT,
-                        KeyCode::KEYCODE_DPAD_RIGHT, KeyCode::KEYCODE_DPAD_CENTER, KeyCode::KEYCODE_SEARCH,
-                        KeyCode::KEYCODE_MEDIA_PLAY_PAUSE, KeyCode::KEYCODE_MEDIA_NEXT, KeyCode::KEYCODE_MEDIA_PREVIOUS,
-                        KeyCode::KEYCODE_MEDIA_PLAY, KeyCode::KEYCODE_MEDIA_PAUSE, KeyCode::KEYCODE_ROTARY_CONTROLLER,
-                        KeyCode::KEYCODE_MEDIA, KeyCode::KEYCODE_NAVIGATION, KeyCode::KEYCODE_TEL})
-        {
-            if(std::find(codes.begin(), codes.end(), code) == codes.end())
-            {
-                codes.push_back(code);
-            }
-        }
+        return;
     }
 
-    return codes;
+    TouchEvent touch;
+    touch.type = type;
+    touch.actionIndex = 0;
+    uint32_t x = 0;
+    uint32_t y = 0;
+    this->mapToVideo(mouse->localPos(), x, y);
+    touch.pointers.push_back({x, y, 0});
+    eventHandler_->onTouchEvent(touch);
 }
 
-bool InputDevice::injectButton(const ButtonEvent& event)
+void InputDevice::handleTouchEvent(QTouchEvent* touchEvent)
 {
-    std::lock_guard<decltype(mutex_)> lock(mutex_);
-
-    if(eventHandler_ == nullptr)
-    {
-        return false;
-    }
-
-    const auto& buttonCodes = this->getSupportedButtonCodes();
-    if(std::find(buttonCodes.begin(), buttonCodes.end(), event.code) == buttonCodes.end())
-    {
-        OPENAUTO_LOG(warning) << "[InputDevice] key code not announced to the phone: " << event.code;
-        return false;
-    }
-
-    eventHandler_->onButtonEvent(event);
-    return true;
-}
-
-bool InputDevice::handleMultiTouchEvent(QTouchEvent* touchEvent)
-{
-    if(!configuration_->getTouchscreenEnabled())
-    {
-        return true;
-    }
-
-    OPENAUTO_LOG(debug) << "[InputDevice] handleMultiTouchEvent: type=" << touchEvent->type() 
-                        << " touchPointCount=" << touchEvent->touchPoints().size();
-
-    TouchEvent event;
-    event.actionIndex = 0; // Will be updated based on which pointer changed state
-    
-    // Determine the action type and which pointer triggered it
     const auto& touchPoints = touchEvent->touchPoints();
-    
     if(touchPoints.isEmpty())
     {
-        return true;
+        return;
     }
 
-    // Find the pointer that changed state (for ACTION_DOWN, ACTION_UP, ACTION_POINTER_DOWN, ACTION_POINTER_UP)
-    int changedPointIndex = -1;
+    // The pointer that changed state (pressed or released), if any
+    int changedIndex = -1;
     Qt::TouchPointState changedState = Qt::TouchPointStationary;
-    
     for(int i = 0; i < touchPoints.size(); ++i)
     {
-        const auto& point = touchPoints[i];
-        if(point.state() == Qt::TouchPointPressed || point.state() == Qt::TouchPointReleased)
+        if(touchPoints[i].state() == Qt::TouchPointPressed || touchPoints[i].state() == Qt::TouchPointReleased)
         {
-            changedPointIndex = i;
-            changedState = point.state();
+            changedIndex = i;
+            changedState = touchPoints[i].state();
             break;
         }
     }
 
-    // Determine the action based on event type and pointer states
-    if(touchEvent->type() == QEvent::TouchBegin)
+    TouchEvent event;
+    event.actionIndex = 0;
+    switch(touchEvent->type())
     {
-        event.type = aap_protobuf::service::inputsource::message::PointerAction::ACTION_DOWN;
-        event.actionIndex = 0;
-    }
-    else if(touchEvent->type() == QEvent::TouchEnd)
-    {
-        event.type = aap_protobuf::service::inputsource::message::PointerAction::ACTION_UP;
-        // Find the released pointer index
-        for(int i = 0; i < touchPoints.size(); ++i)
-        {
-            if(touchPoints[i].state() == Qt::TouchPointReleased)
-            {
-                event.actionIndex = i;
-                break;
-            }
-        }
-    }
-    else if(touchEvent->type() == QEvent::TouchUpdate)
-    {
+    case QEvent::TouchBegin:
+        event.type = PointerAction::ACTION_DOWN;
+        break;
+    case QEvent::TouchEnd:
+        event.type = PointerAction::ACTION_UP;
+        event.actionIndex = changedIndex >= 0 ? changedIndex : 0;
+        break;
+    case QEvent::TouchCancel:
+        // Android Auto has no cancel, all fingers up
+        event.type = PointerAction::ACTION_UP;
+        touchPointIdMap_.clear();
+        nextTouchPointId_ = 0;
+        break;
+    default:  // TouchUpdate
         if(changedState == Qt::TouchPointPressed)
         {
-            // Additional finger went down
-            event.type = aap_protobuf::service::inputsource::message::PointerAction::ACTION_POINTER_DOWN;
-            event.actionIndex = changedPointIndex;
+            event.type = PointerAction::ACTION_POINTER_DOWN;
+            event.actionIndex = changedIndex;
         }
         else if(changedState == Qt::TouchPointReleased)
         {
-            // One finger lifted while others remain
-            event.type = aap_protobuf::service::inputsource::message::PointerAction::ACTION_POINTER_UP;
-            event.actionIndex = changedPointIndex;
+            event.type = PointerAction::ACTION_POINTER_UP;
+            event.actionIndex = changedIndex;
         }
         else
         {
-            // Movement only
-            event.type = aap_protobuf::service::inputsource::message::PointerAction::ACTION_MOVED;
-            event.actionIndex = 0;
+            event.type = PointerAction::ACTION_MOVED;
         }
-    }
-    else if(touchEvent->type() == QEvent::TouchCancel)
-    {
-        // Android Auto protocol doesn't support ACTION_CANCEL, treat as ACTION_UP (all fingers lifted)
-        event.type = aap_protobuf::service::inputsource::message::PointerAction::ACTION_UP;
-        event.actionIndex = 0;
-        touchPointIdMap_.clear();
-        nextTouchPointId_ = 0;
-    }
-    else
-    {
-        return true;
+        break;
     }
 
-    // Translate all touch points
-    for(const auto& qtPoint : touchPoints)
+    for(const auto& qtPoint: touchPoints)
     {
-        // Skip released points except for UP actions
-        if(qtPoint.state() == Qt::TouchPointReleased && 
-           event.type != aap_protobuf::service::inputsource::message::PointerAction::ACTION_UP &&
-           event.type != aap_protobuf::service::inputsource::message::PointerAction::ACTION_POINTER_UP)
+        // Released points only belong to UP events
+        if(qtPoint.state() == Qt::TouchPointReleased && event.type != PointerAction::ACTION_UP
+           && event.type != PointerAction::ACTION_POINTER_UP)
         {
             continue;
         }
 
-        TouchPoint ourPoint;
-        translateTouchPoint(qtPoint, ourPoint);
-        event.pointers.push_back(ourPoint);
+        TouchPoint point;
+        this->translateTouchPoint(qtPoint, point);
+        event.pointers.push_back(point);
 
-        // Clean up released touch points from map
         if(qtPoint.state() == Qt::TouchPointReleased)
         {
             touchPointIdMap_.erase(qtPoint.id());
         }
     }
 
-    if(!event.pointers.empty())
+    if(touchEvent->type() == QEvent::TouchEnd)
     {
-        OPENAUTO_LOG(debug) << "[InputDevice] Sending touch event: action=" << event.type 
-                            << " actionIndex=" << event.actionIndex 
-                            << " pointerCount=" << event.pointers.size();
-        eventHandler_->onTouchEvent(event);
+        touchPointIdMap_.clear();
+        nextTouchPointId_ = 0;
     }
 
-    return true;
+    if(!event.pointers.empty())
+    {
+        eventHandler_->onTouchEvent(event);
+    }
 }
 
 void InputDevice::translateTouchPoint(const QTouchEvent::TouchPoint& qtPoint, TouchPoint& ourPoint)
 {
-    // Map Qt touch point ID to our sequential ID
-    int qtId = qtPoint.id();
-    if(touchPointIdMap_.find(qtId) == touchPointIdMap_.end())
+    if(touchPointIdMap_.find(qtPoint.id()) == touchPointIdMap_.end())
     {
-        touchPointIdMap_[qtId] = nextTouchPointId_++;
+        touchPointIdMap_[qtPoint.id()] = nextTouchPointId_++;
     }
-    ourPoint.pointerId = touchPointIdMap_[qtId];
-
-    // Scale coordinates from touchscreen geometry to display geometry
-    this->mapToDisplay(qtPoint.pos(), ourPoint.x, ourPoint.y);
-
-    OPENAUTO_LOG(debug) << "[InputDevice] Touch point: qtId=" << qtId 
-                        << " ourId=" << ourPoint.pointerId 
-                        << " pos=(" << ourPoint.x << "," << ourPoint.y << ")"
-                        << " state=" << qtPoint.state();
+    ourPoint.pointerId = touchPointIdMap_[qtPoint.id()];
+    this->mapToVideo(qtPoint.pos(), ourPoint.x, ourPoint.y);
 }
 
 }

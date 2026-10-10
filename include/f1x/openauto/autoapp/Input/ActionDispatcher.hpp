@@ -57,9 +57,21 @@ public:
     // Built-in actions with a short description.
     static QVariantMap actions();
 
-    // Shell mode: keyboard -> actions according to the key map (~/.openhu/keymap.json or defaults).
+    // Keyboard -> actions according to the key map (defaults + ~/.openhu/keymap.json).
     void installKeyboardHandler();
     QVariantMap keymap() const;
+
+    // Key map editing (settings page). Keys use Qt names ("N", "Volume Up", "F5").
+    Q_INVOKABLE QVariantList keymapList() const;
+    Q_INVOKABLE void setKeyAction(const QString& key, const QString& action);
+    Q_INVOKABLE void removeKey(const QString& key);
+    Q_INVOKABLE void resetKeymap();
+    // The next key press is reported as keyCaptured() instead of triggering an action.
+    Q_INVOKABLE void captureKey(bool enabled);
+
+signals:
+    void keymapChanged();
+    void keyCaptured(const QString& key);
 
 protected:
     bool eventFilter(QObject* obj, QEvent* event) override;
@@ -67,10 +79,14 @@ protected:
 private:
     bool sendAaKey(const QString& action, Phase phase);
     void loadKeymap();
+    void saveOverrides() const;
+    static QString keyName(int key);
 
     audio::VolumeController& volume_;
     shell::ShellController& shell_;
     QHash<int, QString> keymap_;
+    QVariantMap overrides_;  // differences to the defaults, "" removes a default key
+    bool capturing_ = false;
 };
 
 }

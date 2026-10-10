@@ -185,9 +185,13 @@ namespace f1x {
 
           aap_protobuf::service::control::message::ServiceDiscoveryResponse serviceDiscoveryResponse;
           serviceDiscoveryResponse.mutable_channels()->Reserve(256);
-          serviceDiscoveryResponse.set_driver_position(aap_protobuf::service::control::message::DriverPosition::DRIVER_POSITION_RIGHT);
-          // serviceDiscoveryResponse.set_can_play_native_media_during_vr(false); // Deprecated function removed
-          serviceDiscoveryResponse.set_display_name("Crankshaft-NG");
+          serviceDiscoveryResponse.set_driver_position(
+              configuration_->getHandednessOfTrafficType() == configuration::HandednessOfTrafficType::RIGHT_HAND_DRIVE
+              ? aap_protobuf::service::control::message::DriverPosition::DRIVER_POSITION_RIGHT
+              : aap_protobuf::service::control::message::DriverPosition::DRIVER_POSITION_LEFT);
+          const std::string name = configuration_->getNameSuffix().empty()
+                                   ? std::string("OpenHU") : "OpenHU " + configuration_->getNameSuffix();
+          serviceDiscoveryResponse.set_display_name(name);
           serviceDiscoveryResponse.set_probe_for_support(false);
 
           auto *connectionConfiguration = serviceDiscoveryResponse.mutable_connection_configuration();
@@ -201,13 +205,12 @@ namespace f1x {
 
           auto *headUnitInfo = serviceDiscoveryResponse.mutable_headunit_info();
 
-          serviceDiscoveryResponse.set_display_name("Crankshaft-NG");
-          headUnitInfo->set_make("Crankshaft");
-          headUnitInfo->set_model("Universal");
-          headUnitInfo->set_year("2018");
-          headUnitInfo->set_vehicle_id("2024110822150988");
-          headUnitInfo->set_head_unit_make("f1x");
-          headUnitInfo->set_head_unit_model("Crankshaft-NG Autoapp");
+          headUnitInfo->set_make("OpenHU");
+          headUnitInfo->set_model(configuration_->getNameSuffix().empty() ? "Universal" : configuration_->getNameSuffix());
+          headUnitInfo->set_year("2026");
+          headUnitInfo->set_vehicle_id(configuration_->getVehicleId());
+          headUnitInfo->set_head_unit_make("OpenHU");
+          headUnitInfo->set_head_unit_model("OpenHU");
           headUnitInfo->set_head_unit_software_build("1");
           headUnitInfo->set_head_unit_software_version("1.0");
 

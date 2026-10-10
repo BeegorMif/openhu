@@ -32,7 +32,8 @@ Example: `websocat ws://127.0.0.1:5520` and then `{"type":"subscribe","topics":[
 | `audio.volume` | `volume` (0–100), `muted` |
 | `system.daynight` | `night` (bool) – also switches Android Auto to night mode |
 | `input.action` | `action`, `phase` (`click`, `press`, `release`) – every triggered action (one-shot event, no stored value) |
-| `ui.page` | `page` – page shown in the shell (`home`, `aa`, `apps`, `store`, `plugin:<id>`) |
+| `ui.page` | `page` – page shown in the shell (`home`, `aa`, `settings`, `plugin:<id>`) |
+| `projection.exit` | – one-shot: "exit" inside Android Auto, the shell shows its home page |
 | `plugins.state` | `plugins` – installed plugins after (re)loading |
 | `store.state` | `busy`, `status`, `error` – progress of store operations |
 
@@ -52,7 +53,7 @@ Plugins publish their own topics with `bus.publish` (e.g. `vehicle.speed`).
 | `volume.set` | `value` (0–100) | `{volume, muted}` |
 | `volume.change` | `delta` (e.g. `5`, `-5`) | `{volume, muted}` |
 | `volume.mute` | `muted` (optional, toggles without) | `{volume, muted}` |
-| `ui.navigate` | `page` (`home`, `aa`, `apps`, `store`, `plugin:<id>`) | `{}` |
+| `ui.navigate` | `page` (`home`, `aa`, `settings`, `store` = settings/apps, `plugin:<id>`) | `{}` |
 | `ui.toast` | `text`, `duration` (ms, default 3000) | `{}` |
 | `daynight.set` | `night` (bool) | `{}` |
 | `projection.reconnect` | – | `{reset:[...]}` – USB reset of the phone, Android Auto reconnects |
@@ -88,7 +89,7 @@ Steering wheel buttons, CAN, GPIO and keyboard all end up as actions (`input.act
 | `aa.home`, `aa.back`, `aa.navigation`, `aa.media`, `aa.phone` | Android Auto screens |
 | `dpad.up`, `dpad.down`, `dpad.left`, `dpad.right`, `dpad.enter`, `rotary.left`, `rotary.right` | navigation inside Android Auto |
 | `volume.up`, `volume.down` (±5 %), `volume.mute` | system volume |
-| `ui.home`, `ui.aa` | shell pages |
+| `ui.home`, `ui.aa`, `ui.settings` | shell pages |
 | `ui.back` | back inside Android Auto while it is shown, otherwise to the home page |
 | `aa.reconnect` | USB reset of the phone (also: tap on the phone icon in the status bar) |
 
@@ -97,7 +98,8 @@ For long presses send `press` and `release` separately.
 
 ## Keyboard
 
-`~/.openhu/keymap.json` (container: `docker/data/keymap.json`) overrides or extends the defaults.
+Edited on the settings page (Tasten), stored as differences to the defaults in `~/.openhu/keymap.json`
+(container: `docker/data/keymap.json`).
 Keys use Qt names, an empty action removes a key:
 
 ```json

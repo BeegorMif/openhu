@@ -16,6 +16,7 @@
 *  along with openauto. If not, see <http://www.gnu.org/licenses/>.
 */
 
+#include <fcntl.h>
 #include <thread>
 #include <aasdk/USB/AOAPDevice.hpp>
 #include <aasdk/TCP/TCPEndpoint.hpp>
@@ -32,6 +33,8 @@ namespace f1x::openauto::autoapp {
         androidAutoEntityFactory_(androidAutoEntityFactory), usbHub_(std::move(usbHub)),
         connectedAccessoriesEnumerator_(std::move(connectedAccessoriesEnumerator)),
         acceptor_(ioService, boost::asio::ip::tcp::endpoint(boost::asio::ip::tcp::v4(), 5000)), isStopped_(false) {
+      // not inherited by child processes (plugins, pactl), so a restart can bind the port again
+      ::fcntl(acceptor_.native_handle(), F_SETFD, FD_CLOEXEC);
 
   }
 

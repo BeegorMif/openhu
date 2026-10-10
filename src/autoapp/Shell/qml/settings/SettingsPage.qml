@@ -1,0 +1,400 @@
+import QtQuick 2.15
+import QtQuick.Controls 2.15
+import QtQuick.Layouts 1.15
+import OpenHU 1.0
+import ".."
+
+// Settings: categories on the left, content on the right. Every change is saved immediately.
+Item {
+    id: page
+
+    property string category: "general"
+
+    readonly property var categories: [
+        { id: "general", label: "Allgemein" },
+        { id: "aa", label: "Android Auto" },
+        { id: "audio", label: "Audio" },
+        { id: "bluetooth", label: "Bluetooth" },
+        { id: "keys", label: "Tasten" },
+        { id: "apps", label: "Apps & Store" },
+        { id: "network", label: "Netzwerk & API" },
+        { id: "info", label: "Info" }
+    ]
+
+    // A new Android Auto connection applies the pending changes
+    Connections {
+        target: eventBus
+        function onEvent(topic, data) {
+            if (topic === "projection.state" && data.connected)
+                settings.clearPending("reconnect")
+        }
+    }
+
+    RowLayout {
+        anchors.fill: parent
+        spacing: 0
+
+        // Categories
+        Rectangle {
+            Layout.fillHeight: true
+            Layout.preferredWidth: Theme.dockWidth * 2.2
+            color: Theme.surface
+
+            Column {
+                anchors.fill: parent
+                anchors.topMargin: Theme.spacing
+                spacing: 2
+
+                Repeater {
+                    model: page.categories
+                    Rectangle {
+                        width: parent.width
+                        height: Theme.fontNormal * 2.6
+                        color: page.category === modelData.id ? Theme.surfaceHigh : (mouse.pressed ? Theme.outline : "transparent")
+
+                        Rectangle {
+                            visible: page.category === modelData.id
+                            width: 4
+                            height: parent.height * 0.6
+                            anchors.verticalCenter: parent.verticalCenter
+                            radius: 2
+                            color: Theme.primary
+                        }
+                        Text {
+                            anchors.verticalCenter: parent.verticalCenter
+                            anchors.left: parent.left
+                            anchors.leftMargin: Theme.spacing
+                            text: modelData.label
+                            color: page.category === modelData.id ? Theme.text : Theme.textDim
+                            font.pixelSize: Theme.fontNormal
+                        }
+                        MouseArea {
+                            id: mouse
+                            anchors.fill: parent
+                            onClicked: page.category = modelData.id
+                        }
+                    }
+                }
+            }
+        }
+
+        ColumnLayout {
+            Layout.fillWidth: true
+            Layout.fillHeight: true
+            spacing: 0
+
+            // Changes that need a reconnect or restart
+            Rectangle {
+                Layout.fillWidth: true
+                Layout.preferredHeight: Theme.fontNormal * 3
+                visible: settings.pending.length > 0
+                color: Theme.surfaceHigh
+
+                readonly property bool restart: settings.pending.indexOf("restart") >= 0
+
+                RowLayout {
+                    anchors.fill: parent
+                    anchors.leftMargin: Theme.spacing
+                    anchors.rightMargin: Theme.spacing / 2
+
+                    Text {
+                        Layout.fillWidth: true
+                        text: parent.parent.restart ? "Einige Änderungen gelten erst nach einem Neustart von OpenHU."
+                                                    : "Änderungen gelten ab der nächsten Verbindung mit dem Telefon."
+                        color: Theme.text
+                        font.pixelSize: Theme.fontSmall
+                        elide: Text.ElideRight
+                    }
+                    Button {
+                        text: parent.parent.restart ? "Neu starten" : "Neu verbinden"
+                        highlighted: true
+                        onClicked: {
+                            if (parent.parent.restart) {
+                                shell.restart()
+                            } else {
+                                actions.trigger("aa.reconnect")
+                                settings.clearPending("reconnect")
+                            }
+                        }
+                    }
+                }
+            }
+
+            Loader {
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+                sourceComponent: {
+                    switch (page.category) {
+                    case "aa": return androidAuto
+                    case "audio": return audio
+                    case "bluetooth": return bluetooth
+                    case "keys": return keys
+                    case "apps": return apps
+                    case "network": return network
+                    case "info": return info
+                    default: return general
+                    }
+                }
+            }
+        }
+    }
+
+    // Scrollable column for a category
+    component Section: Flickable {
+        id: section
+        default property alias content: column.data
+        contentWidth: width
+        contentHeight: column.implicitHeight + Theme.spacing * 2
+        clip: true
+        boundsBehavior: Flickable.StopAtBounds
+        ScrollBar.vertical: ScrollBar {}
+
+        // plain Column: rows with wrapped text get their width from here (no layout loop)
+        Column {
+            id: column
+            x: Theme.spacing * 1.5
+            y: Theme.spacing
+            width: section.width - Theme.spacing * 3
+            spacing: Theme.spacing / 2
+        }
+    }
+
+    Component {
+        id: general
+        Section {
+            SettingChoice {
+                title: "Lenkrad"
+                description: "Android Auto ordnet Bedienelemente zur Fahrerseite hin an."
+                key: "general.driverSide"
+                options: [{ value: "left", label: "Links" }, { value: "right", label: "Rechts" }]
+            }
+            SettingText {
+                title: "Namenszusatz"
+                description: "Das Telefon zeigt „OpenHU " + (settings.values["general.nameSuffix"] || "<Zusatz>")
+                             + "“. Unterschiedliche Namen sind für das Telefon verschiedene Fahrzeuge mit eigenen Einstellungen."
+                key: "general.nameSuffix"
+                placeholder: "z. B. Golf"
+            }
+            SettingSwitch {
+                title: "Mauszeiger anzeigen"
+                description: "Für Bedienung mit Maus statt Touchscreen."
+                key: "general.showCursor"
+            }
+        }
+    }
+
+    Component {
+        id: androidAuto
+        Section {
+            SectionTitle { text: "Bild" }
+            SettingChoice {
+                title: "Auflösung"
+                description: "Android Auto kennt nur feste Auflösungen. „Auto“ wählt die kleinste, die den Anzeigebereich abdeckt (aktuell "
+                             + settings.values["aa.activeResolution"] + "); die Ränder passen sie an den Bereich an."
+                key: "aa.resolution"
+                options: [{ value: "auto", label: "Auto" }, { value: "800x480", label: "480p" },
+                          { value: "1280x720", label: "720p" }, { value: "1920x1080", label: "1080p" },
+                          { value: "2560x1440", label: "1440p" }]
+            }
+            SettingChoice {
+                title: "Bildrate"
+                key: "aa.fps"
+                options: [{ value: 30, label: "30 fps" }, { value: 60, label: "60 fps" }]
+            }
+            SettingNumber {
+                title: "Pixeldichte (DPI)"
+                description: "Größer = größere Schrift und Symbole in Android Auto."
+                key: "aa.dpi"
+                from: 80
+                to: 400
+                stepSize: 10
+            }
+            SettingRow {
+                title: "Ränder automatisch"
+                description: "Ränder so berechnen, dass Android Auto den Bereich unverzerrt füllt."
+                Switch {
+                    checked: settings.values["aa.marginWidth"] === 0 && settings.values["aa.marginHeight"] === 0
+                    onToggled: {
+                        settings.set("aa.marginWidth", checked ? 0 : 20)
+                        settings.set("aa.marginHeight", 0)
+                    }
+                }
+            }
+            SettingNumber {
+                visible: settings.values["aa.marginWidth"] !== 0 || settings.values["aa.marginHeight"] !== 0
+                title: "Rand links/rechts (Pixel)"
+                key: "aa.marginWidth"
+                to: 600
+                stepSize: 2
+            }
+            SettingNumber {
+                visible: settings.values["aa.marginWidth"] !== 0 || settings.values["aa.marginHeight"] !== 0
+                title: "Rand oben/unten (Pixel)"
+                key: "aa.marginHeight"
+                to: 600
+                stepSize: 2
+            }
+
+            SectionTitle { text: "Bedienung und Ton" }
+            SettingSwitch {
+                title: "Touchscreen"
+                key: "aa.touchscreen"
+            }
+            SettingSwitch {
+                title: "Musik und Medien"
+                description: "Medienton von Android Auto über OpenHU ausgeben."
+                key: "aa.audioMedia"
+            }
+            SettingSwitch {
+                title: "Navigationsansagen"
+                key: "aa.audioGuidance"
+            }
+            SettingSwitch {
+                title: "Telefonate"
+                key: "aa.audioTelephony"
+            }
+
+            SectionTitle { text: "Verbindung" }
+            SettingSwitch {
+                title: "Kabellos (WLAN)"
+                description: "Android Auto über Bluetooth und WLAN verbinden. Braucht einen Bluetooth-Adapter und einen WLAN-Hotspot."
+                key: "aa.wireless"
+            }
+            SettingRow {
+                title: "Telefon neu verbinden"
+                description: "Setzt das per USB verbundene Telefon zurück, als wäre es neu eingesteckt."
+                Button {
+                    text: "Neu verbinden"
+                    onClicked: actions.trigger("aa.reconnect")
+                }
+            }
+        }
+    }
+
+    Component {
+        id: audio
+        Section {
+            SettingRow {
+                title: "Lautstärke"
+                description: volume.muted ? "Stumm" : volume.volume + " %"
+                Row {
+                    spacing: Theme.spacing / 2
+                    Slider {
+                        width: Theme.dockWidth * 3
+                        from: 0
+                        to: 100
+                        stepSize: 1
+                        value: volume.volume
+                        onMoved: volume.volume = value
+                    }
+                    Switch {
+                        text: "Stumm"
+                        checked: volume.muted
+                        onToggled: volume.muted = checked
+                    }
+                }
+            }
+            SettingChoice {
+                title: "Audioausgabe"
+                description: "RtAudio hat meist die geringere Verzögerung, Qt Multimedia ist die Alternative bei Problemen."
+                key: "audio.backend"
+                options: [{ value: "rtaudio", label: "RtAudio" }, { value: "qt", label: "Qt Multimedia" }]
+            }
+        }
+    }
+
+    Component {
+        id: bluetooth
+        Section {
+            SettingChoice {
+                title: "Bluetooth-Adapter"
+                description: "Wird für kabelloses Android Auto gebraucht."
+                key: "bluetooth.adapter"
+                options: [{ value: "none", label: "Keiner" }, { value: "local", label: "Lokal" }]
+            }
+            SettingText {
+                visible: settings.values["bluetooth.adapter"] === "local"
+                title: "Adapter-Adresse"
+                description: "MAC-Adresse des Adapters, z. B. aus „bluetoothctl list“."
+                key: "bluetooth.address"
+                placeholder: "00:11:22:33:44:55"
+            }
+        }
+    }
+
+    Component {
+        id: keys
+        KeymapSettings {}
+    }
+
+    Component {
+        id: apps
+        StorePage {}
+    }
+
+    Component {
+        id: network
+        Section {
+            SettingNumber {
+                title: "API-Port"
+                description: "WebSocket-API für Plugins und eigene Programme."
+                key: "api.port"
+                from: 1024
+                to: 65535
+            }
+            SettingSwitch {
+                title: "API im Netzwerk freigeben"
+                description: "Sonst nur auf diesem Gerät erreichbar. Die API hat keine Anmeldung – nur in vertrauenswürdigen Netzen einschalten."
+                key: "api.network"
+            }
+            SettingRow {
+                title: "Adresse"
+                description: settings.info.apiUrl
+            }
+        }
+    }
+
+    Component {
+        id: info
+        Section {
+            SettingRow {
+                title: "OpenHU"
+                description: "Version " + settings.info.version + (settings.info.git ? " (" + settings.info.git + ")" : "") + " · Qt " + settings.info.qt
+            }
+            SettingRow {
+                title: "Konfiguration"
+                description: settings.info.configFile
+            }
+            SettingRow {
+                title: "Fahrzeug-ID"
+                description: settings.info.vehicleId + " (aus dem Namenszusatz)"
+            }
+            SettingRow {
+                title: "Daten, Plugins und Logs"
+                description: settings.info.dataDir
+            }
+            SettingRow {
+                title: "OpenHU neu starten"
+                Button {
+                    text: "Neu starten"
+                    onClicked: shell.restart()
+                }
+            }
+            SettingRow {
+                title: "OpenHU beenden"
+                Button {
+                    text: "Beenden"
+                    onClicked: shell.quit()
+                }
+            }
+            Text {
+                width: parent ? parent.width : 0
+                topPadding: Theme.spacing
+                wrapMode: Text.WordWrap
+                text: "Basiert auf OpenAuto (f1x.studio, OpenCarDev) und aasdk. Lizenz: GPL-3.0."
+                color: Theme.textDim
+                font.pixelSize: Theme.fontSmall
+            }
+        }
+    }
+}

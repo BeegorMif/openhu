@@ -16,6 +16,7 @@
 */
 
 #include <QCoreApplication>
+#include <QGuiApplication>
 #include <QDir>
 #include <QFile>
 #include <QJsonDocument>
@@ -119,6 +120,7 @@ QVariantMap ActionDispatcher::actions()
         {"dpad.enter", "Auswählen"}, {"rotary.left", "Drehregler links"}, {"rotary.right", "Drehregler rechts"},
         {"volume.up", "Lauter"}, {"volume.down", "Leiser"}, {"volume.mute", "Stumm an/aus"},
         {"ui.home", "Shell: Startseite"}, {"ui.aa", "Shell: Android Auto anzeigen"},
+        {"ui.settings", "Shell: Einstellungen"},
         {"ui.back", "Zurück (Android Auto oder Shell)"},
         {"aa.reconnect", "Telefon per USB-Reset neu verbinden"},
     };
@@ -174,6 +176,11 @@ bool ActionDispatcher::trigger(const QString& action, Phase phase)
     if(action == QLatin1String("ui.aa"))
     {
         if(once) shell_.navigate("aa");
+        return true;
+    }
+    if(action == QLatin1String("ui.settings"))
+    {
+        if(once) shell_.navigate("settings");
         return true;
     }
     if(action == QLatin1String("ui.back"))
@@ -243,26 +250,97 @@ QVariantMap ActionDispatcher::keymap() const
     QVariantMap result;
     for(auto it = keymap_.cbegin(); it != keymap_.cend(); ++it)
     {
-        result.insert(QKeySequence(it.key()).toString(), it.value());
+        result.insert(keyName(it.key()), it.value());
     }
     return result;
 }
 
+QVariantList ActionDispatcher::keymapList() const
+{
+    QVariantList list;
+    const QVariantMap map = this->keymap();
+    for(auto it = map.cbegin(); it != map.cend(); ++it)
+    {
+        list.append(QVariantMap{{"key", it.key()}, {"action", it.value()}, {"custom", overrides_.contains(it.key())}});
+    }
+    return list;
+}
+
+void ActionDispatcher::setKeyAction(const QString& key, const QString& action)
+{
+    const QString name = keyName(QKeySequence(key)[0] & ~Qt::KeyboardModifierMask);
+    if(name.isEmpty())
+    {
+        return;
+    }
+
+    // Back to the default: no override needed
+    if(defaultKeymap().value(name).toString() == action)
+    {
+        overrides_.remove(name);
+    }
+    else
+    {
+        overrides_.insert(name, action);
+    }
+
+    this->saveOverrides();
+    this->loadKeymap();
+    emit keymapChanged();
+}
+
+void ActionDispatcher::removeKey(const QString& key)
+{
+    this->setKeyAction(key, QString());
+}
+
+void ActionDispatcher::resetKeymap()
+{
+    overrides_.clear();
+    this->saveOverrides();
+    this->loadKeymap();
+    emit keymapChanged();
+}
+
+void ActionDispatcher::captureKey(bool enabled)
+{
+    capturing_ = enabled;
+}
+
+QString ActionDispatcher::keyName(int key)
+{
+    return QKeySequence(key).toString(QKeySequence::PortableText);
+}
+
 void ActionDispatcher::loadKeymap()
 {
-    QVariantMap keymap = defaultKeymap();
-
-    // {"N": "media.next", "F5": "camera.toggle", "Volume Up": "volume.up"} - entries replace the defaults,
+    // keymap.json: {"N": "media.next", "F5": "camera.toggle", "H": ""} - entries replace the defaults,
     // an empty action removes a key.
     QFile file(QDir::homePath() + "/.openhu/keymap.json");
     if(file.open(QIODevice::ReadOnly))
     {
+        overrides_.clear();
         const auto custom = QJsonDocument::fromJson(file.readAll()).object().toVariantMap();
         for(auto it = custom.cbegin(); it != custom.cend(); ++it)
         {
-            keymap.insert(it.key(), it.value());
+            // normalize the key names ("Volume Up", "volume up" -> "Volume Up")
+            const QKeySequence sequence(it.key());
+            if(!sequence.isEmpty())
+            {
+                overrides_.insert(keyName(sequence[0] & ~Qt::KeyboardModifierMask), it.value());
+            }
         }
-        OPENAUTO_LOG(info) << "[ActionDispatcher] loaded " << file.fileName().toStdString();
+    }
+
+    QVariantMap keymap;
+    const QVariantMap defaults = defaultKeymap();
+    for(auto it = defaults.cbegin(); it != defaults.cend(); ++it)
+    {
+        keymap.insert(keyName(QKeySequence(it.key())[0] & ~Qt::KeyboardModifierMask), it.value());
+    }
+    for(auto it = overrides_.cbegin(); it != overrides_.cend(); ++it)
+    {
+        keymap.insert(it.key(), it.value());
     }
 
     keymap_.clear();
@@ -270,23 +348,56 @@ void ActionDispatcher::loadKeymap()
     {
         const QKeySequence sequence(it.key());
         const QString action = it.value().toString();
-        if(sequence.isEmpty() || action.isEmpty())
+        if(!sequence.isEmpty() && !action.isEmpty())
         {
-            continue;
+            keymap_.insert(sequence[0] & ~Qt::KeyboardModifierMask, action);
         }
-        keymap_.insert(sequence[0] & ~Qt::KeyboardModifierMask, action);
+    }
+}
+
+void ActionDispatcher::saveOverrides() const
+{
+    QDir().mkpath(QDir::homePath() + "/.openhu");
+    QFile file(QDir::homePath() + "/.openhu/keymap.json");
+    if(overrides_.isEmpty())
+    {
+        file.remove();
+    }
+    else if(file.open(QIODevice::WriteOnly))
+    {
+        file.write(QJsonDocument(QJsonObject::fromVariantMap(overrides_)).toJson());
     }
 }
 
 bool ActionDispatcher::eventFilter(QObject* obj, QEvent* event)
 {
-    if(event->type() == QEvent::KeyPress || event->type() == QEvent::KeyRelease)
+    if((event->type() == QEvent::KeyPress || event->type() == QEvent::KeyRelease) && obj->isWindowType())
     {
-        auto* key = static_cast<QKeyEvent*>(event);
-        const auto it = keymap_.constFind(key->key());
-
         // Every window gets the event, handle it only once (for the focused window).
-        if(it != keymap_.constEnd() && obj->isWindowType())
+        auto* key = static_cast<QKeyEvent*>(event);
+
+        if(capturing_)
+        {
+            if(event->type() == QEvent::KeyPress && !key->isAutoRepeat() && key->key() != 0)
+            {
+                capturing_ = false;
+                emit keyCaptured(keyName(key->key()));
+            }
+            return true;
+        }
+
+        // Typing in a text field: all keys belong to the field, except media and volume keys
+        QObject* focus = QGuiApplication::focusObject();
+        const bool textInput = focus != nullptr && focus->metaObject()->indexOfProperty("cursorPosition") >= 0;
+        const bool mediaKey = (key->key() >= Qt::Key_VolumeDown && key->key() <= Qt::Key_MediaLast)
+                              || key->key() == Qt::Key_MediaTogglePlayPause;
+        if(textInput && !mediaKey)
+        {
+            return QObject::eventFilter(obj, event);
+        }
+
+        const auto it = keymap_.constFind(key->key());
+        if(it != keymap_.constEnd())
         {
             if(!key->isAutoRepeat())
             {

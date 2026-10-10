@@ -268,15 +268,8 @@ namespace f1x::openauto::autoapp::service::sensor {
   }
 
   bool SensorService::isNightMode() {
-    // Set via API/plugins ("daynight.set", e.g. from the light sensor or CAN), the file is the classic trigger.
-    return core::EventBus::instance().last("system.daynight").value("night").toBool()
-           || is_file_exist("/tmp/night_mode_enabled");
-  }
-
-  bool SensorService::is_file_exist(const char *fileName) {
-    OPENAUTO_LOG(info) << "[SensorService] is_file_exist()";
-    std::ifstream ifile(fileName, std::ios::in);
-    return ifile.good();
+    // Set via API/plugins ("daynight.set", e.g. from a light sensor or the CAN bus)
+    return core::EventBus::instance().last("system.daynight").value("night").toBool();
   }
 
   void SensorService::onChannelError(const aasdk::error::Error &e) {

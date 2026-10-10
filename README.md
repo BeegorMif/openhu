@@ -20,6 +20,8 @@ team and uses [aasdk](https://github.com/opencardev/aasdk). The original README 
   configured like apt sources (`github user/repo`) – see [docs/plugins.md](docs/plugins.md).
   Official plugins: CAN bus, steering wheel keys, reverse camera, FM/AM radio
   ([openhu-plugins](https://github.com/average-web-dev/openhu-plugins))
+- **Settings page** in the shell: Android Auto (automatic resolution for the available area, DPI,
+  audio channels, wireless), audio, Bluetooth, key map, apps & store, API, name shown on the phone
 - Reconnect the phone without unplugging (USB reset), night mode via API/CAN
 
 ## Development in a container
@@ -37,9 +39,8 @@ aasdk comes from the fork [average-web-dev/aasdk](https://github.com/average-web
 `openhu` (upstream opencardev/aasdk plus navigation state and phone status handling). Local
 development uses the checkout next to this repository, CI clones the branch.
 
-Configuration: `docker/config/openhu.ini` (`[General] UI=qml|legacy`, `[Api] Port`, …),
-plugins and store data: `docker/data/`. The classic OpenAuto/Crankshaft interface is still available
-with `UI=legacy`.
+Settings are edited in the shell (Einstellungen) and stored in `docker/config/openhu.ini`;
+plugins, store sources, key map and logs live in `docker/data/`.
 
 ## License
 

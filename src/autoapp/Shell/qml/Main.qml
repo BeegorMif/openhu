@@ -3,6 +3,7 @@ import OpenHU 1.0
 import QtQuick.Window 2.15
 import QtQuick.Layouts 1.15
 import "."
+import "settings"
 
 Window {
     id: root
@@ -10,13 +11,27 @@ Window {
     title: "OpenHU"
     color: Theme.background
 
-    // "home" | "aa" | "apps" | "store" | "plugin:<id>"
+    // "home" | "aa" | "settings" | "plugin:<id>"
     property string page: "home"
+    property string settingsCategory: "general"
+
+    function navigate(name) {
+        // Apps and store live in the settings
+        if (name === "apps" || name === "store") {
+            settingsCategory = "apps"
+            name = "settings"
+        }
+        page = name
+    }
     onPageChanged: shell.setCurrentPage(page)
     Component.onCompleted: shell.setCurrentPage(page)
 
-    onWidthChanged: Theme.scale = Math.min(width / 1280, height / 720)
-    onHeightChanged: Theme.scale = Math.min(width / 1280, height / 720)
+    // Sizes are designed for 1280x720 (720x1280 in portrait)
+    function updateScale() {
+        Theme.scale = width >= height ? Math.min(width / 1280, height / 720) : Math.min(width / 720, height / 1280)
+    }
+    onWidthChanged: updateScale()
+    onHeightChanged: updateScale()
 
     // Show Android Auto as soon as the phone starts projecting, fall back to home when it stops.
     Connections {
@@ -29,10 +44,19 @@ Window {
         }
     }
 
+    // "Exit" inside Android Auto
+    Connections {
+        target: eventBus
+        function onEvent(topic, data) {
+            if (topic === "projection.exit" && root.page === "aa")
+                root.page = "home"
+        }
+    }
+
     // Requests from the API (ui.navigate, ui.toast)
     Connections {
         target: shell
-        function onNavigateRequested(page) { root.page = page }
+        function onNavigateRequested(page) { root.navigate(page) }
         function onToastRequested(text, durationMs) { toast.show(text, durationMs) }
     }
 
@@ -44,7 +68,7 @@ Window {
             Layout.fillHeight: true
             Layout.preferredWidth: Theme.dockWidth
             currentPage: root.page
-            onPageSelected: root.page = name
+            onPageSelected: root.navigate(name)
         }
 
         ColumnLayout {
@@ -73,16 +97,13 @@ Window {
                     visible: root.page === "aa"
                 }
 
-                AppsPage {
-                    anchors.fill: parent
-                    visible: root.page === "apps"
-                    onOpenPage: root.page = name
-                }
-
                 Loader {
                     anchors.fill: parent
-                    active: root.page === "store"
-                    source: "StorePage.qml"
+                    active: root.page === "settings"
+                    sourceComponent: SettingsPage {
+                        category: root.settingsCategory
+                        onCategoryChanged: root.settingsCategory = category
+                    }
                 }
 
                 // Plugin pages, loaded when first shown and kept alive afterwards

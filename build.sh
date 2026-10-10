@@ -22,12 +22,12 @@ set -e
 # Usage: ./build.sh [release|debug] [--clean] [--package] [--output-dir DIR]
 
 # Default values
-NOPI_FLAG="-DNOPI=ON"
+NOPI_FLAG=""
 CLEAN_BUILD=false
 PACKAGE=false
 OUTPUT_DIR="/output"
 WITH_AASDK=false
-AASDK_BRANCH="newdev"
+AASDK_BRANCH="openhu"
 AASDK_PATH=""
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SOURCE_DIR="${SCRIPT_DIR}"
@@ -88,7 +88,7 @@ while [[ $# -gt 0 ]]; do
             echo "  --package      Create DEB packages after building"
             echo "  --output-dir   Directory to copy packages (default: /output)"
             echo "  --with-aasdk   Clone AASDK branch and build/install it"
-            echo "  --aasdk-branch Branch to use for AASDK (default: newdev)"
+            echo "  --aasdk-branch Branch to use for AASDK (default: openhu)"
             echo "  --aasdk-path   Build/install AASDK from a local source tree instead of cloning"
             echo "  --help         Show this help message"
             echo ""
@@ -118,7 +118,7 @@ if [ "$WITH_AASDK" = true ]; then
         if [ -d "aasdk-build" ]; then
             rm -rf "aasdk-build"
         fi
-        git clone --branch "${AASDK_BRANCH}" https://github.com/opencardev/aasdk.git aasdk-build
+        git clone --branch "${AASDK_BRANCH}" https://github.com/average-web-dev/aasdk.git aasdk-build
         cd aasdk-build
     fi
     echo "Building and installing AASDK..."
@@ -145,7 +145,6 @@ fi
 echo "Source directory: ${SOURCE_DIR}"
 echo "Build directory: ${BUILD_DIR}"
 echo "Build type: ${CMAKE_BUILD_TYPE}"
-echo "NOPI: ON (no Pi hardware dependencies)"
 echo "Package: ${PACKAGE}"
 
 # Clean build directory if requested

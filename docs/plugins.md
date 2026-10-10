@@ -2,7 +2,7 @@
 
 A plugin is a folder `~/.openhu/plugins/<id>/` (container: `docker/data/plugins/<id>/`) with a `manifest.json`.
 It can bring a QML page, an overlay and a background process in any language that talks to the
-[API](api.md). Plugins are installed from the store (Apps → Store) or copied by hand.
+[API](api.md). Plugins are installed from the store (Einstellungen → Apps & Store) or copied by hand.
 
 ## manifest.json
 
@@ -26,10 +26,10 @@ It can bring a QML page, an overlay and a background process in any language tha
 | `id` | folder name, letters, digits, `.`, `-`, `_` |
 | `version` | `1.2.3`, compared numerically for updates |
 | `arch` | `all`, `amd64`, `arm64`, `armhf` |
-| `ui.page` | QML page, shown as `plugin:<id>` (Apps page, `ui.navigate`) |
+| `ui.page` | QML page, shown as `plugin:<id>` (dock, "Öffnen" in the store, `ui.navigate`) |
 | `ui.dock` | page as dock entry (users can change it, `plugin.setDock`) |
 | `ui.overlay` | QML above the whole shell, shown with `ui.overlay.show` / `ui.overlay.hide` |
-| `ui.icon` | SVG/PNG for dock and Apps page |
+| `ui.icon` | SVG/PNG for the dock |
 | `process.exec` | started with the plugin dir as working directory; `.py`/`.sh` without executable bit run with python3/bash |
 | `process.restart` | `on-failure` (default), `always`, `never`; crash loops back off up to 60 s |
 | `permissions` | shown in the store before installing (informational) |

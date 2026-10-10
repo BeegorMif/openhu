@@ -51,8 +51,10 @@ Rectangle {
 
             Image {
                 anchors.fill: parent
-                source: metadata.data.cover || "qrc:/coverlogo.png"
-                fillMode: Image.PreserveAspectCrop
+                anchors.margins: metadata.data.cover ? 0 : parent.width * 0.25
+                source: metadata.data.cover || "qrc:/mp3-hot.png"
+                fillMode: metadata.data.cover ? Image.PreserveAspectCrop : Image.PreserveAspectFit
+                opacity: metadata.data.cover ? 1 : 0.5
             }
         }
 

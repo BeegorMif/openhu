@@ -16,8 +16,7 @@
 *  along with openauto. If not, see <http://www.gnu.org/licenses/>.
 */
 
-#include <QApplication>
-#include <QScreen>
+#include <QObject>
 
 #include <aasdk/Channel/MediaSink/Audio/Channel/MediaAudioChannel.hpp>
 #include <aasdk/Channel/MediaSink/Audio/Channel/SystemAudioChannel.hpp>
@@ -37,12 +36,10 @@
 #include <f1x/openauto/autoapp/Service/Sensor/SensorService.hpp>
 #include <f1x/openauto/autoapp/Service/Bluetooth/BluetoothService.hpp>
 #include <f1x/openauto/autoapp/Service/InputSource/InputSourceService.hpp>
-#include <f1x/openauto/autoapp/Service/WifiProjection/WifiProjectionService.hpp>
 #include <f1x/openauto/autoapp/Service/NavigationStatus/NavigationStatusService.hpp>
 #include <f1x/openauto/autoapp/Service/MediaPlaybackStatus/MediaPlaybackStatusService.hpp>
 #include <f1x/openauto/autoapp/Service/PhoneStatus/PhoneStatusService.hpp>
 #include <f1x/openauto/autoapp/Projection/QtVideoOutput.hpp>
-#include <f1x/openauto/autoapp/Projection/OMXVideoOutput.hpp>
 #include <f1x/openauto/autoapp/Projection/RtAudioOutput.hpp>
 #include <f1x/openauto/autoapp/Projection/QtAudioOutput.hpp>
 #include <f1x/openauto/autoapp/Projection/QtAudioInput.hpp>
@@ -73,13 +70,8 @@ namespace f1x::openauto::autoapp::service {
     serviceList.emplace_back(std::make_shared<phonestatus::PhoneStatusService>(ioService_, messenger));
     if (configuration_->getWirelessProjectionEnabled())
     {
-        // TODO: What is WiFi Projection Service?
-        /*
-         * The btservice seems to handle connecting over bluetooth and allow AA to establish a WiFi connection for Projection
-         * If WifiProjection is a legitimate service, then it seems clear it is not what we think it actually is.
-         */
+        // Wireless Android Auto: btservice negotiates the WiFi connection over Bluetooth
         serviceList.emplace_back(this->createBluetoothService(messenger));
-        // serviceList.emplace_back(this->createWifiProjectionService(messenger));
     }
 
     return serviceList;
@@ -103,31 +95,13 @@ namespace f1x::openauto::autoapp::service {
 
   IService::Pointer ServiceFactory::createInputService(aasdk::messenger::IMessenger::Pointer messenger) {
     OPENAUTO_LOG(info) << "[ServiceFactory] createInputService()";
-    QRect videoGeometry;
-    switch (configuration_->getVideoResolution()) {
-      case aap_protobuf::service::media::sink::message::VideoCodecResolutionType::VIDEO_1280x720:
-        OPENAUTO_LOG(info) << "[ServiceFactory] Resolution 1280x720";
-        videoGeometry = QRect(0, 0, 1280, 720);
-        break;
-      case aap_protobuf::service::media::sink::message::VideoCodecResolutionType::VIDEO_1920x1080:
-        OPENAUTO_LOG(info) << "[ServiceFactory] Resolution 1920x1080";
-        videoGeometry = QRect(0, 0, 1920, 1080);
-        break;
-      default:
-        OPENAUTO_LOG(info) << "[ServiceFactory] Resolution 800x480";
-        videoGeometry = QRect(0, 0, 800, 480);
-        break;
-    }
+    const QSize videoSize = shell::AaBridge::instance().videoSize();
+    QRect videoGeometry(QPoint(0, 0), videoSize);
+    OPENAUTO_LOG(info) << "[ServiceFactory] Resolution " << videoSize.width() << "x" << videoSize.height();
 
-    QScreen *screen = QGuiApplication::primaryScreen();
-    QRect screenGeometry = screen == nullptr ? QRect(0, 0, 1, 1) : screen->geometry();
-    if (shell::AaBridge::instance().enabled()) {
-      // Shell mode: the AaSurface delivers touches already mapped to video coordinates.
-      screenGeometry = videoGeometry;
-    }
+    // Touches arrive from the shell's AaSurface already mapped to video coordinates
     projection::IInputDevice::Pointer inputDevice(
-        std::make_shared<projection::InputDevice>(*QApplication::instance(), configuration_,
-                                                  std::move(screenGeometry), std::move(videoGeometry)));
+        std::make_shared<projection::InputDevice>(configuration_, std::move(videoGeometry)));
 
     return std::make_shared<inputsource::InputSourceService>(ioService_, messenger, std::move(inputDevice));
   }
@@ -188,12 +162,8 @@ namespace f1x::openauto::autoapp::service {
     serviceList.emplace_back(
         std::make_shared<mediasink::SystemAudioService>(ioService_, messenger, std::move(systemAudioOutput)));
 
-#ifdef USE_OMX
-    auto videoOutput(std::make_shared<projection::OMXVideoOutput>(configuration_));
-#else
     projection::IVideoOutput::Pointer videoOutput(new projection::QtVideoOutput(configuration_),
                                                   std::bind(&QObject::deleteLater, std::placeholders::_1));
-#endif
 
     OPENAUTO_LOG(info) << "[ServiceFactory] Video Channel enabled";
     serviceList.emplace_back(
@@ -212,11 +182,6 @@ namespace f1x::openauto::autoapp::service {
   IService::Pointer ServiceFactory::createSensorService(aasdk::messenger::IMessenger::Pointer messenger) {
     OPENAUTO_LOG(info) << "[ServiceFactory] createSensorService()";
     return std::make_shared<sensor::SensorService>(ioService_, messenger);
-  }
-
-  IService::Pointer ServiceFactory::createWifiProjectionService(aasdk::messenger::IMessenger::Pointer messenger) {
-    OPENAUTO_LOG(info) << "[ServiceFactory] createWifiProjectionService()";
-    return std::make_shared<wifiprojection::WifiProjectionService>(ioService_, messenger, configuration_);
   }
 
 }

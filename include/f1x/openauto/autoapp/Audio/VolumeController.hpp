@@ -51,6 +51,8 @@ public:
     Q_INVOKABLE void setMuted(bool muted);
     Q_INVOKABLE void toggleMute();
     Q_INVOKABLE void refresh();
+    // Ends the "pactl subscribe" monitor (shutdown/restart)
+    void stop();
 
 signals:
     void changed();

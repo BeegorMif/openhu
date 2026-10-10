@@ -16,6 +16,7 @@
 *  along with openauto. If not, see <http://www.gnu.org/licenses/>.
 */
 
+#include <f1x/openauto/autoapp/Core/EventBus.hpp>
 #include <fstream>
 #include <f1x/openauto/autoapp/Service/MediaSink/VideoMediaSinkService.hpp>
 
@@ -215,15 +216,9 @@ namespace f1x {
 
             if (request.mode() ==
                 aap_protobuf::service::media::video::message::VideoFocusMode::VIDEO_FOCUS_NATIVE) {
-              // Return to OS
+              // "Exit" in Android Auto: the shell shows its home page
               OPENAUTO_LOG(info) << "[VideoMediaSinkService] Returning to OS.";
-              try {
-                if (!std::ifstream("/tmp/entityexit")) {
-                  std::ofstream("/tmp/entityexit");
-                }
-              } catch (...) {
-                OPENAUTO_LOG(error) << "[VideoMediaSinkService] Error in creating /tmp/entityexit";
-              }
+              core::EventBus::instance().emitEvent("projection.exit", {});
             }
 
             this->sendVideoFocusIndication();

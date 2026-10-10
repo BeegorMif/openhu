@@ -15,7 +15,14 @@
         <file>qml/Toast.qml</file>
         <file>qml/PhoneIcon.qml</file>
         <file>qml/SignalBars.qml</file>
-        <file>qml/AppsPage.qml</file>
+        <file>qml/settings/SettingsPage.qml</file>
+        <file>qml/settings/SettingRow.qml</file>
+        <file>qml/settings/SettingSwitch.qml</file>
+        <file>qml/settings/SettingChoice.qml</file>
+        <file>qml/settings/SettingNumber.qml</file>
+        <file>qml/settings/SettingText.qml</file>
+        <file>qml/settings/SectionTitle.qml</file>
+        <file>qml/settings/KeymapSettings.qml</file>
         <file>qml/StorePage.qml</file>
     </qresource>
 </RCC>
