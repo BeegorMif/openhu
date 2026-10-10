@@ -1,0 +1,4 @@
+# Build-Kontext für Dockerfile.run klein halten
+*
+!entrypoint.sh
+!output/

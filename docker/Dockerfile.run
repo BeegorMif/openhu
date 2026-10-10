@@ -1,0 +1,50 @@
+# Laufzeit-Image für OpenAuto.
+# Basiert auf dem Build-Image, weil aasdk dort nur nach /usr/local installiert
+# (nicht als .deb paketiert) wurde.
+FROM openauto:build
+
+ARG DEBIAN_FRONTEND=noninteractive
+
+# Laufzeit-Werkzeuge (eigene Schicht, damit sie bei jedem Dev-Build aus dem Cache kommt).
+# Xephyr stellt das virtuelle Autodisplay bereit (ein Fenster auf dem Host).
+RUN apt-get update && apt-get install -y \
+        gstreamer1.0-pulseaudio \
+        libpulse0 \
+        pulseaudio-utils \
+        usbutils \
+        fonts-dejavu-core \
+        xserver-xephyr \
+        qml-module-qtquick2 \
+        qml-module-qtquick-window2 \
+        qml-module-qtquick-layouts \
+        qml-module-qtquick-controls2 \
+        qml-module-qtmultimedia \
+        libqt5websockets5 \
+        can-utils \
+        python3 \
+        python3-websockets \
+        rtl-sdr \
+        sox \
+        x11-apps \
+        xdotool \
+        imagemagick \
+    && rm -rf /var/lib/apt/lists/*
+
+# Ergebnis von ./dev.sh build bzw. ./dev.sh image:
+#   output/*.deb        OpenAuto-Paket (zieht Qt-Multimedia-Plugins, GStreamer selbst mit)
+#   output/aasdk-root/  optional: frisch gebautes aasdk aus ./aasdk-ref (überschreibt /usr/local)
+COPY output/ /tmp/oa-output/
+RUN if [ -d /tmp/oa-output/aasdk-root ]; then \
+        rm -f /usr/local/lib/libaasdk.so* /usr/local/lib/libaap_protobuf.so* \
+        && cp -a /tmp/oa-output/aasdk-root/. /; \
+    fi \
+    && apt-get update && apt-get install -y --reinstall /tmp/oa-output/*.deb \
+    && rm -rf /var/lib/apt/lists/* /tmp/oa-output \
+    && ldconfig
+
+COPY entrypoint.sh /usr/local/bin/openauto-entrypoint
+
+# openauto.ini & Co. landen im Arbeitsverzeichnis -> als Volume einhängen
+WORKDIR /config
+
+ENTRYPOINT ["/usr/local/bin/openauto-entrypoint"]

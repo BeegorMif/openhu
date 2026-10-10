@@ -9,3 +9,8 @@ CMakeLists.txt.user
 .idea/
 build-debug/
 build-release/
+
+# Container workflow (docker/): local configuration, plugin data and build output
+docker/config/
+docker/data/
+docker/output/

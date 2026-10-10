@@ -39,3 +39,6 @@ test_*/
 *.tmp
 *.log
 *.bak
+
+# Container workflow (scripts and runtime data, not needed in the build image)
+docker/
