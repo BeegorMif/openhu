@@ -1,4 +1,5 @@
 import QtQuick 2.15
+import OpenAuto 1.0
 import QtQuick.Window 2.15
 import QtQuick.Layouts 1.15
 import "."
@@ -9,8 +10,10 @@ Window {
     title: "OpenAuto"
     color: Theme.background
 
-    // "home" | "aa"; plugins add their own pages later
+    // "home" | "aa" | "apps" | "store" | "plugin:<id>"
     property string page: "home"
+    onPageChanged: shell.setCurrentPage(page)
+    Component.onCompleted: shell.setCurrentPage(page)
 
     onWidthChanged: Theme.scale = Math.min(width / 1280, height / 720)
     onHeightChanged: Theme.scale = Math.min(width / 1280, height / 720)
@@ -68,6 +71,61 @@ Window {
                 AaPage {
                     anchors.fill: parent
                     visible: root.page === "aa"
+                }
+
+                AppsPage {
+                    anchors.fill: parent
+                    visible: root.page === "apps"
+                    onOpenPage: root.page = name
+                }
+
+                Loader {
+                    anchors.fill: parent
+                    active: root.page === "store"
+                    source: "StorePage.qml"
+                }
+
+                // Plugin pages, loaded when first shown and kept alive afterwards
+                Repeater {
+                    model: plugins.plugins
+
+                    Loader {
+                        id: pluginPage
+                        anchors.fill: parent
+                        visible: root.page === "plugin:" + modelData.id
+                        property bool used: false
+                        onVisibleChanged: if (visible) used = true
+                        active: modelData.enabled && modelData.page !== "" && (visible || used)
+                        source: modelData.page
+
+                        Text {
+                            anchors.centerIn: parent
+                            visible: pluginPage.status === Loader.Error
+                            text: modelData.name + ": Seite kann nicht geladen werden (Log: data/logs)"
+                            color: Theme.textDim
+                            font.pixelSize: Theme.fontNormal
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // Plugin overlays (e.g. reverse camera) above the whole shell, shown via plugins.setOverlayVisible / ui.overlay.show
+    Repeater {
+        model: plugins.plugins
+
+        Loader {
+            anchors.fill: parent
+            property bool shown: plugins.overlayVisible(modelData.id)
+            active: shown && modelData.overlay !== ""
+            source: modelData.overlay
+
+            Connections {
+                target: plugins
+                function onOverlayChanged(id, visible) {
+                    if (id === modelData.id)
+                        shown = visible
                 }
             }
         }

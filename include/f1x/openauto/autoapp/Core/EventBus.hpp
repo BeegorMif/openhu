@@ -44,6 +44,8 @@ public:
 
     // Thread safe, may be called from any thread. Subscribers are notified in the GUI thread.
     void publish(const QString& topic, const QVariantMap& data);
+    // Like publish, but without keeping the value: commands/one-shot events ("radio.command").
+    void emitEvent(const QString& topic, const QVariantMap& data);
 
     Q_INVOKABLE QVariantMap last(const QString& topic) const;
     QHash<QString, QVariantMap> snapshot() const;

@@ -18,6 +18,7 @@
 #pragma once
 
 #include <QObject>
+#include <f1x/openauto/autoapp/Core/EventBus.hpp>
 
 namespace f1x
 {
@@ -38,6 +39,11 @@ public:
 
     Q_INVOKABLE void openSettings() { emit settingsRequested(); }
     Q_INVOKABLE void quit() { emit quitRequested(); }
+    // Main.qml reports page changes -> "ui.page" {page}
+    Q_INVOKABLE void setCurrentPage(const QString& page)
+    {
+        core::EventBus::instance().publish("ui.page", {{"page", page}});
+    }
 
     // Requested through the API (ui.navigate, ui.toast), handled in Main.qml.
     void navigate(const QString& page) { emit navigateRequested(page); }

@@ -1,7 +1,6 @@
 <RCC>
     <qresource prefix="/shell">
-        <file>qml/qmldir</file>
-        <file>qml/Theme.qml</file>
+        <file>qml/module/Theme.qml</file>
         <file>qml/Main.qml</file>
         <file>qml/Dock.qml</file>
         <file>qml/DockButton.qml</file>
@@ -16,5 +15,7 @@
         <file>qml/Toast.qml</file>
         <file>qml/PhoneIcon.qml</file>
         <file>qml/SignalBars.qml</file>
+        <file>qml/AppsPage.qml</file>
+        <file>qml/StorePage.qml</file>
     </qresource>
 </RCC>

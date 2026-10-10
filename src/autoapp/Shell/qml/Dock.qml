@@ -1,4 +1,5 @@
 import QtQuick 2.15
+import OpenAuto 1.0
 import "."
 
 Rectangle {
@@ -26,6 +27,25 @@ Rectangle {
             active: dock.currentPage === "aa"
             badge: aaBridge.videoActive
             onClicked: dock.pageSelected("aa")
+        }
+
+        // Plugins with "ui": {"dock": true}
+        Repeater {
+            model: plugins.plugins
+            DockButton {
+                visible: modelData.enabled && modelData.dock && modelData.page !== ""
+                icon: modelData.icon || "qrc:/list-hot.png"
+                label: modelData.name
+                active: dock.currentPage === "plugin:" + modelData.id
+                onClicked: dock.pageSelected("plugin:" + modelData.id)
+            }
+        }
+
+        DockButton {
+            icon: "qrc:/list-hot.png"
+            label: "Apps"
+            active: dock.currentPage === "apps" || dock.currentPage === "store"
+            onClicked: dock.pageSelected("apps")
         }
     }
 

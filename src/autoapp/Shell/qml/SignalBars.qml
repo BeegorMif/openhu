@@ -1,4 +1,5 @@
 import QtQuick 2.15
+import OpenAuto 1.0
 import "."
 
 // Mobile reception, level 0-4.

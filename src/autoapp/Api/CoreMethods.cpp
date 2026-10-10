@@ -68,6 +68,15 @@ void registerCoreMethods(ApiServer& server, audio::VolumeController& volume, she
         bus.publish(topic, params.value("data").toMap());
         return QVariantMap();
     });
+    server.registerMethod("bus.emit", [&bus](const QVariantMap& params) -> QVariant {
+        const QString topic = require(params, "topic").toString();
+        if(topic.isEmpty())
+        {
+            throw ApiError("empty topic");
+        }
+        bus.emitEvent(topic, params.value("data").toMap());
+        return QVariantMap();
+    });
     server.registerMethod("bus.get", [&bus](const QVariantMap& params) -> QVariant {
         return bus.last(require(params, "topic").toString());
     });

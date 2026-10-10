@@ -46,6 +46,9 @@
 #include <f1x/openauto/autoapp/Audio/VolumeController.hpp>
 #include <f1x/openauto/autoapp/Core/EventBus.hpp>
 #include <f1x/openauto/autoapp/Input/ActionDispatcher.hpp>
+#include <f1x/openauto/autoapp/Plugins/PluginManager.hpp>
+#include <f1x/openauto/autoapp/Plugins/PluginMethods.hpp>
+#include <f1x/openauto/autoapp/Plugins/PluginStore.hpp>
 #include <f1x/openauto/autoapp/Shell/AaBridge.hpp>
 #include <f1x/openauto/autoapp/Shell/AaSurface.hpp>
 #include <f1x/openauto/autoapp/Shell/ShellController.hpp>
@@ -115,6 +118,12 @@ int main(int argc, char* argv[])
     startUSBWorkers(ioService, usbContext, threadPool);
     startIOServiceWorkers(ioService, threadPool);
 
+    // Dark Material style for Qt Quick Controls in the shell and plugin pages
+    qputenv("QT_QUICK_CONTROLS_STYLE", "Material");
+    qputenv("QT_QUICK_CONTROLS_MATERIAL_THEME", "Dark");
+    qputenv("QT_QUICK_CONTROLS_MATERIAL_ACCENT", "#4f9cf9");
+    qputenv("QT_QUICK_CONTROLS_MATERIAL_BACKGROUND", "#192027");
+
     QApplication qApplication(argc, argv);
     int width = QApplication::desktop()->width();
     int height = QApplication::desktop()->height();
@@ -182,6 +191,13 @@ int main(int argc, char* argv[])
     autoapp::api::registerCoreMethods(apiServer, volumeController, shellController, actionDispatcher);
     apiServer.listen(QHostAddress(QString::fromStdString(configuration->getApiListenAddress())), configuration->getApiPort());
 
+    // Plugins (~/.openauto/plugins) and the store (~/.openauto/sources.list), docs/plugins.md
+    autoapp::plugins::PluginManager pluginManager(configuration->getApiPort());
+    autoapp::plugins::PluginStore pluginStore(pluginManager);
+    autoapp::plugins::registerPluginMethods(apiServer, pluginManager, pluginStore);
+    autoapp::plugins::QmlApi qmlApi(apiServer);
+    pluginManager.load();
+
     // New QML shell: Android Auto is shown inside the main window next to the rest of the UI.
     QQmlApplicationEngine engine;
 
@@ -192,12 +208,18 @@ int main(int argc, char* argv[])
     std::unique_ptr<autoapp::ui::UpdateDialog> updatedialog;
 
     if (useShell) {
+        // QML module for the shell and plugin pages: import OpenAuto 1.0
         qmlRegisterType<autoapp::shell::AaSurface>("OpenAuto", 1, 0, "AaSurface");
+        qmlRegisterSingletonType(QUrl("qrc:/shell/qml/module/Theme.qml"), "OpenAuto", 1, 0, "Theme");
+        qmlRegisterType(QUrl("qrc:/shell/qml/BusTopic.qml"), "OpenAuto", 1, 0, "BusTopic");
         engine.rootContext()->setContextProperty("aaBridge", &autoapp::shell::AaBridge::instance());
         engine.rootContext()->setContextProperty("eventBus", &autoapp::core::EventBus::instance());
         engine.rootContext()->setContextProperty("shell", &shellController);
         engine.rootContext()->setContextProperty("volume", &volumeController);
         engine.rootContext()->setContextProperty("actions", &actionDispatcher);
+        engine.rootContext()->setContextProperty("plugins", &pluginManager);
+        engine.rootContext()->setContextProperty("store", &pluginStore);
+        engine.rootContext()->setContextProperty("oa", &qmlApi);
         // Keyboard -> actions (keymap.json); in legacy mode the InputDevice handles keys itself.
         actionDispatcher.installKeyboardHandler();
 
@@ -205,6 +227,8 @@ int main(int argc, char* argv[])
         QObject::connect(&shellController, &autoapp::shell::ShellController::settingsRequested, &settingsWindow, &autoapp::ui::SettingsWindow::show_tab1);
         QObject::connect(&shellController, &autoapp::shell::ShellController::settingsRequested, &settingsWindow, &autoapp::ui::SettingsWindow::loadSystemValues);
         QObject::connect(&shellController, &autoapp::shell::ShellController::quitRequested, []() { std::exit(0); });
+
+        pluginManager.setQmlCacheTrimmer([&engine]() { engine.trimComponentCache(); });
 
         engine.load(QUrl(QStringLiteral("qrc:/shell/qml/Main.qml")));
         if (engine.rootObjects().isEmpty()) {

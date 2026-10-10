@@ -31,7 +31,10 @@ Example: `websocat ws://127.0.0.1:5520` and then `{"type":"subscribe","topics":[
 | `phone.status` | `callState` (`idle`, `incoming`, `in_call`, `on_hold`, …), `calls` (`[{state, duration, number, name, numberType, thumbnail}]`), `signal` |
 | `audio.volume` | `volume` (0–100), `muted` |
 | `system.daynight` | `night` (bool) – also switches Android Auto to night mode |
-| `input.action` | `action`, `phase` (`click`, `press`, `release`) – every triggered action |
+| `input.action` | `action`, `phase` (`click`, `press`, `release`) – every triggered action (one-shot event, no stored value) |
+| `ui.page` | `page` – page shown in the shell (`home`, `aa`, `apps`, `store`, `plugin:<id>`) |
+| `plugins.state` | `plugins` – installed plugins after (re)loading |
+| `store.state` | `busy`, `status`, `error` – progress of store operations |
 
 Plugins publish their own topics with `bus.publish` (e.g. `vehicle.speed`).
 
@@ -42,19 +45,36 @@ Plugins publish their own topics with `bus.publish` (e.g. `vehicle.speed`).
 | `system.ping` | – | `{pong:true}` |
 | `system.methods` | – | list of methods |
 | `bus.publish` | `topic`, `data` (object) | `{}` |
+| `bus.emit` | `topic`, `data` (object) | `{}` – event without keeping a value (commands for plugin processes) |
 | `bus.get` | `topic` | last value |
 | `bus.topics` | – | topics that have a value |
 | `volume.get` | – | `{volume, muted}` |
 | `volume.set` | `value` (0–100) | `{volume, muted}` |
 | `volume.change` | `delta` (e.g. `5`, `-5`) | `{volume, muted}` |
 | `volume.mute` | `muted` (optional, toggles without) | `{volume, muted}` |
-| `ui.navigate` | `page` (`home`, `aa`) | `{}` |
+| `ui.navigate` | `page` (`home`, `aa`, `apps`, `store`, `plugin:<id>`) | `{}` |
 | `ui.toast` | `text`, `duration` (ms, default 3000) | `{}` |
 | `daynight.set` | `night` (bool) | `{}` |
 | `projection.reconnect` | – | `{reset:[...]}` – USB reset of the phone, Android Auto reconnects |
 | `input.action` | `action`, `phase` (`click` default, `press`, `release`) | `{handled}` |
 | `input.actions` | – | built-in actions with description |
 | `input.keymap` | – | active keyboard mapping |
+| `plugin.list` | – | installed plugins (`id`, `name`, `version`, `enabled`, `running`, `dock`, `page`, `overlay`, …) |
+| `plugin.enable` / `plugin.disable` | `id` | plugin |
+| `plugin.restart` | `id` | plugin – restarts its process |
+| `plugin.setDock` | `id`, `dock` (bool) | plugin – page as dock entry |
+| `ui.overlay.show` / `ui.overlay.hide` | `id` | `{}` – plugin overlay above everything |
+| `store.list` | – | packages of all sources with `installed`, `installedVersion`, `updateAvailable`, `source`, `official` |
+| `store.refresh` | – | `{queued}` – reload `index.json` of all sources |
+| `store.install` | `id` | `{queued}` – install or update |
+| `store.update` | `id` (optional) | `{queued}` – one or all updates |
+| `store.remove` | `id` | `{queued}` |
+| `store.sources.list` | – | sources |
+| `store.sources.add` | `type` (`github`/`url`/`file`), `location`, `branch` | sources |
+| `store.sources.remove` | `index` | sources |
+
+Store operations run in the background; progress and errors arrive as `store.state` (`busy`, `status`, `error`).
+Plugins: see [plugins.md](plugins.md).
 
 ## Actions
 

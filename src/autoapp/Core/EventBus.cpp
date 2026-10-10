@@ -40,6 +40,11 @@ void EventBus::publish(const QString& topic, const QVariantMap& data)
         last_.insert(topic, data);
     }
 
+    this->emitEvent(topic, data);
+}
+
+void EventBus::emitEvent(const QString& topic, const QVariantMap& data)
+{
     if(QThread::currentThread() == this->thread())
     {
         emit event(topic, data);

@@ -145,7 +145,8 @@ bool ActionDispatcher::trigger(const QString& action, Phase phase)
     }
 
     const QString phaseName = phase == Phase::Press ? "press" : phase == Phase::Release ? "release" : "click";
-    core::EventBus::instance().publish("input.action", {{"action", action}, {"phase", phaseName}});
+    // One-shot event: a (re)connecting plugin must not receive the last action again
+    core::EventBus::instance().emitEvent("input.action", {{"action", action}, {"phase", phaseName}});
 
     // Shell actions run once per click/press.
     const bool once = phase != Phase::Release;
