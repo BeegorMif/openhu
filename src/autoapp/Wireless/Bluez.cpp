@@ -37,6 +37,7 @@ const QString cAndroidAutoUuid = QStringLiteral("4de17a00-52cb-11e6-bdf4-0800200
 const QString cHeadsetUuid = QStringLiteral("00001108-0000-1000-8000-00805f9b34fb");
 const QString cHeadsetGatewayUuid = QStringLiteral("00001112-0000-1000-8000-00805f9b34fb");
 const QString cHandsfreeUuid = QStringLiteral("0000111e-0000-1000-8000-00805f9b34fb");
+const QString cAudioSinkUuid = QStringLiteral("0000110b-0000-1000-8000-00805f9b34fb");
 
 void registerTypes()
 {
@@ -240,10 +241,19 @@ void PairingAgent::Release()
     registered_ = false;
 }
 
-QString PairingAgent::RequestPinCode(const QDBusObjectPath&)
+void PairingAgent::setPinProvider(std::function<QString(const QString& device)> provider)
 {
-    sendErrorReply("org.bluez.Error.Rejected", "PIN entry not supported");
-    return QString();
+    pinProvider_ = std::move(provider);
+}
+
+QString PairingAgent::RequestPinCode(const QDBusObjectPath& device)
+{
+    const QString pin = pinProvider_ ? pinProvider_(device.path()) : QString();
+    if(pin.isEmpty())
+    {
+        sendErrorReply("org.bluez.Error.Rejected", "PIN entry not supported");
+    }
+    return pin;
 }
 
 void PairingAgent::DisplayPinCode(const QDBusObjectPath&, const QString&)

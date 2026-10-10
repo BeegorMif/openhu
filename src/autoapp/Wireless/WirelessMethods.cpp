@@ -21,20 +21,64 @@
 namespace f1x::openauto::autoapp::wireless
 {
 
-void registerWirelessMethods(api::ApiServer& server, WirelessController& wireless)
+void registerWirelessMethods(api::ApiServer& server, WirelessController& wireless, bt::BluetoothManager& bluetooth,
+                             bt::CarAudio& carAudio)
 {
+    server.registerMethod("caraudio.state", [&carAudio](const QVariantMap&) -> QVariant {
+        return carAudio.state();
+    });
+    server.registerMethod("caraudio.select", [&carAudio](const QVariantMap& params) -> QVariant {
+        const QString address = params.value("address").toString();
+        if(address.isEmpty())
+        {
+            throw api::ApiError("missing parameter: address");
+        }
+        carAudio.selectDevice(address);
+        return carAudio.state();
+    });
+    server.registerMethod("caraudio.forget", [&carAudio](const QVariantMap&) -> QVariant {
+        carAudio.forgetDevice();
+        return carAudio.state();
+    });
     server.registerMethod("wireless.state", [&wireless](const QVariantMap&) -> QVariant {
         return wireless.state();
     });
-    server.registerMethod("bluetooth.devices", [&wireless](const QVariantMap&) -> QVariant {
-        return wireless.devices();
+    server.registerMethod("bluetooth.state", [&bluetooth](const QVariantMap&) -> QVariant {
+        return bluetooth.state();
     });
-    server.registerMethod("bluetooth.pairing", [&wireless](const QVariantMap& params) -> QVariant {
-        wireless.setPairing(params.value("enabled", true).toBool());
-        return QVariantMap{{"pairing", wireless.state().value("pairing")}};
+    server.registerMethod("bluetooth.devices", [&bluetooth](const QVariantMap&) -> QVariant {
+        return bluetooth.devices();
     });
-    server.registerMethod("bluetooth.confirm", [&wireless](const QVariantMap& params) -> QVariant {
-        wireless.confirmPairing(params.value("accept").toBool());
+    server.registerMethod("bluetooth.pairing", [&bluetooth](const QVariantMap& params) -> QVariant {
+        bluetooth.setPairing(params.value("enabled", true).toBool());
+        return QVariantMap{{"pairing", bluetooth.state().value("pairing")}};
+    });
+    server.registerMethod("bluetooth.confirm", [&bluetooth](const QVariantMap& params) -> QVariant {
+        bluetooth.confirmPairing(params.value("accept").toBool());
+        return QVariantMap();
+    });
+    server.registerMethod("bluetooth.search", [&bluetooth](const QVariantMap& params) -> QVariant {
+        if(params.value("enabled", true).toBool())
+        {
+            bluetooth.startSearch(params.value("seconds", 30).toInt());
+        }
+        else
+        {
+            bluetooth.stopSearch();
+        }
+        return QVariantMap{{"discovered", bluetooth.discovered()}};
+    });
+    server.registerMethod("bluetooth.pair", [&bluetooth](const QVariantMap& params) -> QVariant {
+        const QString address = params.value("address").toString();
+        if(address.isEmpty())
+        {
+            throw api::ApiError("missing parameter: address");
+        }
+        bluetooth.pairWith(address, params.value("pin").toString());
+        return QVariantMap();
+    });
+    server.registerMethod("bluetooth.remove", [&bluetooth](const QVariantMap& params) -> QVariant {
+        bluetooth.removeDevice(params.value("address").toString());
         return QVariantMap();
     });
     server.registerMethod("bluetooth.connect", [&wireless](const QVariantMap& params) -> QVariant {

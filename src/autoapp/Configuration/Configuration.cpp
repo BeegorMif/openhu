@@ -60,6 +60,9 @@ const std::string cWirelessHotspotKey = "Wireless.Hotspot";
 const std::string cWirelessChannelKey = "Wireless.Channel";
 const std::string cWirelessAddressKey = "Wireless.Address";
 const std::string cWirelessDhcpRangeKey = "Wireless.DhcpRange";
+const std::string cCarAudioEnabledKey = "CarAudio.Enabled";
+const std::string cCarAudioDeviceKey = "CarAudio.Device";
+const std::string cCarAudioPinKey = "CarAudio.Pin";
 const std::string cAudioMediaKey = "AudioChannel.MediaEnabled";
 const std::string cAudioGuidanceKey = "AudioChannel.GuidanceEnabled";
 const std::string cAudioSystemKey = "AudioChannel.SystemEnabled";
@@ -121,6 +124,9 @@ void Configuration::load()
         wireless_.channel = ini.get<int>(cWirelessChannelKey, wireless_.channel);
         wireless_.address = ini.get<std::string>(cWirelessAddressKey, wireless_.address);
         wireless_.dhcpRange = ini.get<std::string>(cWirelessDhcpRangeKey, wireless_.dhcpRange);
+        carAudio_.enabled = ini.get<bool>(cCarAudioEnabledKey, carAudio_.enabled);
+        carAudio_.device = ini.get<std::string>(cCarAudioDeviceKey, carAudio_.device);
+        carAudio_.pin = ini.get<std::string>(cCarAudioPinKey, carAudio_.pin);
 
         audioChannelEnabledMedia_ = ini.get<bool>(cAudioMediaKey, audioChannelEnabledMedia_);
         audioChannelEnabledGuidance_ = ini.get<bool>(cAudioGuidanceKey, audioChannelEnabledGuidance_);
@@ -155,6 +161,7 @@ void Configuration::reset()
     // off by default: it turns the WiFi card into a hotspot
     wirelessProjectionEnabled_ = false;
     wireless_ = WirelessSettings{"", "", "5", "DE", "", "", "usb", "always", 0, "10.42.0.1/24", ""};
+    carAudio_ = CarAudioSettings{false, "", "0000"};
     audioChannelEnabledMedia_ = true;
     audioChannelEnabledGuidance_ = true;
     audioChannelEnabledSystem_ = true;
@@ -192,6 +199,9 @@ void Configuration::save()
     ini.put<int>(cWirelessChannelKey, wireless_.channel);
     ini.put<std::string>(cWirelessAddressKey, wireless_.address);
     ini.put<std::string>(cWirelessDhcpRangeKey, wireless_.dhcpRange);
+    ini.put<bool>(cCarAudioEnabledKey, carAudio_.enabled);
+    ini.put<std::string>(cCarAudioDeviceKey, carAudio_.device);
+    ini.put<std::string>(cCarAudioPinKey, carAudio_.pin);
     ini.put<bool>(cAudioMediaKey, audioChannelEnabledMedia_);
     ini.put<bool>(cAudioGuidanceKey, audioChannelEnabledGuidance_);
     ini.put<bool>(cAudioSystemKey, audioChannelEnabledSystem_);
@@ -378,6 +388,16 @@ WirelessSettings Configuration::getWirelessSettings() const
 void Configuration::setWirelessSettings(const WirelessSettings& value)
 {
     wireless_ = value;
+}
+
+CarAudioSettings Configuration::getCarAudioSettings() const
+{
+    return carAudio_;
+}
+
+void Configuration::setCarAudioSettings(const CarAudioSettings& value)
+{
+    carAudio_ = value;
 }
 
 bool Configuration::musicAudioChannelEnabled() const

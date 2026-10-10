@@ -37,7 +37,9 @@ Example: `websocat ws://127.0.0.1:5520` and then `{"type":"subscribe","topics":[
 | `plugins.state` | `plugins` – installed plugins after (re)loading |
 | `store.state` | `busy`, `status`, `error` – progress of store operations |
 | `wireless.state` | `enabled`, `running`, `hotspot` (`off`, `starting`, `on`, `error`), `hotspotMode` (`always`, `demand`), `hotspotError`, `wifiOff`, `interface`, `channel`, `ssid`, `bluetooth` (`off`, `on`, `error`), `bluetoothError`, `adapter`, `pairing`, `phase` (`idle`, `waiting`, `hotspot`, `handshake`, `joining`, `connected`, `error`), `phaseText`, `device` |
-| `bluetooth.pairing` | `active`, `device`, `passkey` – a phone asks to pair (confirmed in the shell or with `bluetooth.confirm`) |
+| `bluetooth.pairing` | `active`, `device`, `passkey` – a device asks to pair (confirmed in the shell or with `bluetooth.confirm`) |
+| `bluetooth.state` | `available`, `error`, `adapter`, `pairing` (visible), `pairingDevice`, `pairingPasskey`, `pairingWith` (pairing started by OpenHU), `searching` |
+| `caraudio.state` | `enabled`, `device`, `name`, `paired`, `connected`, `sink`, `error`, `status` – sound to the Bluetooth car radio |
 
 Plugins publish their own topics with `bus.publish` (e.g. `vehicle.speed`).
 
@@ -79,7 +81,14 @@ API clients on the wireless hotspot network are refused unless "API auch im WLAN
 | `store.sources.add` | `type` (`github`/`url`/`file`), `location`, `branch` | sources |
 | `store.sources.remove` | `index` | sources |
 | `wireless.state` | – | like the topic `wireless.state` |
-| `bluetooth.devices` | – | paired phones (`address`, `name`, `connected`, `icon`) |
+| `bluetooth.state` | – | like the topic `bluetooth.state` |
+| `bluetooth.devices` | – | paired devices (`address`, `name`, `connected`, `icon`, `uuids`) |
+| `bluetooth.search` | `enabled` (default `true`), `seconds` (default 30) | `{discovered}` – devices found so far |
+| `bluetooth.pair` | `address`, `pin` (optional, legacy pairing) | `{}` – OpenHU pairs and confirms by itself |
+| `bluetooth.remove` | `address` | `{}` |
+| `caraudio.state` | – | like the topic `caraudio.state` |
+| `caraudio.select` | `address` | car audio state – use this radio (pairs it), switches car audio on |
+| `caraudio.forget` | – | car audio state – unpairs the radio, switches car audio off |
 | `bluetooth.pairing` | `enabled` (default `true`) | `{pairing}` – visible for 2 minutes, wireless Android Auto must be on |
 | `bluetooth.confirm` | `accept` (bool) | `{}` – answer to `bluetooth.pairing` |
 | `bluetooth.connect` | `address` | `{}` – use this phone for wireless Android Auto and connect it |

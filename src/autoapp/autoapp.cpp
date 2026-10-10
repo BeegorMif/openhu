@@ -51,6 +51,8 @@
 #include <f1x/openauto/autoapp/Shell/AaSurface.hpp>
 #include <f1x/openauto/autoapp/Shell/SettingsController.hpp>
 #include <f1x/openauto/autoapp/Shell/ShellController.hpp>
+#include <f1x/openauto/autoapp/Bluetooth/BluetoothManager.hpp>
+#include <f1x/openauto/autoapp/Bluetooth/CarAudio.hpp>
 #include <f1x/openauto/autoapp/Wireless/WirelessController.hpp>
 #include <f1x/openauto/autoapp/Wireless/WirelessMethods.hpp>
 #include <f1x/openauto/Common/Log.hpp>
@@ -170,8 +172,11 @@ int main(int argc, char* argv[])
     pluginManager.load();
 
     // Wireless Android Auto: Bluetooth (BlueZ) + WiFi hotspot (NetworkManager)
-    autoapp::wireless::WirelessController wirelessController(configuration);
-    autoapp::wireless::registerWirelessMethods(apiServer, wirelessController);
+    autoapp::bt::BluetoothManager bluetoothManager(configuration);
+    autoapp::wireless::WirelessController wirelessController(configuration, bluetoothManager);
+    // Sound to a Bluetooth car radio, its buttons control Android Auto
+    autoapp::bt::CarAudio carAudio(configuration, bluetoothManager, actionDispatcher, volumeController);
+    autoapp::wireless::registerWirelessMethods(apiServer, wirelessController, bluetoothManager, carAudio);
 
     // QML shell: Android Auto inside the main window next to the rest of the UI
     QQmlApplicationEngine engine;
@@ -191,10 +196,13 @@ int main(int argc, char* argv[])
     engine.rootContext()->setContextProperty("store", &pluginStore);
     engine.rootContext()->setContextProperty("api", &qmlApi);
     engine.rootContext()->setContextProperty("wireless", &wirelessController);
+    engine.rootContext()->setContextProperty("bluetooth", &bluetoothManager);
+    engine.rootContext()->setContextProperty("carAudio", &carAudio);
 
     // Clean up what outlives the process (hotspot, plugin processes), then end without running destructors:
     // exit() from inside the event loop tears down Qt's globals while the QML engine still exists (crash).
     auto shutdown = [&]() {
+        carAudio.stop();
         wirelessController.stop();
         pluginManager.stopAll();
         volumeController.stop();
@@ -206,8 +214,13 @@ int main(int argc, char* argv[])
 
     // Qt ends the process with exit() when the display goes away (window closed): hotspot down there too
     static autoapp::wireless::WirelessController* wirelessAtExit = nullptr;
+    static autoapp::bt::CarAudio* carAudioAtExit = nullptr;
     wirelessAtExit = &wirelessController;
-    std::atexit([]() { if(wirelessAtExit) wirelessAtExit->stop(); });
+    carAudioAtExit = &carAudio;
+    std::atexit([]() {
+        if(carAudioAtExit) carAudioAtExit->stop();
+        if(wirelessAtExit) wirelessAtExit->stop();
+    });
 
     // SIGTERM (systemd, docker stop) and SIGINT: same clean shutdown, handled in the GUI thread
     static int signalPipe[2];
@@ -221,6 +234,11 @@ int main(int argc, char* argv[])
 
     QObject::connect(&settingsController, &autoapp::shell::SettingsController::wirelessChanged,
                      &wirelessController, &autoapp::wireless::WirelessController::apply);
+    QObject::connect(&settingsController, &autoapp::shell::SettingsController::carAudioChanged,
+                     &carAudio, &autoapp::bt::CarAudio::apply);
+    // selecting or forgetting a radio switches car audio on/off
+    QObject::connect(&carAudio, &autoapp::bt::CarAudio::changed, &settingsController,
+                     &autoapp::shell::SettingsController::refresh);
     app->setPreferUsb(configuration->getWirelessSettings().priority != "wifi");
     QObject::connect(&settingsController, &autoapp::shell::SettingsController::wirelessChanged, [&]() {
         app->setPreferUsb(configuration->getWirelessSettings().priority != "wifi");
@@ -228,6 +246,7 @@ int main(int argc, char* argv[])
     QObject::connect(&shellController, &autoapp::shell::ShellController::restartRequested,
                      &settingsController, &autoapp::shell::SettingsController::restart);
     QObject::connect(&settingsController, &autoapp::shell::SettingsController::aboutToRestart, [&]() {
+        carAudio.stop();
         wirelessController.stop();
         pluginManager.stopAll();
         volumeController.stop();
@@ -263,9 +282,12 @@ int main(int argc, char* argv[])
     }
     app->waitForUSBDevice();
     wirelessController.apply();
+    carAudio.apply();
 
     auto result = application.exec();
+    carAudio.stop();
     wirelessController.stop();
+    carAudioAtExit = nullptr;
     wirelessAtExit = nullptr;
 
     std::for_each(threadPool.begin(), threadPool.end(), std::bind(&std::thread::join, std::placeholders::_1));

@@ -125,8 +125,8 @@ Item {
                         wrapMode: Text.WordWrap
                         text: {
                             const state = wireless.state
-                            if (state.pairing)
-                                return "Sichtbar als „" + state.adapter + "“: am Telefon unter Bluetooth koppeln."
+                            if (bluetooth.state.pairing)
+                                return "Sichtbar als „" + bluetooth.state.adapter + "“: am Telefon unter Bluetooth koppeln."
                             if (!state.running)
                                 return ""
                             if (state.bluetooth === "error")

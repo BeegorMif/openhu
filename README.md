@@ -14,6 +14,9 @@ team and uses [aasdk](https://github.com/opencardev/aasdk). The original README 
 - **Wireless Android Auto** built in: pair the phone once (in the settings or over the USB cable), then it
   connects by itself over Bluetooth and a WiFi hotspot of OpenHU. Uses BlueZ and NetworkManager over D-Bus
   (Raspberry Pi OS, Ubuntu, Debian; in the container the host's), the WiFi card needs access point mode
+- **Sound to a Bluetooth car radio**: OpenHU connects the radio and makes it the audio output; its buttons
+  control Android Auto (play/pause, next, previous; answer/hang up while a call rings or runs), its display
+  shows title and artist (AVRCP), its volume knob changes the volume
 - **Home screen** with the next navigation maneuver and the current track from the phone
 - **WebSocket/JSON API** (`ws://127.0.0.1:5520`) with navigation, media, phone and volume data and control
   of the shell – see [docs/api.md](docs/api.md)

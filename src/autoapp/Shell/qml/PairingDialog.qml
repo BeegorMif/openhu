@@ -8,7 +8,7 @@ import "."
 Rectangle {
     id: dialog
     color: "#b0000000"
-    visible: wireless.state.pairingDevice !== undefined && wireless.state.pairingDevice !== ""
+    visible: bluetooth.state.pairingDevice !== undefined && bluetooth.state.pairingDevice !== ""
 
     // swallow touches on the shell behind the dialog
     MouseArea { anchors.fill: parent }
@@ -36,16 +36,16 @@ Rectangle {
             Text {
                 Layout.fillWidth: true
                 wrapMode: Text.WordWrap
-                text: wireless.state.pairingPasskey
-                      ? "„" + wireless.state.pairingDevice + "“ möchte sich koppeln. Zeigt das Telefon denselben Code?"
-                      : "„" + wireless.state.pairingDevice + "“ möchte sich koppeln."
+                text: bluetooth.state.pairingPasskey
+                      ? "„" + bluetooth.state.pairingDevice + "“ möchte sich koppeln. Zeigt das Gerät denselben Code?"
+                      : "„" + bluetooth.state.pairingDevice + "“ möchte sich koppeln."
                 color: Theme.textDim
                 font.pixelSize: Theme.fontNormal
             }
             Text {
                 Layout.alignment: Qt.AlignHCenter
-                visible: !!wireless.state.pairingPasskey
-                text: wireless.state.pairingPasskey || ""
+                visible: !!bluetooth.state.pairingPasskey
+                text: bluetooth.state.pairingPasskey || ""
                 color: Theme.text
                 font.pixelSize: Theme.fontHuge * 0.6
                 font.letterSpacing: Theme.spacing / 2
@@ -55,12 +55,12 @@ Rectangle {
                 spacing: Theme.spacing / 2
                 Button {
                     text: "Ablehnen"
-                    onClicked: wireless.confirmPairing(false)
+                    onClicked: bluetooth.confirmPairing(false)
                 }
                 Button {
                     text: "Koppeln"
                     highlighted: true
-                    onClicked: wireless.confirmPairing(true)
+                    onClicked: bluetooth.confirmPairing(true)
                 }
             }
         }

@@ -55,6 +55,14 @@ struct WirelessSettings
     // (no DNS setting: NetworkManager's shared mode always hands out itself as DNS forwarder)
 };
 
+// Sound to a Bluetooth car radio (A2DP), its buttons control OpenHU (AVRCP)
+struct CarAudioSettings
+{
+    bool enabled;
+    std::string device;     // Bluetooth address of the radio
+    std::string pin;        // legacy pairing of old radios, "0000"
+};
+
 // Settings in openhu.ini (edited on the shell's settings page).
 class IConfiguration
 {
@@ -113,6 +121,8 @@ public:
     virtual void setWirelessProjectionEnabled(bool value) = 0;
     virtual WirelessSettings getWirelessSettings() const = 0;
     virtual void setWirelessSettings(const WirelessSettings& value) = 0;
+    virtual CarAudioSettings getCarAudioSettings() const = 0;
+    virtual void setCarAudioSettings(const CarAudioSettings& value) = 0;
 
     // Android Auto audio channels and output
     virtual bool musicAudioChannelEnabled() const = 0;

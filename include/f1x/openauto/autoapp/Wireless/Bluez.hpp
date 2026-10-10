@@ -21,6 +21,7 @@
 #include <QDBusMessage>
 #include <QDBusObjectPath>
 #include <QDBusUnixFileDescriptor>
+#include <functional>
 #include <QMap>
 #include <QObject>
 #include <QVariantMap>
@@ -53,6 +54,7 @@ extern const QString cAndroidAutoUuid;
 extern const QString cHeadsetUuid;
 extern const QString cHeadsetGatewayUuid;
 extern const QString cHandsfreeUuid;
+extern const QString cAudioSinkUuid;
 
 void registerTypes();
 BluezObjects managedObjects();
@@ -107,6 +109,8 @@ public:
     QString registerAgent();
     void unregisterAgent();
     void answer(bool accept);
+    // PIN for legacy pairing (old car radios), empty = reject
+    void setPinProvider(std::function<QString(const QString& device)> provider);
 
 public slots:
     void Release();
@@ -129,6 +133,7 @@ private:
 
     bool registered_ = false;
     QDBusMessage pending_;
+    std::function<QString(const QString& device)> pinProvider_;
 };
 
 }

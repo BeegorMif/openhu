@@ -74,6 +74,8 @@ public:
     void setWirelessProjectionEnabled(bool value) override;
     WirelessSettings getWirelessSettings() const override;
     void setWirelessSettings(const WirelessSettings& value) override;
+    CarAudioSettings getCarAudioSettings() const override;
+    void setCarAudioSettings(const CarAudioSettings& value) override;
 
     bool musicAudioChannelEnabled() const override;
     void setMusicAudioChannelEnabled(bool value) override;
@@ -105,6 +107,7 @@ private:
     std::string bluetoothAdapterAddress_;
     bool wirelessProjectionEnabled_;
     WirelessSettings wireless_;
+    CarAudioSettings carAudio_;
     bool audioChannelEnabledMedia_;
     bool audioChannelEnabledGuidance_;
     bool audioChannelEnabledSystem_;

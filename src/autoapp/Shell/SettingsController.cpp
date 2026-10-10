@@ -116,6 +116,8 @@ QVariantMap SettingsController::values() const
         {"bluetooth.adapter", configuration_->getBluetoothAdapterType() == configuration::BluetoothAdapterType::NONE
                                   ? "none" : "local"},
         {"bluetooth.address", QString::fromStdString(configuration_->getBluetoothAdapterAddress())},
+        {"carAudio.enabled", configuration_->getCarAudioSettings().enabled},
+        {"carAudio.pin", QString::fromStdString(configuration_->getCarAudioSettings().pin)},
         {"api.port", configuration_->getApiPort()},
         {"api.network", listen != "127.0.0.1" && listen != "localhost"},
         {"api.hotspot", configuration_->getApiAllowHotspot()},
@@ -374,6 +376,25 @@ QString SettingsController::set(const QString& key, const QVariant& value)
         }
         configuration_->setApiPort(static_cast<uint16_t>(port));
         this->markPending(cRestart);
+    }
+    else if(key == "carAudio.enabled" || key == "carAudio.pin")
+    {
+        auto carAudio = configuration_->getCarAudioSettings();
+        if(key == "carAudio.enabled")
+        {
+            carAudio.enabled = value.toBool();
+        }
+        else
+        {
+            const QString pin = value.toString().trimmed();
+            if(pin.isEmpty() || pin.size() > 16)
+            {
+                return "PIN mit 1 bis 16 Zeichen, meist 0000 oder 1234";
+            }
+            carAudio.pin = pin.toStdString();
+        }
+        configuration_->setCarAudioSettings(carAudio);
+        QMetaObject::invokeMethod(this, &SettingsController::carAudioChanged, Qt::QueuedConnection);
     }
     else if(key == "api.hotspot")
     {

@@ -66,6 +66,8 @@ signals:
     void aboutToRestart();
     // Wireless Android Auto switched or hotspot settings changed (applied right away)
     void wirelessChanged();
+    // car radio output switched or its PIN changed
+    void carAudioChanged();
 
 private:
     void markPending(const QString& what);

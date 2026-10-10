@@ -32,7 +32,7 @@ Gepusht ist der Stand vor Phase 7; Phase 7 (`openhu`) und die neue aasdk-README 
 | 5 | Plugins CAN, Lenkradtasten, Rückfahrkamera, Radio | erledigt; Kamera mit Webcam getestet, CAN/Radio nur Unit-Tests |
 | 7 | Einstellungen neu (QML), Legacy-UI und toten Code entfernen | erledigt (siehe unten) |
 | 6a | Kabelloses Android Auto (BlueZ + NetworkManager-Hotspot, eingebaut) | erledigt, mit Fairphone 4 getestet |
-| 6 | Plugin: Bluetooth-Audio an das Autoradio (A2DP-Source, AVRCP, HFP) | offen |
+| 6 | Bluetooth-Audio an das Autoradio (A2DP, AVRCP-Tasten/Titel, Anrufe per Taste), eingebaut | erledigt, mit Galaxy Buds+ getestet |
 | – | aasdk-README modernisieren mit KI-Hinweis | erledigt (aasdk `c7b91ed`) |
 | – | arm64-Build für den Raspberry Pi | ganz am Schluss |
 
@@ -74,6 +74,20 @@ Konfiguration `docker/config/openhu.ini` (Fallback `openauto.ini`), Plugin-Daten
 - Das Handy liefert über Android Auto keine Signalstärke (immer 0) und keinen Akkustand → Phase 6 (HFP).
 - Kabelloses Android Auto (`btservice`) läuft im Container nicht (eigener systemd-Dienst), ungetestet.
 - `vcan0`-Test des CAN-Plugins braucht `sudo` auf dem Host (siehe Plugin-README).
+
+## Phase 6 – Ergebnis (Autoradio)
+
+- Fest eingebaut statt Plugin: `bt::BluetoothManager` (Adapter, Agent, Kopplung inkl. PIN für alte Radios,
+  Suche, Geräte) wird von kabellosem AA und dem Radio gemeinsam genutzt; `bt::CarAudio` verbindet das Radio
+  (auch erneut alle 20 s, Radio geht mit der Zündung an), setzt es per `pactl` als Standardausgabe und stellt
+  beim Trennen/Beenden die vorherige wieder her. Sink-Namen: PipeWire neu `bluez_output.AA:BB:…`, alt mit `_`.
+- AVRCP: eigener MPRIS-Player bei BlueZ (`Media1.RegisterPlayer`), Tasten → Aktionen; klingelt ein Anruf, nimmt
+  Play/Pause an, im Gespräch legt es auf; Display zeigt Titel/Interpret bzw. den Anrufer.
+- Lautstärke am Radio: AVRCP Absolute Volume über PipeWire → Standardausgabe → `audio.volume`.
+- Anrufton geht per A2DP ans Radio, das Mikrofon ist am OpenHU-Gerät (Entscheidung: kein HFP-Gateway).
+- Statusleiste: Bluetooth-Symbol, solange ein Gerät verbunden ist.
+- Getestet: Kopplung/Verbindung/Ausgabe, Wiederverbinden nach Neustart, Tasten und Ton (Buds+). Anruftasten und
+  Titelanzeige auf einem Gerät mit Display noch ungetestet; kabelloses AA nach dem Umbau noch nicht gegengetestet.
 
 ## Kabelloses Android Auto – Ergebnis
 

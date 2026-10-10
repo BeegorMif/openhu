@@ -127,7 +127,7 @@ Item {
                     switch (page.category) {
                     case "aa": return androidAuto
                     case "audio": return audio
-                    case "bluetooth": return bluetooth
+                    case "bluetooth": return wirelessCategory
                     case "keys": return keys
                     case "apps": return apps
                     case "network": return network
@@ -303,6 +303,60 @@ Item {
                 key: "audio.backend"
                 options: [{ value: "rtaudio", label: "RtAudio" }, { value: "qt", label: "Qt Multimedia" }]
             }
+
+            SectionTitle { text: "Autoradio (Bluetooth)" }
+            SettingSwitch {
+                title: "Ton ans Autoradio"
+                description: carAudio.state.device
+                             ? carAudio.state.status
+                             : "Ton per Bluetooth an das Radio; dessen Tasten steuern Android Auto (bei Anrufen: annehmen/auflegen), das Display zeigt den Titel. Zuerst ein Radio suchen."
+                key: "carAudio.enabled"
+            }
+            SettingRow {
+                visible: !!carAudio.state.device
+                title: carAudio.state.name || carAudio.state.device
+                description: carAudio.state.device + (carAudio.state.connected ? " · verbunden" : "")
+                Button {
+                    text: "Entfernen"
+                    onClicked: {
+                        carAudio.forgetDevice()
+                        settings.refresh()
+                    }
+                }
+            }
+            SettingRow {
+                title: bluetooth.state.searching ? "Suche läuft …" : carAudio.state.device ? "Anderes Radio" : "Radio suchen"
+                description: "Das Radio in den Kopplungsmodus bringen (Bluetooth-Menü des Radios), dann suchen."
+                Button {
+                    text: bluetooth.state.searching ? "Stopp" : "Suchen"
+                    highlighted: !bluetooth.state.searching && !carAudio.state.device
+                    onClicked: bluetooth.state.searching ? bluetooth.stopSearch() : bluetooth.startSearch(30)
+                }
+            }
+            Repeater {
+                // audio devices: found by the search, or paired already (not the current radio, not phones)
+                model: {
+                    const audio = d => (d.icon || "").startsWith("audio") || (d.uuids || []).indexOf("0000110b-0000-1000-8000-00805f9b34fb") >= 0
+                    const current = (carAudio.state.device || "").toUpperCase()
+                    return bluetooth.discovered.concat(bluetooth.devices)
+                        .filter(d => audio(d) && d.address.toUpperCase() !== current)
+                }
+                SettingRow {
+                    title: modelData.name
+                    description: modelData.address + (bluetooth.state.pairingWith === modelData.address.toUpperCase() ? " · wird gekoppelt …" : "")
+                    Button {
+                        text: "Verwenden"
+                        // selecting ends the search, which rebuilds this list (and destroys this button)
+                        onClicked: carAudio.selectDevice(modelData.address)
+                    }
+                }
+            }
+            SettingText {
+                title: "Kopplungs-PIN"
+                description: "Nur für ältere Radios, die eine PIN statt eines Codes zur Bestätigung verlangen."
+                key: "carAudio.pin"
+                placeholder: "0000"
+            }
         }
     }
 
@@ -321,7 +375,7 @@ Item {
     }
 
     Component {
-        id: bluetooth
+        id: wirelessCategory
         Section {
             SettingSwitch {
                 title: "Kabelloses Android Auto"
@@ -345,16 +399,16 @@ Item {
             }
             SettingRow {
                 visible: settings.values["aa.wireless"] && wireless.state.bluetooth !== "error"
-                title: wireless.state.pairing ? "Sichtbar als „" + wireless.state.adapter + "“" : "Neues Telefon koppeln"
-                description: wireless.state.pairing
-                             ? "Auf dem Telefon unter Bluetooth „" + wireless.state.adapter + "“ auswählen und den Code hier bestätigen."
+                title: bluetooth.state.pairing ? "Sichtbar als „" + bluetooth.state.adapter + "“" : "Neues Telefon koppeln"
+                description: bluetooth.state.pairing
+                             ? "Auf dem Telefon unter Bluetooth „" + bluetooth.state.adapter + "“ auswählen und den Code hier bestätigen."
                              : "OpenHU ist dann 2 Minuten lang für Telefone sichtbar."
                 Button {
-                    text: wireless.state.pairing ? "Abbrechen" : "Koppeln"
-                    highlighted: !wireless.state.pairing
+                    text: bluetooth.state.pairing ? "Abbrechen" : "Koppeln"
+                    highlighted: !bluetooth.state.pairing
                     onClicked: {
-                        if (wireless.state.pairing) {
-                            wireless.setPairing(false)
+                        if (bluetooth.state.pairing) {
+                            bluetooth.setPairing(false)
                         } else {
                             wireless.pair()
                             settings.refresh()
@@ -363,7 +417,7 @@ Item {
                 }
             }
             Repeater {
-                model: wireless.state.running ? wireless.devices : []
+                model: wireless.state.running ? bluetooth.devices.filter(d => d.icon === "phone") : []
                 SettingRow {
                     title: modelData.name
                     description: modelData.address + (modelData.connected ? " · verbunden" : "")
@@ -375,7 +429,7 @@ Item {
                         }
                         Button {
                             text: "Entfernen"
-                            onClicked: wireless.removeDevice(modelData.address)
+                            onClicked: bluetooth.removeDevice(modelData.address)
                         }
                     }
                 }
