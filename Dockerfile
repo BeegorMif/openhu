@@ -36,6 +36,7 @@ RUN apt-get update && apt-get install -y \
     # Core build tools
     build-essential \
     cmake \
+    ninja-build \
     pkg-config \
     git \
     lsb-release \
