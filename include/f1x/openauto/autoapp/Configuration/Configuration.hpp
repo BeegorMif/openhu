@@ -177,6 +177,7 @@ private:
     AudioOutputBackendType audioOutputBackendType_;
 
     static const std::string cConfigFileName;
+    static const std::string cLegacyConfigFileName;
 
     static const std::string cGeneralShowClockKey;
 

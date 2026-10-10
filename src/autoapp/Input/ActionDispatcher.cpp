@@ -254,7 +254,7 @@ void ActionDispatcher::loadKeymap()
 
     // {"N": "media.next", "F5": "camera.toggle", "Volume Up": "volume.up"} - entries replace the defaults,
     // an empty action removes a key.
-    QFile file(QDir::homePath() + "/.openauto/keymap.json");
+    QFile file(QDir::homePath() + "/.openhu/keymap.json");
     if(file.open(QIODevice::ReadOnly))
     {
         const auto custom = QJsonDocument::fromJson(file.readAll()).object().toVariantMap();

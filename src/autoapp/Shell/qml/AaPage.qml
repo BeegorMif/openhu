@@ -1,6 +1,6 @@
 import QtQuick 2.15
 import QtMultimedia 5.15
-import OpenAuto 1.0
+import OpenHU 1.0
 import "."
 
 // Android Auto inside the shell. The phone renders its UI into contentRect of the video frame

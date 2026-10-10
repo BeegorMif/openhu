@@ -57,7 +57,7 @@ public:
     // Built-in actions with a short description.
     static QVariantMap actions();
 
-    // Shell mode: keyboard -> actions according to the key map (~/.openauto/keymap.json or defaults).
+    // Shell mode: keyboard -> actions according to the key map (~/.openhu/keymap.json or defaults).
     void installKeyboardHandler();
     QVariantMap keymap() const;
 

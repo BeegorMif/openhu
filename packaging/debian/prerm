@@ -22,8 +22,8 @@ case "$1" in
     remove|upgrade|deconfigure)
         # Stop services before removal/upgrade
         if [ -x /bin/systemctl ]; then
-            /bin/systemctl stop openauto.service || true
-            /bin/systemctl stop openauto-btservice.service || true
+            /bin/systemctl stop openhu.service || true
+            /bin/systemctl stop openhu-btservice.service || true
         fi
         ;;
 

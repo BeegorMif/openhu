@@ -43,14 +43,14 @@ namespace plugins
 namespace
 {
 
-const QString cOfficialRepository = QStringLiteral("average-web-dev/openauto-plugins");
+const QString cOfficialRepository = QStringLiteral("average-web-dev/openhu-plugins");
 
 const char* cDefaultSources =
-    "# OpenAuto plugin sources, one per line. The first source wins if several offer the same plugin.\n"
+    "# OpenHU plugin sources, one per line. The first source wins if several offer the same plugin.\n"
     "#   github <user>/<repo> [branch]\n"
     "#   url    https://host/path/\n"
     "#   file   /path/to/repository\n"
-    "github average-web-dev/openauto-plugins main\n";
+    "github average-web-dev/openhu-plugins main\n";
 
 QString sourcesPath()
 {

@@ -35,7 +35,7 @@ namespace plugins
 // plugin.*, ui.overlay.*, store.* (see docs/api.md)
 void registerPluginMethods(api::ApiServer& server, PluginManager& manager, PluginStore& store);
 
-// API for QML plugins (context property "oa"): oa.request("volume.set", {value: 40})
+// API for QML plugins (context property "api"): api.request("volume.set", {value: 40})
 // returns {result: ...} or {error: "..."}.
 class QmlApi: public QObject
 {
@@ -46,7 +46,7 @@ public:
 
     Q_INVOKABLE QVariantMap request(const QString& method, const QVariantMap& params = QVariantMap());
     Q_INVOKABLE void publish(const QString& topic, const QVariantMap& data);
-    // One-shot event, e.g. a command for the plugin's process: oa.emit("radio.command", {cmd: "tune", frequency: 101.3})
+    // One-shot event, e.g. a command for the plugin's process: api.emitEvent("radio.command", {cmd: "tune", frequency: 101.3})
     Q_INVOKABLE void emitEvent(const QString& topic, const QVariantMap& data);
 
 private:

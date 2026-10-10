@@ -191,7 +191,7 @@ int main(int argc, char* argv[])
     autoapp::api::registerCoreMethods(apiServer, volumeController, shellController, actionDispatcher);
     apiServer.listen(QHostAddress(QString::fromStdString(configuration->getApiListenAddress())), configuration->getApiPort());
 
-    // Plugins (~/.openauto/plugins) and the store (~/.openauto/sources.list), docs/plugins.md
+    // Plugins (~/.openhu/plugins) and the store (~/.openhu/sources.list), docs/plugins.md
     autoapp::plugins::PluginManager pluginManager(configuration->getApiPort());
     autoapp::plugins::PluginStore pluginStore(pluginManager);
     autoapp::plugins::registerPluginMethods(apiServer, pluginManager, pluginStore);
@@ -208,10 +208,10 @@ int main(int argc, char* argv[])
     std::unique_ptr<autoapp::ui::UpdateDialog> updatedialog;
 
     if (useShell) {
-        // QML module for the shell and plugin pages: import OpenAuto 1.0
-        qmlRegisterType<autoapp::shell::AaSurface>("OpenAuto", 1, 0, "AaSurface");
-        qmlRegisterSingletonType(QUrl("qrc:/shell/qml/module/Theme.qml"), "OpenAuto", 1, 0, "Theme");
-        qmlRegisterType(QUrl("qrc:/shell/qml/BusTopic.qml"), "OpenAuto", 1, 0, "BusTopic");
+        // QML module for the shell and plugin pages: import OpenHU 1.0
+        qmlRegisterType<autoapp::shell::AaSurface>("OpenHU", 1, 0, "AaSurface");
+        qmlRegisterSingletonType(QUrl("qrc:/shell/qml/module/Theme.qml"), "OpenHU", 1, 0, "Theme");
+        qmlRegisterType(QUrl("qrc:/shell/qml/BusTopic.qml"), "OpenHU", 1, 0, "BusTopic");
         engine.rootContext()->setContextProperty("aaBridge", &autoapp::shell::AaBridge::instance());
         engine.rootContext()->setContextProperty("eventBus", &autoapp::core::EventBus::instance());
         engine.rootContext()->setContextProperty("shell", &shellController);
@@ -219,7 +219,7 @@ int main(int argc, char* argv[])
         engine.rootContext()->setContextProperty("actions", &actionDispatcher);
         engine.rootContext()->setContextProperty("plugins", &pluginManager);
         engine.rootContext()->setContextProperty("store", &pluginStore);
-        engine.rootContext()->setContextProperty("oa", &qmlApi);
+        engine.rootContext()->setContextProperty("api", &qmlApi);
         // Keyboard -> actions (keymap.json); in legacy mode the InputDevice handles keys itself.
         actionDispatcher.installKeyboardHandler();
 

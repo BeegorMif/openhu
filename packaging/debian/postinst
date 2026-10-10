@@ -33,11 +33,11 @@ case "$1" in
 
         # Enable but don't start services (user can start manually or on next boot)
         if [ -x /bin/systemctl ]; then
-            /bin/systemctl enable openauto.service || true
-            /bin/systemctl enable openauto-btservice.service || true
+            /bin/systemctl enable openhu.service || true
+            /bin/systemctl enable openhu-btservice.service || true
         fi
 
-        echo "OpenAuto services enabled. Use 'systemctl start openauto' to start now."
+        echo "OpenHU services enabled. Use 'systemctl start openhu' to start now."
         ;;
 
     abort-upgrade|abort-remove|abort-deconfigure)

@@ -1,6 +1,6 @@
-# OpenAuto API
+# OpenHU API
 
-WebSocket + JSON, default `ws://127.0.0.1:5520` (`openauto.ini`: `[Api] Port=5520`, `Listen=127.0.0.1`;
+WebSocket + JSON, default `ws://127.0.0.1:5520` (`openhu.ini`: `[Api] Port=5520`, `Listen=127.0.0.1`;
 `Listen=0.0.0.0` for access from the network).
 
 ## Messages
@@ -97,7 +97,7 @@ For long presses send `press` and `release` separately.
 
 ## Keyboard
 
-`~/.openauto/keymap.json` (in the container: `data/keymap.json`) overrides or extends the defaults.
+`~/.openhu/keymap.json` (container: `docker/data/keymap.json`) overrides or extends the defaults.
 Keys use Qt names, an empty action removes a key:
 
 ```json

@@ -1,6 +1,6 @@
-# OpenAuto plugins
+# OpenHU plugins
 
-A plugin is a folder `~/.openauto/plugins/<id>/` (container: `./data/plugins/<id>/`) with a `manifest.json`.
+A plugin is a folder `~/.openhu/plugins/<id>/` (container: `docker/data/plugins/<id>/`) with a `manifest.json`.
 It can bring a QML page, an overlay and a background process in any language that talks to the
 [API](api.md). Plugins are installed from the store (Apps → Store) or copied by hand.
 
@@ -17,7 +17,7 @@ It can bring a QML page, an overlay and a background process in any language tha
   "ui": {"page": "qml/Main.qml", "overlay": "qml/Overlay.qml", "icon": "icon.svg", "dock": true},
   "process": {"exec": "bin/radio.py", "args": [], "restart": "on-failure"},
   "permissions": ["audio", "usb"],
-  "shared": ["oa.py"]
+  "shared": ["openhu.py"]
 }
 ```
 
@@ -35,33 +35,33 @@ It can bring a QML page, an overlay and a background process in any language tha
 | `permissions` | shown in the store before installing (informational) |
 | `shared` | files from the repository's `common/` copied to `lib/` when the archive is built |
 
-Processes get `OA_API_URL`, `OA_PLUGIN_ID`, `OA_PLUGIN_DIR` and `OA_DATA_DIR` (persistent data,
-`~/.openauto/plugin-data/<id>`, kept on updates). Output goes to `~/.openauto/logs/<id>.log`.
-Enabled/disabled and dock state are kept in `~/.openauto/plugins.json`.
+Processes get `OPENHU_API_URL`, `OPENHU_PLUGIN_ID`, `OPENHU_PLUGIN_DIR` and `OPENHU_DATA_DIR` (persistent data,
+`~/.openhu/plugin-data/<id>`, kept on updates). Output goes to `~/.openhu/logs/<id>.log`.
+Enabled/disabled and dock state are kept in `~/.openhu/plugins.json`.
 
 ## QML
 
-`import OpenAuto 1.0` provides:
+`import OpenHU 1.0` provides:
 
 - `Theme` – colors, sizes and fonts of the shell
 - `BusTopic { id: radio; topic: "radio.state" }` – current value of a topic as `radio.data`
-- context objects `oa.request(method, params)` (returns `{result}` or `{error}`), `oa.publish(topic, data)`,
-  `oa.emitEvent(topic, data)`, `eventBus` (signal `event(topic, data)`), `plugins`, `actions`, `volume`
+- context objects `api.request(method, params)` (returns `{result}` or `{error}`), `api.publish(topic, data)`,
+  `api.emitEvent(topic, data)`, `eventBus` (signal `event(topic, data)`), `plugins`, `actions`, `volume`
 
 Typical pattern: the process owns the state and publishes it (`radio.state`), the page shows it with
-`BusTopic` and sends commands as one-shot events (`oa.emitEvent("radio.command", {cmd: "tune", value: 99.5})`).
+`BusTopic` and sends commands as one-shot events (`api.emitEvent("radio.command", {cmd: "tune", value: 99.5})`).
 
 ## Repositories (store sources)
 
-`~/.openauto/sources.list`, one source per line, the first one wins on duplicate ids:
+`~/.openhu/sources.list`, one source per line, the first one wins on duplicate ids:
 
 ```
-github average-web-dev/openauto-plugins main
+github average-web-dev/openhu-plugins main
 github someone/my-plugins main
-url    https://example.org/oa-repo/
-file   /media/usb/oa-repo
+url    https://example.org/openhu-repo/
+file   /media/usb/openhu-repo
 ```
 
 A repository contains `repo.json`, `plugins/<id>/…`, optional `common/`, and the generated
-`index.json` and `dist/<id>-<version>.tar.gz`. `tools/oa-repo-index` (in openauto-plugins) builds
+`index.json` and `dist/<id>-<version>.tar.gz`. `tools/openhu-repo-index` (in openhu-plugins) builds
 them reproducibly; the store verifies each download against the sha256 in `index.json`.

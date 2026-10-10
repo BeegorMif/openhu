@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.14)
 
 project(openauto CXX)
 
-message(STATUS "OpenAuto")
+message(STATUS "OpenHU")
 
 # Versioning: align with AASDK (YYYY.MM.DD[+git.<sha>[.dirty]][.debug])
 # Date-based semantic versioning
@@ -228,14 +228,14 @@ install(TARGETS autoapp btservice
 )
 
 # Install udev rules
-install(FILES packaging/udev/99-openauto.rules
+install(FILES packaging/udev/99-openhu.rules
     DESTINATION /lib/udev/rules.d
 )
 
 # Install systemd service files
 install(FILES 
-    packaging/systemd/openauto.service
-    packaging/systemd/openauto-btservice.service
+    packaging/systemd/openhu.service
+    packaging/systemd/openhu-btservice.service
     DESTINATION /lib/systemd/system
 )
 
@@ -287,23 +287,26 @@ set(CPACK_GENERATOR "DEB")
 
 # Add debug suffix to package name for debug builds
 if(CMAKE_BUILD_TYPE STREQUAL "Debug")
-    set(CPACK_PACKAGE_NAME "openauto-dbg")
+    set(CPACK_PACKAGE_NAME "openhu-dbg")
 else()
-    set(CPACK_PACKAGE_NAME "openauto")
+    set(CPACK_PACKAGE_NAME "openhu")
 endif()
 
 set(CPACK_PACKAGE_VENDOR "OpenCarDev")
 set(CPACK_PACKAGE_CONTACT "OpenCarDev Team <opencardevuk@gmail.com>")
-set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "OpenAuto head unit application using libaasdk")
-set(CPACK_PACKAGE_DESCRIPTION "OpenAuto is an AndroidAuto head unit emulator designed for Raspberry Pi and other embedded platforms.")
+set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "OpenHU head unit: Android Auto, plugins and API (based on OpenAuto)")
+set(CPACK_PACKAGE_DESCRIPTION "OpenHU is a head unit for Raspberry Pi and other Linux devices: Android Auto inside a QML shell, a WebSocket API and plugins (CAN bus, steering wheel keys, camera, radio). Based on OpenAuto by f1x.studio and OpenCarDev.")
 set(CPACK_PACKAGE_VERSION "${PROGRAM_VERSION_STRING}")
-set(CPACK_PACKAGE_HOMEPAGE_URL "https://github.com/opencardev/openauto")
+set(CPACK_PACKAGE_HOMEPAGE_URL "https://github.com/average-web-dev/openhu")
 
 # Debian package configuration
 set(CPACK_DEBIAN_PACKAGE_MAINTAINER "OpenCarDev Team <opencardevuk@gmail.com>")
 set(CPACK_DEBIAN_PACKAGE_SECTION "utils")
 set(CPACK_DEBIAN_PACKAGE_PRIORITY "optional")
-set(CPACK_DEBIAN_PACKAGE_HOMEPAGE "https://github.com/opencardev/openauto")
+set(CPACK_DEBIAN_PACKAGE_HOMEPAGE "https://github.com/average-web-dev/openhu")
+# same binaries as the openauto package
+set(CPACK_DEBIAN_PACKAGE_CONFLICTS "openauto")
+set(CPACK_DEBIAN_PACKAGE_REPLACES "openauto")
 set(CPACK_DEBIAN_PACKAGE_SHLIBDEPS ON)
 
 # Explicit dependencies for GStreamer video codec support and Qt Multimedia backend

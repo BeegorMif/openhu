@@ -1,5 +1,5 @@
 import QtQuick 2.15
-import OpenAuto 1.0
+import OpenHU 1.0
 import QtQuick.Window 2.15
 import QtQuick.Layouts 1.15
 import "."
@@ -7,7 +7,7 @@ import "."
 Window {
     id: root
     visible: true
-    title: "OpenAuto"
+    title: "OpenHU"
     color: Theme.background
 
     // "home" | "aa" | "apps" | "store" | "plugin:<id>"

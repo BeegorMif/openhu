@@ -1,5 +1,5 @@
 import QtQuick 2.15
-import OpenAuto 1.0
+import OpenHU 1.0
 import "."
 
 // Installed plugin apps and the store.

@@ -1,10 +1,10 @@
 import QtQuick 2.15
 import QtQuick.Controls 2.15
 import QtQuick.Layouts 1.15
-import OpenAuto 1.0
+import OpenHU 1.0
 import "."
 
-// Plugin store: packages from the sources in ~/.openauto/sources.list
+// Plugin store: packages from the sources in ~/.openhu/sources.list
 Item {
     id: page
 
@@ -174,7 +174,7 @@ Item {
                     Switch {
                         visible: modelData.installed
                         checked: page.pluginEnabled(modelData.id)
-                        onToggled: oa.request(checked ? "plugin.enable" : "plugin.disable", { id: modelData.id })
+                        onToggled: api.request(checked ? "plugin.enable" : "plugin.disable", { id: modelData.id })
                     }
                     Button {
                         visible: !modelData.installed || modelData.updateAvailable
@@ -267,7 +267,7 @@ Item {
                     id: sourceLocation
                     Layout.fillWidth: true
                     placeholderText: sourceType.currentText === "github" ? "benutzer/repository"
-                                   : sourceType.currentText === "url" ? "https://server/pfad/" : "/media/usb/oa-repo"
+                                   : sourceType.currentText === "url" ? "https://server/pfad/" : "/media/usb/openhu-repo"
                 }
                 TextField {
                     id: sourceBranch

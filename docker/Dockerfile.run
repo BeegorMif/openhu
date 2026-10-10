@@ -1,7 +1,7 @@
-# Laufzeit-Image für OpenAuto.
+# Laufzeit-Image für OpenHU.
 # Basiert auf dem Build-Image, weil aasdk dort nur nach /usr/local installiert
 # (nicht als .deb paketiert) wurde.
-FROM openauto:build
+FROM openhu:build
 
 ARG DEBIAN_FRONTEND=noninteractive
 
@@ -31,7 +31,7 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Ergebnis von ./dev.sh build bzw. ./dev.sh image:
-#   output/*.deb        OpenAuto-Paket (zieht Qt-Multimedia-Plugins, GStreamer selbst mit)
+#   output/*.deb        OpenHU-Paket (zieht Qt-Multimedia-Plugins, GStreamer selbst mit)
 #   output/aasdk-root/  optional: frisch gebautes aasdk aus ./aasdk-ref (überschreibt /usr/local)
 COPY output/ /tmp/oa-output/
 RUN if [ -d /tmp/oa-output/aasdk-root ]; then \
@@ -42,9 +42,9 @@ RUN if [ -d /tmp/oa-output/aasdk-root ]; then \
     && rm -rf /var/lib/apt/lists/* /tmp/oa-output \
     && ldconfig
 
-COPY entrypoint.sh /usr/local/bin/openauto-entrypoint
+COPY entrypoint.sh /usr/local/bin/openhu-entrypoint
 
-# openauto.ini & Co. landen im Arbeitsverzeichnis -> als Volume einhängen
+# openhu.ini & Co. landen im Arbeitsverzeichnis -> als Volume einhängen
 WORKDIR /config
 
-ENTRYPOINT ["/usr/local/bin/openauto-entrypoint"]
+ENTRYPOINT ["/usr/local/bin/openhu-entrypoint"]

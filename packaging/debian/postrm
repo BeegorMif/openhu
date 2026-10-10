@@ -22,8 +22,8 @@ case "$1" in
     purge)
         # Disable and remove service files on purge
         if [ -x /bin/systemctl ]; then
-            /bin/systemctl disable openauto.service || true
-            /bin/systemctl disable openauto-btservice.service || true
+            /bin/systemctl disable openhu.service || true
+            /bin/systemctl disable openhu-btservice.service || true
             /bin/systemctl daemon-reload || true
         fi
         ;;

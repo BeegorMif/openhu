@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Startet OpenAuto im Container mit Bildschirm, Ton und USB.
-# Auflösung des virtuellen Autodisplays: OA_RESOLUTION=800x480 ./run.sh
+# Startet OpenHU im Container mit Bildschirm, Ton und USB.
+# Auflösung des virtuellen Autodisplays: OPENHU_RESOLUTION=800x480 ./run.sh
 set -euo pipefail
 cd "$(dirname "$0")"
 
@@ -14,13 +14,13 @@ HOST_XSOCK="/tmp/.X11-unix/X${HOST_DISPLAY#:}"
 # Plugins, Store-Quellen, Cache und Logs bleiben über Neustarts erhalten.
 # Der Container schreibt als root, danach gehören die Dateien wieder dem eigenen Benutzer.
 mkdir -p data
-trap 'docker run --rm -v "$PWD/data:/data" --entrypoint chown openauto:run -R "$(id -u):$(id -g)" /data' EXIT
+trap 'docker run --rm -v "$PWD/data:/data" --entrypoint chown openhu:run -R "$(id -u):$(id -g)" /data' EXIT
 
-# Lokales Plugin-Repo (Store-Quelle "file /opt/openauto-plugins") für die Plugin-Entwicklung,
+# Lokales Plugin-Repo (Store-Quelle "file /opt/openhu-plugins") für die Plugin-Entwicklung,
 # Standard: neben diesem Repository
-PLUGIN_REPO_DIR="${PLUGIN_REPO_DIR:-$(dirname "$(dirname "$PWD")")/openauto-plugins}"
+PLUGIN_REPO_DIR="${PLUGIN_REPO_DIR:-$(dirname "$(dirname "$PWD")")/openhu-plugins}"
 PLUGIN_REPO=()
-[ -d "$PLUGIN_REPO_DIR" ] && PLUGIN_REPO=(-v "$PLUGIN_REPO_DIR:/opt/openauto-plugins:ro")
+[ -d "$PLUGIN_REPO_DIR" ] && PLUGIN_REPO=(-v "$PLUGIN_REPO_DIR:/opt/openhu-plugins:ro")
 
 # Kameras (Rückfahrkamera-Plugin) durchreichen, falls vorhanden
 VIDEO_DEVICES=()
@@ -29,13 +29,13 @@ for dev in /dev/video*; do
 done
 
 # --network host: nötig, damit udev-Hotplug-Events (Handy wechselt in den AOA-Modus) ankommen.
-#                 Außerdem sind so die OpenAuto-API (Port 5520) und CAN-Interfaces (vcan0/can0) direkt erreichbar.
+#                 Außerdem sind so die OpenHU-API (Port 5520) und CAN-Interfaces (vcan0/can0) direkt erreichbar.
 # Nur den Host-X-Socket einhängen, damit Xephyrs eigener Socket im Container bleibt.
 docker run --rm -it --privileged \
-  --name openauto \
+  --name openhu \
   --network host \
   -e DISPLAY="${HOST_DISPLAY}" \
-  -e OA_RESOLUTION="${OA_RESOLUTION:-1280x720}" \
+  -e OPENHU_RESOLUTION="${OPENHU_RESOLUTION:-1280x720}" \
   -e QT_QPA_PLATFORM=xcb \
   -v /etc/localtime:/etc/localtime:ro \
   -v "${HOST_XSOCK}:${HOST_XSOCK}" \
@@ -48,5 +48,5 @@ docker run --rm -it --privileged \
   "${VIDEO_DEVICES[@]}" \
   "${PLUGIN_REPO[@]}" \
   -v "$PWD/config:/config" \
-  -v "$PWD/data:/root/.openauto" \
-  openauto:run "$@"
+  -v "$PWD/data:/root/.openhu" \
+  openhu:run "$@"

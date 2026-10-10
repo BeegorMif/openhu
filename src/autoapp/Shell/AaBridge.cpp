@@ -167,7 +167,7 @@ void AaBridge::updateMargins()
 
         if(!configuredMargins_.isNull() || !enabled_ || viewportSize_.isEmpty())
         {
-            // Margins from openauto.ini win; without a known viewport the full frame is used.
+            // Margins from openhu.ini win; without a known viewport the full frame is used.
             margins_ = configuredMargins_;
         }
         else

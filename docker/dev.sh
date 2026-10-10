@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-# Entwicklungs-Workflow für OpenAuto im Container.
+# Entwicklungs-Workflow für OpenHU im Container.
 #
-#   ./dev.sh build            inkrementell bauen (nur geänderte Dateien) -> output/*.deb -> openauto:run neu
+#   ./dev.sh build            inkrementell bauen (nur geänderte Dateien) -> output/*.deb -> openhu:run neu
 #   ./dev.sh build --aasdk    zusätzlich aasdk neu bauen (../aasdk-ref bzw. $AASDK_DIR, nach aasdk-Änderungen)
-#   ./dev.sh image            Build-Image openauto:build komplett neu bauen (nach Dockerfile-/Abhängigkeitsänderungen)
+#   ./dev.sh image            Build-Image openhu:build komplett neu bauen (nach Dockerfile-/Abhängigkeitsänderungen)
 #   ./dev.sh shell            Shell in der Build-Umgebung (Quellen eingehängt)
 #   ./dev.sh reconnect        Handy per USB-Reset neu verbinden (laufendes ./run.sh)
 #
@@ -14,8 +14,8 @@ DOCKER_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO="$(dirname "$DOCKER_DIR")"
 # aasdk source (default: next to this repository)
 AASDK_DIR="${AASDK_DIR:-$(dirname "$REPO")/aasdk-ref}"
-BUILD_IMAGE="openauto:build"
-RUN_IMAGE="openauto:run"
+BUILD_IMAGE="openhu:build"
+RUN_IMAGE="openhu:run"
 
 # Build-Verzeichnisse liegen in Docker-Volumes, damit inkrementelle Builds schnell sind
 # und keine root-Dateien im Quellbaum landen.
@@ -24,8 +24,8 @@ dev_container() {
     -v "$REPO:/src" \
     -v "$AASDK_DIR:/aasdk" \
     -v "$DOCKER_DIR/output:/output" \
-    -v oa-openauto-build:/build/openauto \
-    -v oa-aasdk-build:/build/aasdk \
+    -v openhu-build:/build/openhu \
+    -v openhu-aasdk-build:/build/aasdk \
     -w /src \
     "$BUILD_IMAGE" "$@"
 }
@@ -62,13 +62,13 @@ cmd_build() {
       ldconfig
     fi
 
-    echo '=== openauto ==='
-    cmake -S /src -B /build/openauto -DCMAKE_BUILD_TYPE=Release -DNOPI=ON \
+    echo '=== openhu ==='
+    cmake -S /src -B /build/openhu -DCMAKE_BUILD_TYPE=Release -DNOPI=ON \
           -DCPACK_PROJECT_CONFIG_FILE=/src/cmake_modules/CPackProjectConfig.cmake >/dev/null
-    cmake --build /build/openauto -j\$(nproc)
+    cmake --build /build/openhu -j\$(nproc)
     touch /tmp/cpack-stamp
-    cd /build/openauto && cpack -G DEB >/dev/null
-    find /build/openauto -maxdepth 1 -name '*.deb' -newer /tmp/cpack-stamp -exec cp -v {} /output/ \;
+    cd /build/openhu && cpack -G DEB >/dev/null
+    find /build/openhu -maxdepth 1 -name '*.deb' -newer /tmp/cpack-stamp -exec cp -v {} /output/ \;
     chown -R $(id -u):$(id -g) /output
   "
 
@@ -89,7 +89,7 @@ cmd_shell() {
 }
 
 cmd_reconnect() {
-  docker exec openauto python3 -c '
+  docker exec openhu python3 -c '
 import asyncio, json, websockets
 async def main():
     async with websockets.connect("ws://127.0.0.1:5520") as ws:

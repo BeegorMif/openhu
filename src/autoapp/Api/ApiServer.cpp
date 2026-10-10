@@ -33,7 +33,7 @@ namespace api
 
 ApiServer::ApiServer(QObject* parent)
     : QObject(parent)
-    , server_(QStringLiteral("OpenAuto"), QWebSocketServer::NonSecureMode)
+    , server_(QStringLiteral("OpenHU"), QWebSocketServer::NonSecureMode)
 {
     connect(&server_, &QWebSocketServer::newConnection, this, &ApiServer::onNewConnection);
     connect(&core::EventBus::instance(), &core::EventBus::event, this, &ApiServer::onBusEvent);

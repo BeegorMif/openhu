@@ -1,170 +1,43 @@
-# OpenAuto
+# OpenHU
 
-[![Contributor Covenant](https://img.shields.io/badge/Contributor%20Covenant-2.1-4baaaa.svg)](code_of_conduct.md)
+Open head unit for Raspberry Pi and other Linux devices: Android Auto inside a modern QML shell,
+a WebSocket API and plugins installed from GitHub repositories.
 
-### Support project
-[![Donate](https://img.shields.io/badge/Donate-PayPal-green.svg)](https://www.paypal.com/donate/?hosted_button_id=YAA3LW393L46S)
+OpenHU is based on [OpenAuto](https://github.com/opencardev/openauto) by f1x.studio and the OpenCarDev
+team and uses [aasdk](https://github.com/opencardev/aasdk). The original README is in
+[docs/upstream-openauto-README.md](docs/upstream-openauto-README.md).
 
-For support of other platforms please contact me at f1xstudiopl@gmail.com
+## Features
 
-### Community
-[![Join the chat at https://gitter.im/publiclab/publiclab](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/openauto_androidauto/Lobby)
+- **Android Auto in the main window** (USB, wireless via the Bluetooth service): dock and status bar stay
+  usable, margins are computed so the projection is not distorted, touch is mapped into the projection
+- **Home screen** with the next navigation maneuver and the current track from the phone
+- **WebSocket/JSON API** (`ws://127.0.0.1:5520`) with navigation, media, phone and volume data and control
+  of the shell – see [docs/api.md](docs/api.md)
+- **Actions** for keyboard, steering wheel, CAN and API (`media.next`, `volume.up`, `call.answer`, …),
+  configurable key map
+- **Plugins and store**: QML pages, overlays and background processes in any language; repositories
+  configured like apt sources (`github user/repo`) – see [docs/plugins.md](docs/plugins.md).
+  Official plugins: CAN bus, steering wheel keys, reverse camera, FM/AM radio
+  ([openhu-plugins](https://github.com/average-web-dev/openhu-plugins))
+- Reconnect the phone without unplugging (USB reset), night mode via API/CAN
 
-### Description
-OpenAuto is an AndroidAuto(tm) headunit emulator based on aasdk library and Qt libraries. Main goal is to run this application on the RaspberryPI 3 board computer smoothly.
+## Development in a container
 
-[See demo video](https://www.youtube.com/watch?v=k9tKRqIkQs8)
+Expected layout: this repository, `aasdk-ref` (aasdk sources) and optionally `openhu-plugins` next to each other.
 
-### Supported functionalities
- - 480p, 720p and 1080p with 30 or 60 FPS
- - RaspberryPI 3 hardware acceleration support to decode video stream (up to 1080p@60!)
- - Audio playback from all audio channels (Media, System and Speech)
- - Audio input for voice commands
- - Touchscreen and buttons input
- - Bluetooth
- - Automatic launch after device hotplug
- - Automatic detection of connected Android devices
- - Wireless (WiFi) mode via head unit server (must be enabled in hidden developer settings)
- - User-friendly settings
-
-### Supported platforms
-
- - Linux
- - RaspberryPI 3
- - Windows
-
-### License
-GNU GPLv3
-
-Copyrights (c) 2018 f1x.studio (Michal Szwaj)
-
-*AndroidAuto is registered trademark of Google Inc.*
-
-### Used software
- - [aasdk](https://github.com/f1xpl/aasdk)
- - [Boost libraries](http://www.boost.org/)
- - [Qt libraries](https://www.qt.io/)
- - [CMake](https://cmake.org/)
- - [RtAudio](https://www.music.mcgill.ca/~gary/rtaudio/playback.html)
- - Broadcom ilclient from RaspberryPI 3 firmware
- - OpenMAX IL API
-
-### Building
-
-OpenAuto provides a unified build script (`build.sh`) that works consistently across local and Docker environments.
-
-#### Quick Start
-
-```bash
-# Build release version (recommended for production)
-# Note: main/master branches default to release, other branches default to debug
-./build.sh release --package --with-aasdk
-
-# Build debug version with symbols (for development/debugging)
-# Debug builds create packages with -dbg suffix (openauto-dbg)
-./build.sh debug --package
-
-# Auto-detect build type based on git branch
-./build.sh --package
-
-# Clean build
-./build.sh release --clean --package
+```
+docker/dev.sh image      # build image (first time and after dependency changes)
+docker/dev.sh build      # incremental build -> docker/output/*.deb -> image openhu:run
+docker/run.sh            # OpenHU in a window (Xephyr), with sound, USB, cameras
+docker/dev.sh reconnect  # phone USB reset while running
 ```
 
-#### Build Script Options
+Configuration: `docker/config/openhu.ini` (`[General] UI=qml|legacy`, `[Api] Port`, …),
+plugins and store data: `docker/data/`. The classic OpenAuto/Crankshaft interface is still available
+with `UI=legacy`.
 
-```bash
-Usage: ./build.sh [release|debug] [OPTIONS]
+## License
 
-Build types:
-  release        Build release version (default)
-  debug          Build debug version with symbols
-
-Options:
-  --clean        Clean build directory before building
-  --package      Create DEB packages after building
-  --output-dir   Directory to copy packages (default: /output)
-  --help         Show help message
-
-Note: Builds are always done with NOPI=ON (no Pi-specific hardware)
-```
-
-#### Manual Building (Legacy)
-
-If you need to build manually:
-
-**AMD64/x86_64:**
-1. Install dependencies from [prebuilts](https://github.com/opencardev/prebuilts) repository
-2. Install Qt5 and development packages
-3. Build with CMake:
-   ```bash
-   mkdir -p build-release
-   cd build-release
-   cmake -DCMAKE_BUILD_TYPE=Release ..
-   make -j$(nproc)
-   ```
-
-   Note: The build script automatically enables NOPI=ON
-
-**Raspberry Pi:**
-1. Use the scripts in the `prebuilts` repository for `aasdk` and `openauto`
-2. Or use the unified `build.sh` script:
-   ```bash
-   ./build.sh release --package
-   ```
-
-#### Docker Building
-
-The Dockerfile uses the same `build.sh` script:
-
-```bash
-docker build -t openauto --build-arg DEBIAN_VERSION=trixie .
-```
-
-### Remarks
-**This software is not certified by Google Inc. It is created for R&D purposes and may not work as expected by the original authors. Do not use while driving. You use this software at your own risk.**
-
-## Testing
-
-This project includes a comprehensive test suite to verify the functionality of the application.
-
-### Running Tests
-
-To run the tests, follow these steps:
-
-1. Make sure you have built the project successfully
-2. Navigate to the build directory and execute the test runner:
-
-```bash
-cd build
-ctest -V
-```
-
-Or to run specific test categories:
-
-```bash
-cd build
-# Run unit tests
-./tests/unit/openauto_unit_tests
-
-# Run integration tests
-./tests/integration/openauto_integration_tests
-```
-
-### Test Coverage
-
-You can generate test coverage reports using:
-
-```bash
-cd build
-cmake -DCMAKE_BUILD_TYPE=Debug -DWITH_COVERAGE=ON ..
-make
-make test
-make coverage
-```
-
-This will generate coverage reports in the `coverage` directory.
-
-### Test Plan
-
-For detailed information about test cases and validation procedures, refer to [TESTPLAN.md](TESTPLAN.md).
+GPL-3.0, see [LICENSE](LICENSE). Copyright of the original code: f1x.studio (Michal Szwaj) and the
+OpenCarDev team.

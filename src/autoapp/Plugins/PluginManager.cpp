@@ -87,7 +87,7 @@ PluginManager::~PluginManager()
 
 QString PluginManager::baseDir()
 {
-    return QDir::homePath() + "/.openauto";
+    return QDir::homePath() + "/.openhu";
 }
 
 QString PluginManager::pluginsDir()
@@ -325,10 +325,10 @@ void PluginManager::startProcess(Plugin& plugin)
     QDir().mkpath(logDir);
 
     QProcessEnvironment environment = QProcessEnvironment::systemEnvironment();
-    environment.insert("OA_API_URL", QString("ws://127.0.0.1:%1").arg(apiPort_));
-    environment.insert("OA_PLUGIN_ID", plugin.id);
-    environment.insert("OA_PLUGIN_DIR", plugin.dir);
-    environment.insert("OA_DATA_DIR", dataDir);
+    environment.insert("OPENHU_API_URL", QString("ws://127.0.0.1:%1").arg(apiPort_));
+    environment.insert("OPENHU_PLUGIN_ID", plugin.id);
+    environment.insert("OPENHU_PLUGIN_DIR", plugin.dir);
+    environment.insert("OPENHU_DATA_DIR", dataDir);
     environment.insert("PYTHONUNBUFFERED", "1");
 
     plugin.process = std::make_unique<QProcess>();

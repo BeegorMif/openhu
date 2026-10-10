@@ -35,7 +35,7 @@ namespace autoapp
 namespace plugins
 {
 
-// Plugins live in ~/.openauto/plugins/<id>/ with a manifest.json (see docs/plugins.md):
+// Plugins live in ~/.openhu/plugins/<id>/ with a manifest.json (see docs/plugins.md):
 //   ui.page / ui.overlay  QML shown in the shell, ui.dock adds a dock button
 //   process.exec          background process (any language) that talks to the API
 class PluginManager: public QObject

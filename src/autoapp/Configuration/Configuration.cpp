@@ -26,7 +26,9 @@
 namespace f1x::openauto::autoapp::configuration
 {
 
-const std::string Configuration::cConfigFileName = "openauto.ini";
+const std::string Configuration::cConfigFileName = "openhu.ini";
+// read once when openhu.ini does not exist yet (configuration of OpenAuto)
+const std::string Configuration::cLegacyConfigFileName = "openauto.ini";
 
 const std::string Configuration::cGeneralShowClockKey = "General.ShowClock";
 
@@ -102,7 +104,9 @@ void Configuration::load()
 
     try
     {
-        boost::property_tree::ini_parser::read_ini(cConfigFileName, iniConfig);
+        const bool hasConfig = std::ifstream(cConfigFileName).good();
+        boost::property_tree::ini_parser::read_ini(hasConfig || !std::ifstream(cLegacyConfigFileName).good()
+                                                   ? cConfigFileName : cLegacyConfigFileName, iniConfig);
 
         handednessOfTrafficType_ = static_cast<HandednessOfTrafficType>(iniConfig.get<uint32_t>(cGeneralHandednessOfTrafficTypeKey,
                                                                                               static_cast<uint32_t>(HandednessOfTrafficType::LEFT_HAND_DRIVE)));
