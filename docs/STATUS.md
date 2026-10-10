@@ -14,12 +14,11 @@ Namespaces `f1x::openauto` und Binary `autoapp` bleiben, damit Upstream-Änderun
 | Repo (lokal) | Branch | Inhalt |
 |---|---|---|
 | `openauto/` (GitHub `average-web-dev/openhu`) | `main` (Stand), `upstream-main` (alter Fork-Stand) | OpenHU |
-| `aasdk-ref/` (Upstream `opencardev/aasdk`) | `feature/oa-extensions` | aasdk + Navigation-State/Position, PhoneStatus |
+| `aasdk-ref/` (GitHub-Fork `average-web-dev/aasdk`, Upstream `opencardev/aasdk` als Remote `upstream`) | `openhu` | aasdk + Navigation-State/Position, PhoneStatus |
 | `openhu-plugins/` (GitHub `average-web-dev/openhu-plugins`) | `main` | offizielle Plugins + Store-Index |
 
-`openhu` und `openhu-plugins` sind gepusht. Die aasdk-Änderung liegt zusätzlich als Patch in
-`aasdk-patches/`; die CI (`.github/workflows/ci.yml`) wendet ihn auf aasdk-Commit `9bf6adf` an
-(kein eigener aasdk-Fork nötig). Die alten opencardev-Workflows (APT-Publish, Release) sind entfernt.
+Alle drei Repos sind gepusht. Die CI (`.github/workflows/ci.yml`) baut mit dem aasdk-Fork (Branch
+`openhu`); die alten opencardev-Workflows (APT-Publish, Release) sind entfernt.
 
 ## Phasen
 

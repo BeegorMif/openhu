@@ -33,9 +33,9 @@ docker/run.sh            # OpenHU in a window (Xephyr), with sound, USB, cameras
 docker/dev.sh reconnect  # phone USB reset while running
 ```
 
-aasdk changes live in `aasdk-ref` (branch `feature/oa-extensions`) and as patches in `aasdk-patches/`
-for CI, which applies them to the upstream commit in `.github/workflows/ci.yml`. After changing aasdk:
-`git -C ../aasdk-ref format-patch 9bf6adf..HEAD -o $PWD/aasdk-patches`.
+aasdk comes from the fork [average-web-dev/aasdk](https://github.com/average-web-dev/aasdk), branch
+`openhu` (upstream opencardev/aasdk plus navigation state and phone status handling). Local
+development uses the checkout next to this repository, CI clones the branch.
 
 Configuration: `docker/config/openhu.ini` (`[General] UI=qml|legacy`, `[Api] Port`, …),
 plugins and store data: `docker/data/`. The classic OpenAuto/Crankshaft interface is still available
