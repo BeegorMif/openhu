@@ -39,6 +39,7 @@ const std::string cNameSuffixKey = "General.NameSuffix";
 const std::string cVideoResolutionAutoKey = "Video.AutoResolution";
 const std::string cApiPortKey = "Api.Port";
 const std::string cApiListenKey = "Api.Listen";
+const std::string cApiAllowHotspotKey = "Api.AllowHotspot";
 const std::string cVideoFPSKey = "Video.FPS";
 const std::string cVideoResolutionKey = "Video.Resolution";
 const std::string cVideoScreenDPIKey = "Video.ScreenDPI";
@@ -55,6 +56,10 @@ const std::string cWirelessCountryKey = "Wireless.Country";
 const std::string cWirelessInterfaceKey = "Wireless.Interface";
 const std::string cWirelessLastDeviceKey = "Wireless.LastDevice";
 const std::string cWirelessPriorityKey = "Wireless.Priority";
+const std::string cWirelessHotspotKey = "Wireless.Hotspot";
+const std::string cWirelessChannelKey = "Wireless.Channel";
+const std::string cWirelessAddressKey = "Wireless.Address";
+const std::string cWirelessDhcpRangeKey = "Wireless.DhcpRange";
 const std::string cAudioMediaKey = "AudioChannel.MediaEnabled";
 const std::string cAudioGuidanceKey = "AudioChannel.GuidanceEnabled";
 const std::string cAudioSystemKey = "AudioChannel.SystemEnabled";
@@ -90,6 +95,7 @@ void Configuration::load()
         nameSuffix_ = ini.get<std::string>(cNameSuffixKey, nameSuffix_);
         apiPort_ = ini.get<uint16_t>(cApiPortKey, apiPort_);
         apiListenAddress_ = ini.get<std::string>(cApiListenKey, apiListenAddress_);
+        apiAllowHotspot_ = ini.get<bool>(cApiAllowHotspotKey, apiAllowHotspot_);
 
         videoFPS_ = static_cast<aap_protobuf::service::media::sink::message::VideoFrameRateType>(
             ini.get<uint32_t>(cVideoFPSKey, videoFPS_));
@@ -111,6 +117,10 @@ void Configuration::load()
         wireless_.interface = ini.get<std::string>(cWirelessInterfaceKey, wireless_.interface);
         wireless_.lastDevice = ini.get<std::string>(cWirelessLastDeviceKey, wireless_.lastDevice);
         wireless_.priority = ini.get<std::string>(cWirelessPriorityKey, wireless_.priority);
+        wireless_.hotspot = ini.get<std::string>(cWirelessHotspotKey, wireless_.hotspot);
+        wireless_.channel = ini.get<int>(cWirelessChannelKey, wireless_.channel);
+        wireless_.address = ini.get<std::string>(cWirelessAddressKey, wireless_.address);
+        wireless_.dhcpRange = ini.get<std::string>(cWirelessDhcpRangeKey, wireless_.dhcpRange);
 
         audioChannelEnabledMedia_ = ini.get<bool>(cAudioMediaKey, audioChannelEnabledMedia_);
         audioChannelEnabledGuidance_ = ini.get<bool>(cAudioGuidanceKey, audioChannelEnabledGuidance_);
@@ -134,6 +144,7 @@ void Configuration::reset()
     videoResolutionAuto_ = true;
     apiPort_ = 5520;
     apiListenAddress_ = "127.0.0.1";
+    apiAllowHotspot_ = false;
     videoFPS_ = aap_protobuf::service::media::sink::message::VideoFrameRateType::VIDEO_FPS_30;
     videoResolution_ = aap_protobuf::service::media::sink::message::VideoCodecResolutionType::VIDEO_800x480;
     screenDPI_ = 140;
@@ -143,7 +154,7 @@ void Configuration::reset()
     bluetoothAdapterAddress_ = "";
     // off by default: it turns the WiFi card into a hotspot
     wirelessProjectionEnabled_ = false;
-    wireless_ = WirelessSettings{"", "", "5", "DE", "", "", "usb"};
+    wireless_ = WirelessSettings{"", "", "5", "DE", "", "", "usb", "always", 0, "10.42.0.1/24", ""};
     audioChannelEnabledMedia_ = true;
     audioChannelEnabledGuidance_ = true;
     audioChannelEnabledSystem_ = true;
@@ -160,6 +171,7 @@ void Configuration::save()
     ini.put<bool>(cVideoResolutionAutoKey, videoResolutionAuto_);
     ini.put<uint16_t>(cApiPortKey, apiPort_);
     ini.put<std::string>(cApiListenKey, apiListenAddress_);
+    ini.put<bool>(cApiAllowHotspotKey, apiAllowHotspot_);
     ini.put<uint32_t>(cVideoFPSKey, static_cast<uint32_t>(videoFPS_));
     ini.put<uint32_t>(cVideoResolutionKey, static_cast<uint32_t>(videoResolution_));
     ini.put<size_t>(cVideoScreenDPIKey, screenDPI_);
@@ -176,6 +188,10 @@ void Configuration::save()
     ini.put<std::string>(cWirelessInterfaceKey, wireless_.interface);
     ini.put<std::string>(cWirelessLastDeviceKey, wireless_.lastDevice);
     ini.put<std::string>(cWirelessPriorityKey, wireless_.priority);
+    ini.put<std::string>(cWirelessHotspotKey, wireless_.hotspot);
+    ini.put<int>(cWirelessChannelKey, wireless_.channel);
+    ini.put<std::string>(cWirelessAddressKey, wireless_.address);
+    ini.put<std::string>(cWirelessDhcpRangeKey, wireless_.dhcpRange);
     ini.put<bool>(cAudioMediaKey, audioChannelEnabledMedia_);
     ini.put<bool>(cAudioGuidanceKey, audioChannelEnabledGuidance_);
     ini.put<bool>(cAudioSystemKey, audioChannelEnabledSystem_);
@@ -262,6 +278,16 @@ std::string Configuration::getApiListenAddress() const
 void Configuration::setApiListenAddress(const std::string& value)
 {
     apiListenAddress_ = value;
+}
+
+bool Configuration::getApiAllowHotspot() const
+{
+    return apiAllowHotspot_;
+}
+
+void Configuration::setApiAllowHotspot(bool value)
+{
+    apiAllowHotspot_ = value;
 }
 
 aap_protobuf::service::media::sink::message::VideoFrameRateType Configuration::getVideoFPS() const

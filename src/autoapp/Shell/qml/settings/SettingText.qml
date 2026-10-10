@@ -11,7 +11,15 @@ SettingRow {
     TextField {
         width: Theme.dockWidth * 3
         placeholderText: textSetting.placeholder
-        text: settings.values[textSetting.key] || ""
-        onEditingFinished: if (text !== (settings.values[textSetting.key] || "")) settings.set(textSetting.key, text)
+        text: String(settings.values[textSetting.key] || "")
+        onEditingFinished: {
+            if (text === String(settings.values[textSetting.key] || ""))
+                return
+            const error = settings.set(textSetting.key, text)
+            if (error) {
+                shell.toast(error, 4000)
+                text = Qt.binding(() => String(settings.values[textSetting.key] || ""))
+            }
+        }
     }
 }

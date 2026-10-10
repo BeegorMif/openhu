@@ -42,11 +42,17 @@ struct WirelessSettings
 {
     std::string ssid;       // empty: "OpenHU" + name suffix
     std::string password;   // generated on first start
-    std::string band;       // "5" or "2.4" (GHz)
+    std::string band;       // "5", "2.4" (GHz) or "auto" (5, 2.4 when 5 GHz fails)
     std::string country;    // regulatory domain, e.g. "DE" (5 GHz needs it)
     std::string interface;  // empty: first WiFi device
     std::string lastDevice; // Bluetooth address of the last phone, connected first
     std::string priority;   // phone on the cable and wireless: "usb" (default) or "wifi" wins
+    std::string hotspot;    // "always" (default) or "demand": started when a phone asks for it
+    // advanced
+    int channel;            // 0: 36 (5 GHz) / 6 (2.4 GHz)
+    std::string address;    // OpenHU in the hotspot (gateway for the phone), "10.42.0.1/24"
+    std::string dhcpRange;  // "10.42.0.10-10.42.0.254", empty: NetworkManager default
+    // (no DNS setting: NetworkManager's shared mode always hands out itself as DNS forwarder)
 };
 
 // Settings in openhu.ini (edited on the shell's settings page).
@@ -78,6 +84,9 @@ public:
     virtual void setApiPort(uint16_t value) = 0;
     virtual std::string getApiListenAddress() const = 0;
     virtual void setApiListenAddress(const std::string& value) = 0;
+    // API clients on the wireless hotspot (10.42.0.0/24); API devices normally use Ethernet
+    virtual bool getApiAllowHotspot() const = 0;
+    virtual void setApiAllowHotspot(bool value) = 0;
 
     // Android Auto video and input
     virtual aap_protobuf::service::media::sink::message::VideoFrameRateType getVideoFPS() const = 0;

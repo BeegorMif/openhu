@@ -36,10 +36,13 @@ Example: `websocat ws://127.0.0.1:5520` and then `{"type":"subscribe","topics":[
 | `projection.exit` | – one-shot: "exit" inside Android Auto, the shell shows its home page |
 | `plugins.state` | `plugins` – installed plugins after (re)loading |
 | `store.state` | `busy`, `status`, `error` – progress of store operations |
-| `wireless.state` | `enabled`, `running`, `hotspot` (`off`, `starting`, `on`, `error`), `hotspotError`, `wifiOff`, `interface`, `ssid`, `bluetooth` (`off`, `on`, `error`), `bluetoothError`, `adapter`, `pairing`, `phase` (`idle`, `waiting`, `handshake`, `joining`, `connected`, `error`), `phaseText`, `device` |
+| `wireless.state` | `enabled`, `running`, `hotspot` (`off`, `starting`, `on`, `error`), `hotspotMode` (`always`, `demand`), `hotspotError`, `wifiOff`, `interface`, `channel`, `ssid`, `bluetooth` (`off`, `on`, `error`), `bluetoothError`, `adapter`, `pairing`, `phase` (`idle`, `waiting`, `hotspot`, `handshake`, `joining`, `connected`, `error`), `phaseText`, `device` |
 | `bluetooth.pairing` | `active`, `device`, `passkey` – a phone asks to pair (confirmed in the shell or with `bluetooth.confirm`) |
 
 Plugins publish their own topics with `bus.publish` (e.g. `vehicle.speed`).
+
+API clients on the wireless hotspot network are refused unless "API auch im WLAN-Hotspot" is switched on
+(the hotspot is meant for the phone; connect API devices over Ethernet).
 
 ## Methods
 

@@ -94,8 +94,14 @@ Konfiguration `docker/config/openhu.ini` (Fallback `openauto.ini`), Plugin-Daten
   getestet: gekoppelt in < 2 s ohne Rückfrage.
 - Einstellung „Vorrang bei Kabel“ (`Wireless.Priority`): USB (Standard) – mit Kabel keine WLAN-Daten, TCP
   abgewiesen, Einstecken beendet die WLAN-Sitzung; WLAN – Handy darf auch mit Kabel kabellos wechseln.
-- Ideen (nicht umgesetzt): Hotspot erst bei Bedarf starten (wenn sich das Handy per Bluetooth meldet),
-  versteckte SSID (ungewiss, ob Android Auto versteckte Netze findet).
+- Hotspot „Immer an“ / „Bei Bedarf“: bei Bedarf startet er, wenn ein gekoppeltes Handy den AA-Kanal öffnet
+  (das Handy wartet, WLAN-Daten erst danach; gemessen 0,3 s), und geht nach 2 min ohne kabellose Sitzung aus
+  (Abschalten noch ungetestet).
+- Band Auto/5/2,4 GHz (Auto: 5 GHz, bei Fehler 2,4 GHz; eine Karte kann nicht beide gleichzeitig),
+  erweitert: Kanal, Adresse/Gateway, DHCP-Bereich (NM `ipv4.shared-dhcp-range`, ab NM 1.42). Eigene DNS-Server
+  gehen nicht: NM erlaubt `ipv4.dns` bei `method=shared` nicht.
+- API aus dem Hotspot-Netz standardmäßig abgewiesen, Schalter „API auch im WLAN-Hotspot“ (ungetestet).
+- Idee (nicht umgesetzt): versteckte SSID (ungewiss, ob Android Auto versteckte Netze findet).
 - Wichtiger Fix in `App::waitForDevice`: Der USB-Hub-Start lief inline auf dem App-Strand und blockierte ihn
   beim Programmstart 10–20 s (Hotplug-Enumeration aller USB-Geräte); das Handy gab nach 10 s ohne Daten auf.
   Jetzt eigener Worker-Aufruf → kabellos verbunden ca. 5 s nach dem Start.

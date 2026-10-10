@@ -133,7 +133,7 @@ Item {
                                 return state.bluetoothError
                             if (state.hotspot === "error")
                                 return state.hotspotError
-                            return state.phaseText || ("Kabellos bereit · WLAN „" + state.ssid + "“")
+                            return state.phaseText || "Kabellos bereit"
                         }
                         color: Theme.text
                         font.pixelSize: Theme.fontSmall

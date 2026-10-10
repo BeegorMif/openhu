@@ -60,6 +60,8 @@ public:
     ~ApiServer() override;
 
     bool listen(const QHostAddress& address, quint16 port);
+    // Decides per new connection whether a client may connect (e.g. not from the wireless hotspot)
+    void setClientFilter(std::function<bool(const QHostAddress&)> filter);
     void registerMethod(const QString& name, Method method);
     QStringList methods() const;
 
@@ -82,6 +84,7 @@ private:
     QWebSocketServer server_;
     QHash<QWebSocket*, Client> clients_;
     QMap<QString, Method> methods_;
+    std::function<bool(const QHostAddress&)> clientFilter_;
 };
 
 }

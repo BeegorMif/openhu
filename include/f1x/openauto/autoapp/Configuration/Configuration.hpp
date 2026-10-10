@@ -50,6 +50,8 @@ public:
     void setApiPort(uint16_t value) override;
     std::string getApiListenAddress() const override;
     void setApiListenAddress(const std::string& value) override;
+    bool getApiAllowHotspot() const override;
+    void setApiAllowHotspot(bool value) override;
 
     aap_protobuf::service::media::sink::message::VideoFrameRateType getVideoFPS() const override;
     void setVideoFPS(aap_protobuf::service::media::sink::message::VideoFrameRateType value) override;
@@ -93,6 +95,7 @@ private:
     bool videoResolutionAuto_;
     uint16_t apiPort_;
     std::string apiListenAddress_;
+    bool apiAllowHotspot_;
     aap_protobuf::service::media::sink::message::VideoFrameRateType videoFPS_;
     aap_protobuf::service::media::sink::message::VideoCodecResolutionType videoResolution_;
     size_t screenDPI_;

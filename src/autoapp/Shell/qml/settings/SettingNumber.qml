@@ -16,7 +16,13 @@ SettingRow {
         stepSize: number.stepSize
         editable: true
         value: settings.values[number.key] || 0
-        onValueModified: settings.set(number.key, value)
+        onValueModified: {
+            const error = settings.set(number.key, value)
+            if (error) {
+                shell.toast(error, 4000)
+                value = Qt.binding(() => settings.values[number.key] || 0)
+            }
+        }
         // plain numbers (no thousands separator for ports)
         textFromValue: function(value) { return value.toString() }
         valueFromText: function(text) { return parseInt(text) || 0 }

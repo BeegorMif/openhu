@@ -78,10 +78,22 @@ QVariant ApiServer::call(const QString& method, const QVariantMap& params)
     return it.value()(params);
 }
 
+void ApiServer::setClientFilter(std::function<bool(const QHostAddress&)> filter)
+{
+    clientFilter_ = std::move(filter);
+}
+
 void ApiServer::onNewConnection()
 {
     while(QWebSocket* socket = server_.nextPendingConnection())
     {
+        if(clientFilter_ && !clientFilter_(socket->peerAddress()))
+        {
+            OPENAUTO_LOG(info) << "[ApiServer] client refused: " << socket->peerAddress().toString().toStdString();
+            socket->close(QWebSocketProtocol::CloseCodePolicyViolated, "not allowed from this network");
+            socket->deleteLater();
+            continue;
+        }
         OPENAUTO_LOG(info) << "[ApiServer] client connected: " << socket->peerAddress().toString().toStdString();
         clients_.insert(socket, Client());
         connect(socket, &QWebSocket::textMessageReceived, this, [this, socket](const QString& message) {

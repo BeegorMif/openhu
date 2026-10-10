@@ -315,6 +315,8 @@ Item {
             return "WLAN-Hotspot startet …"
         if (state.phaseText)
             return state.phaseText + (state.device ? " (" + state.device + ")" : "")
+        if (state.hotspot === "off")
+            return "Bereit · WLAN-Hotspot startet, sobald sich das Telefon meldet"
         return "Bereit · WLAN „" + state.ssid + "“ auf " + state.interface
     }
 
@@ -389,6 +391,14 @@ Item {
             }
 
             SectionTitle { text: "WLAN-Hotspot" }
+            SettingChoice {
+                title: "Hotspot"
+                description: settings.values["wireless.hotspot"] === "demand"
+                             ? "Startet erst, wenn sich ein gekoppeltes Telefon meldet (ein paar Sekunden länger), und geht nach 2 Minuten ohne kabellose Sitzung aus."
+                             : "Läuft dauerhaft, solange kabelloses Android Auto eingeschaltet ist (schnellste Verbindung)."
+                key: "wireless.hotspot"
+                options: [{ value: "always", label: "Immer an" }, { value: "demand", label: "Bei Bedarf" }]
+            }
             SettingText {
                 title: "Name (SSID)"
                 description: "Leer lassen für „" + wireless.state.ssid + "“."
@@ -402,9 +412,10 @@ Item {
             }
             SettingChoice {
                 title: "Frequenzband"
-                description: "Android Auto braucht in der Regel 5 GHz."
+                description: "Android Auto läuft am besten mit 5 GHz. „Auto“ nimmt 5 GHz und weicht auf 2,4 GHz aus, wenn 5 GHz nicht startet. Beide gleichzeitig kann eine WLAN-Karte nicht."
+                             + (wireless.state.channel > 0 ? " Aktuell Kanal " + wireless.state.channel + "." : "")
                 key: "wireless.band"
-                options: [{ value: "5", label: "5 GHz" }, { value: "2.4", label: "2,4 GHz" }]
+                options: [{ value: "auto", label: "Auto" }, { value: "5", label: "5 GHz" }, { value: "2.4", label: "2,4 GHz" }]
             }
             SettingText {
                 title: "Land"
@@ -412,6 +423,40 @@ Item {
                 key: "wireless.country"
                 placeholder: "DE"
             }
+            SettingRow {
+                id: advancedRow
+                property bool open: false
+                title: "Erweiterte Einstellungen"
+                description: "Kanal, Adresse, DHCP-Bereich"
+                Button {
+                    text: advancedRow.open ? "Ausblenden" : "Anzeigen"
+                    onClicked: advancedRow.open = !advancedRow.open
+                }
+            }
+            SettingText {
+                visible: advancedRow.open
+                title: "Kanal"
+                description: settings.values["wireless.band"] === "auto"
+                             ? "Mit „Auto“ wählt OpenHU selbst (36 bzw. 6). Für einen festen Kanal ein festes Band wählen."
+                             : "Leer = Standard (" + (settings.values["wireless.band"] === "2.4" ? "6" : "36") + "). 5 GHz: 36–48 ohne Radarerkennung."
+                key: "wireless.channel"
+                placeholder: "automatisch"
+            }
+            SettingText {
+                visible: advancedRow.open
+                title: "Adresse (Gateway)"
+                description: "OpenHU im Hotspot-Netz, mit Netzmaske. Das Telefon nutzt sie als Gateway und DNS."
+                key: "wireless.address"
+                placeholder: "10.42.0.1/24"
+            }
+            SettingText {
+                visible: advancedRow.open
+                title: "DHCP-Bereich"
+                description: "Leer = automatisch."
+                key: "wireless.dhcpRange"
+                placeholder: "10.42.0.10-10.42.0.254"
+            }
+
 
             SectionTitle { text: "Telefonate über Bluetooth" }
             SettingChoice {
@@ -454,6 +499,12 @@ Item {
                 title: "API im Netzwerk freigeben"
                 description: "Sonst nur auf diesem Gerät erreichbar. Die API hat keine Anmeldung – nur in vertrauenswürdigen Netzen einschalten."
                 key: "api.network"
+            }
+            SettingSwitch {
+                visible: !!settings.values["api.network"]
+                title: "API auch im WLAN-Hotspot"
+                description: "Der Hotspot ist für das Telefon gedacht; Geräte für die API besser per Ethernet anschließen."
+                key: "api.hotspot"
             }
             SettingRow {
                 title: "Adresse"

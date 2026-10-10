@@ -152,6 +152,14 @@ int main(int argc, char* argv[])
     autoapp::api::ApiServer apiServer;
     autoapp::api::registerCoreMethods(apiServer, volumeController, shellController, actionDispatcher);
     apiServer.listen(QHostAddress(QString::fromStdString(configuration->getApiListenAddress())), configuration->getApiPort());
+    // the wireless hotspot is for the phone; API devices there only when allowed
+    apiServer.setClientFilter([configuration](const QHostAddress& peer) {
+        bool ok = false;
+        const QHostAddress ipv4(peer.toIPv4Address(&ok));
+        const auto hotspot = QHostAddress::parseSubnet(QString::fromStdString(configuration->getWirelessSettings().address));
+        return !ok || !configuration->getWirelessProjectionEnabled() || !ipv4.isInSubnet(hotspot)
+               || configuration->getApiAllowHotspot();
+    });
 
     // Plugins (~/.openhu/plugins) and the store (~/.openhu/sources.list), docs/plugins.md
     autoapp::plugins::PluginManager pluginManager(configuration->getApiPort());

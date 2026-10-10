@@ -56,11 +56,31 @@ WirelessController::WirelessController(configuration::IConfiguration::Pointer co
     bluez::registerTypes();
 
     connect(&hotspot_, &Hotspot::changed, this, [this]() {
-        if(hotspot_.state() == Hotspot::State::On)
+        if(pendingFd_ >= 0 && hotspot_.state() == Hotspot::State::On)
+        {
+            const int fd = pendingFd_;
+            pendingFd_ = -1;
+            this->startHandshake(pendingDevice_, fd);
+        }
+        else if(pendingFd_ >= 0 && hotspot_.state() == Hotspot::State::Error)
+        {
+            ::close(pendingFd_);
+            pendingFd_ = -1;
+            this->setPhase("error", hotspot_.error());
+        }
+        else if(hotspot_.state() == Hotspot::State::On)
         {
             this->connectPhones();
         }
+        this->updateIdle();
         this->publish();
+    });
+
+    idleTimer_.setSingleShot(true);
+    idleTimer_.setInterval(120000);
+    connect(&idleTimer_, &QTimer::timeout, this, [this]() {
+        OPENAUTO_LOG(info) << "[WirelessController] hotspot not used, switching it off";
+        hotspot_.stop();
     });
     connect(&handshakeProfile_, &BluezProfile::connected, this, &WirelessController::onHandshakeConnection);
     connect(&headsetProfile_, &BluezProfile::connected, this, &WirelessController::onHeadsetConnection);
@@ -161,8 +181,38 @@ void WirelessController::apply()
     OPENAUTO_LOG(info) << "[WirelessController] starting";
     running_ = true;
     this->startBluetooth();
-    hotspot_.start(settings, this->ssid());
+    if(!this->hotspotOnDemand())
+    {
+        hotspot_.start(settings, this->ssid());
+    }
+    else if(!(projectionActive_ && !usbProjection_))
+    {
+        // started when a phone asks for it (also after switching from "always")
+        hotspot_.stop();
+        this->connectPhones();
+    }
     this->publish();
+}
+
+bool WirelessController::hotspotOnDemand() const
+{
+    return configuration_->getWirelessSettings().hotspot == "demand";
+}
+
+void WirelessController::updateIdle()
+{
+    const bool inUse = (projectionActive_ && !usbProjection_) || handshake_ || pendingFd_ >= 0;
+    if(running_ && this->hotspotOnDemand() && hotspot_.state() == Hotspot::State::On && !inUse)
+    {
+        if(!idleTimer_.isActive())
+        {
+            idleTimer_.start();
+        }
+    }
+    else
+    {
+        idleTimer_.stop();
+    }
 }
 
 void WirelessController::stop()
@@ -174,8 +224,14 @@ void WirelessController::stop()
     OPENAUTO_LOG(info) << "[WirelessController] stopping";
     running_ = false;
     connectTimer_.stop();
+    idleTimer_.stop();
     this->setPairing(false);
     handshake_.reset();
+    if(pendingFd_ >= 0)
+    {
+        ::close(pendingFd_);
+        pendingFd_ = -1;
+    }
     this->stopBluetooth();
     hotspot_.stop();
     phase_ = "idle";
@@ -367,7 +423,7 @@ void WirelessController::refreshDevices()
 void WirelessController::connectPhones()
 {
     if(!running_ || projectionActive_ || handshake_ || adapterPath_.isEmpty()
-       || hotspot_.state() != Hotspot::State::On)
+       || (hotspot_.state() != Hotspot::State::On && !this->hotspotOnDemand()))
     {
         return;
     }
@@ -461,17 +517,38 @@ void WirelessController::onHandshakeConnection(const QString& device, int fd)
     }
     if(hotspot_.state() != Hotspot::State::On)
     {
-        OPENAUTO_LOG(warning) << "[WirelessController] phone connected, but the hotspot is not running";
-        ::close(fd);
+        if(hotspot_.state() == Hotspot::State::Error && !this->hotspotOnDemand())
+        {
+            OPENAUTO_LOG(warning) << "[WirelessController] phone connected, but the hotspot is not running";
+            ::close(fd);
+            return;
+        }
+        // on demand (or still starting): the phone waits on the channel until the hotspot is up
+        if(pendingFd_ >= 0)
+        {
+            ::close(pendingFd_);
+        }
+        pendingFd_ = fd;
+        pendingDevice_ = device;
+        phaseDevice_ = this->deviceName(device);
+        if(hotspot_.state() != Hotspot::State::Starting)
+        {
+            hotspot_.start(configuration_->getWirelessSettings(), this->ssid());
+        }
+        this->setPhase("hotspot");
         return;
     }
+    this->startHandshake(device, fd);
+}
 
+void WirelessController::startHandshake(const QString& device, int fd)
+{
     phaseDevice_ = this->deviceName(device);
     phaseDevicePath_ = device;
     stuckTimer_.start();
     auto settings = configuration_->getWirelessSettings();
     WifiHandshake::Network network{this->ssid(), QString::fromStdString(settings.password), hotspot_.bssid(),
-                                   Hotspot::cAddress, cAndroidAutoPort};
+                                   hotspot_.address(), cAndroidAutoPort};
     handshake_ = std::make_unique<WifiHandshake>(fd, network);
     connect(handshake_.get(), &WifiHandshake::progress, this, [this](const QString& step, const QString& detail) {
         if(step == "failed")
@@ -486,6 +563,7 @@ void WirelessController::onHandshakeConnection(const QString& device, int fd)
     connect(handshake_.get(), &WifiHandshake::closed, this, [this]() {
         // the phone closes the channel when it is done; deleted later, we are inside its signal
         handshake_.release()->deleteLater();
+        this->updateIdle();
     });
     this->setPhase("handshake");
 
@@ -611,6 +689,8 @@ void WirelessController::onProjectionState(bool active)
 {
     const bool wireless = phase_ == "handshake" || phase_ == "joining" || phase_ == "connected";
     projectionActive_ = active;
+    // after the current event: transport and handshake state are updated by then
+    QTimer::singleShot(0, this, &WirelessController::updateIdle);
     if(active)
     {
         connectTimer_.stop();
@@ -664,6 +744,7 @@ void WirelessController::restartPhoneLink()
     // connectPhones() connects it again after the disconnect went through
     QTimer::singleShot(4000, this, &WirelessController::connectPhones);
     connectTimer_.start();
+    this->updateIdle();
 }
 
 void WirelessController::setPairing(bool enabled)
@@ -759,6 +840,7 @@ QVariantMap WirelessController::state() const
 {
     QString phaseText;
     if(phase_ == "waiting") phaseText = "Warte auf das Telefon …";
+    else if(phase_ == "hotspot") phaseText = "Telefon meldet sich, WLAN-Hotspot startet …";
     else if(phase_ == "handshake") phaseText = "Telefon verbunden, übergebe WLAN-Zugang …";
     else if(phase_ == "joining") phaseText = "Telefon verbindet sich mit dem WLAN …";
     else if(phase_ == "connected") phaseText = "Android Auto läuft kabellos";
@@ -768,9 +850,11 @@ QVariantMap WirelessController::state() const
         {"enabled", configuration_->getWirelessProjectionEnabled()},
         {"running", running_},
         {"hotspot", hotspot_.stateName()},
+        {"hotspotMode", this->hotspotOnDemand() ? "demand" : "always"},
         {"hotspotError", hotspot_.error()},
         {"wifiOff", hotspot_.radioOff()},
         {"interface", hotspot_.interface()},
+        {"channel", hotspot_.channel()},
         {"ssid", this->ssid()},
         {"bluetooth", !running_ ? "off" : bluetoothError_.isEmpty() ? "on" : "error"},
         {"bluetoothError", bluetoothError_},

@@ -19,6 +19,7 @@
 #include <vector>
 #include <QCursor>
 #include <QDir>
+#include <QHostAddress>
 #include <QGuiApplication>
 #include <f1x/openauto/autoapp/Shell/SettingsController.hpp>
 #include <f1x/openauto/autoapp/Plugins/PluginManager.hpp>
@@ -103,6 +104,10 @@ QVariantMap SettingsController::values() const
         {"wireless.band", QString::fromStdString(wireless.band)},
         {"wireless.country", QString::fromStdString(wireless.country)},
         {"wireless.priority", wireless.priority == "wifi" ? "wifi" : "usb"},
+        {"wireless.hotspot", wireless.hotspot == "demand" ? "demand" : "always"},
+        {"wireless.channel", wireless.channel},
+        {"wireless.address", QString::fromStdString(wireless.address)},
+        {"wireless.dhcpRange", QString::fromStdString(wireless.dhcpRange)},
         {"aa.audioMedia", configuration_->musicAudioChannelEnabled()},
         {"aa.audioGuidance", configuration_->guidanceAudioChannelEnabled()},
         {"aa.audioTelephony", configuration_->telephonyAudioChannelEnabled()},
@@ -113,6 +118,7 @@ QVariantMap SettingsController::values() const
         {"bluetooth.address", QString::fromStdString(configuration_->getBluetoothAdapterAddress())},
         {"api.port", configuration_->getApiPort()},
         {"api.network", listen != "127.0.0.1" && listen != "localhost"},
+        {"api.hotspot", configuration_->getApiAllowHotspot()},
     };
 }
 
@@ -243,7 +249,70 @@ QString SettingsController::set(const QString& key, const QVariant& value)
         }
         else if(key == "wireless.band")
         {
-            wireless.band = text == "2.4" ? "2.4" : "5";
+            wireless.band = text == "2.4" || text == "auto" ? text.toStdString() : "5";
+            // a fixed channel belongs to one band
+            wireless.channel = 0;
+        }
+        else if(key == "wireless.channel")
+        {
+            const int channel = value.toInt();
+            const bool valid5 = (channel >= 36 && channel <= 64 && channel % 4 == 0) || channel == 100
+                                || (channel > 100 && channel <= 144 && channel % 4 == 0)
+                                || (channel >= 149 && channel <= 165 && (channel - 149) % 4 == 0);
+            if(channel != 0 && wireless.band == "2.4" && (channel < 1 || channel > 13))
+            {
+                return "2,4 GHz: Kanal 1 bis 13";
+            }
+            if(channel != 0 && wireless.band == "5" && !valid5)
+            {
+                return "5 GHz: Kanal 36, 40, 44, 48 (ohne Radarerkennung) oder 52–64, 100–144, 149–165";
+            }
+            if(channel != 0 && wireless.band == "auto")
+            {
+                return "Einen festen Kanal nur mit festem Band (5 oder 2,4 GHz)";
+            }
+            wireless.channel = channel;
+        }
+        else if(key == "wireless.address")
+        {
+            const QHostAddress host(text.section('/', 0, 0));
+            bool prefixOk = false;
+            const int prefix = text.section('/', 1).toInt(&prefixOk);
+            const quint32 hostBits = prefixOk && prefix >= 8 && prefix <= 30 ? host.toIPv4Address() & ~(~0u << (32 - prefix)) : 0;
+            // not the network or broadcast address of its subnet
+            if(host.protocol() != QAbstractSocket::IPv4Protocol || !text.contains('/') || !prefixOk || prefix < 8
+               || prefix > 30 || hostBits == 0 || hostBits == ~(~0u << (32 - prefix)))
+            {
+                return "Adresse mit Netzmaske, z. B. 10.42.0.1/24";
+            }
+            wireless.address = text.toStdString();
+            // the DHCP range belongs to the old network
+            wireless.dhcpRange.clear();
+        }
+        else if(key == "wireless.dhcpRange")
+        {
+            if(!text.isEmpty())
+            {
+                const QStringList parts = text.split('-');
+                const auto subnet = QHostAddress::parseSubnet(QString::fromStdString(wireless.address));
+                QHostAddress from(parts.value(0).trimmed());
+                QHostAddress to(parts.value(1).trimmed());
+                if(parts.size() != 2 || from.protocol() != QAbstractSocket::IPv4Protocol
+                   || to.protocol() != QAbstractSocket::IPv4Protocol || !from.isInSubnet(subnet) || !to.isInSubnet(subnet)
+                   || from.toIPv4Address() > to.toIPv4Address())
+                {
+                    return "Bereich im Hotspot-Netz, z. B. 10.42.0.10-10.42.0.254";
+                }
+                wireless.dhcpRange = (from.toString() + "-" + to.toString()).toStdString();
+            }
+            else
+            {
+                wireless.dhcpRange.clear();
+            }
+        }
+        else if(key == "wireless.hotspot")
+        {
+            wireless.hotspot = text == "demand" ? "demand" : "always";
         }
         else if(key == "wireless.priority")
         {
@@ -305,6 +374,11 @@ QString SettingsController::set(const QString& key, const QVariant& value)
         }
         configuration_->setApiPort(static_cast<uint16_t>(port));
         this->markPending(cRestart);
+    }
+    else if(key == "api.hotspot")
+    {
+        // checked for every new connection, no restart needed
+        configuration_->setApiAllowHotspot(value.toBool());
     }
     else if(key == "api.network")
     {

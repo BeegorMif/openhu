@@ -86,6 +86,10 @@ private:
     void refreshDevices();
     void connectPhones();
     void onHandshakeConnection(const QString& device, int fd);
+    void startHandshake(const QString& device, int fd);
+    bool hotspotOnDemand() const;
+    // on demand: hotspot down after a while without wireless session
+    void updateIdle();
     void onHeadsetConnection(const QString& device, int fd);
     void closeHeadset(const QString& device);
     void setPhase(const QString& phase, const QString& detail = QString());
@@ -126,6 +130,10 @@ private:
     // no TCP connection after the WiFi handshake
     QTimer stuckTimer_;
     QString phaseDevicePath_;
+    // phone waits on its RFCOMM channel until the on-demand hotspot is up
+    QString pendingDevice_;
+    int pendingFd_ = -1;
+    QTimer idleTimer_;
     QTimer refreshTimer_;
     bool projectionActive_ = false;
     bool usbProjection_ = false;

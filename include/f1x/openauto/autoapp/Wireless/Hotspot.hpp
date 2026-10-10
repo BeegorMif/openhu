@@ -39,7 +39,8 @@ class Hotspot: public QObject
 public:
     enum class State { Off, Starting, On, Error };
 
-    static const QString cAddress;
+    // IP of OpenHU in the hotspot network (without prefix)
+    static QString addressOf(const configuration::WirelessSettings& settings);
 
     explicit Hotspot(QObject* parent = nullptr);
     ~Hotspot() override;
@@ -57,6 +58,9 @@ public:
     bool radioOff() const;
     QString interface() const;
     QString bssid() const;
+    QString address() const;
+    // 0 while not running
+    int channel() const;
 
 signals:
     void changed();
@@ -70,6 +74,8 @@ private:
     QString errorCode_;
     QString interface_;
     QString bssid_;
+    QString address_;
+    int channel_ = 0;
 };
 
 }
