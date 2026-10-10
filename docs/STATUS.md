@@ -87,7 +87,7 @@ Konfiguration `docker/config/openhu.ini` (Fallback `openauto.ini`), Plugin-Daten
 - Anrufton geht per A2DP ans Radio, das Mikrofon ist am OpenHU-Gerät (Entscheidung: kein HFP-Gateway).
 - Statusleiste: Bluetooth-Symbol, solange das Autoradio verbunden ist (das Handy hat sein eigenes Symbol).
 - Getestet: Kopplung/Verbindung/Ausgabe, Wiederverbinden nach Neustart, Tasten und Ton (Buds+). Anruftasten und
-  Titelanzeige auf einem Gerät mit Display noch ungetestet; kabelloses AA nach dem Umbau noch nicht gegengetestet.
+  Titelanzeige auf einem Gerät mit Display noch ungetestet; kabelloses AA nach dem Umbau getestet.
 
 ## Kabelloses Android Auto – Ergebnis
 
@@ -110,7 +110,7 @@ Konfiguration `docker/config/openhu.ini` (Fallback `openauto.ini`), Plugin-Daten
   abgewiesen, Einstecken beendet die WLAN-Sitzung; WLAN – Handy darf auch mit Kabel kabellos wechseln.
 - Hotspot „Immer an“ / „Bei Bedarf“: bei Bedarf startet er, wenn ein gekoppeltes Handy den AA-Kanal öffnet
   (das Handy wartet, WLAN-Daten erst danach; gemessen 0,3 s), und geht nach 2 min ohne kabellose Sitzung aus
-  (Abschalten noch ungetestet).
+  (Abschalten getestet).
 - Band Auto/5/2,4 GHz (Auto: 5 GHz, bei Fehler 2,4 GHz; eine Karte kann nicht beide gleichzeitig),
   erweitert: Kanal, Adresse/Gateway, DHCP-Bereich (NM `ipv4.shared-dhcp-range`, ab NM 1.42). Eigene DNS-Server
   gehen nicht: NM erlaubt `ipv4.dns` bei `method=shared` nicht.
