@@ -121,7 +121,8 @@ Konfiguration `docker/config/openhu.ini` (Fallback `openauto.ini`), Plugin-Daten
 - Abstürze behoben: `SensorService` las GPS ohne gpsd-Verbindung (uninitialisiertes `gps_data_t`);
   beim Beenden `_Exit` nach dem Aufräumen statt `exit` (Qt-Abbau-Absturz in der QML-Engine).
 - API aus dem Hotspot-Netz standardmäßig abgewiesen, Schalter „API auch im WLAN-Hotspot“ (ungetestet).
-- Idee (nicht umgesetzt): versteckte SSID (ungewiss, ob Android Auto versteckte Netze findet).
+- Versteckte SSID getestet und verworfen: NM richtet den Hotspot versteckt ein, das Handy meldet aber
+  `STATUS_WIFI_NETWORK_UNAVAILABLE` – Android Auto sucht nicht aktiv nach versteckten Netzen.
 - Wichtiger Fix in `App::waitForDevice`: Der USB-Hub-Start lief inline auf dem App-Strand und blockierte ihn
   beim Programmstart 10–20 s (Hotplug-Enumeration aller USB-Geräte); das Handy gab nach 10 s ohne Daten auf.
   Jetzt eigener Worker-Aufruf → kabellos verbunden ca. 5 s nach dem Start.
