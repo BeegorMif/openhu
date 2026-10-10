@@ -17,7 +17,7 @@
 
 [Unit]
 Description=OpenHU head unit (Android Auto)
-After=network.target sound.target bluetooth.target
+After=network.target sound.target bluetooth.target NetworkManager.service
 
 [Service]
 Type=simple

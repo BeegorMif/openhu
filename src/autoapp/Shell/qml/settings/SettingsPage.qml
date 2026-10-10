@@ -14,7 +14,7 @@ Item {
         { id: "general", label: "Allgemein" },
         { id: "aa", label: "Android Auto" },
         { id: "audio", label: "Audio" },
-        { id: "bluetooth", label: "Bluetooth" },
+        { id: "bluetooth", label: "Kabellos" },
         { id: "keys", label: "Tasten" },
         { id: "apps", label: "Apps & Store" },
         { id: "network", label: "Netzwerk & API" },
@@ -255,10 +255,13 @@ Item {
             }
 
             SectionTitle { text: "Verbindung" }
-            SettingSwitch {
+            SettingRow {
                 title: "Kabellos (WLAN)"
-                description: "Android Auto über Bluetooth und WLAN verbinden. Braucht einen Bluetooth-Adapter und einen WLAN-Hotspot."
-                key: "aa.wireless"
+                description: settings.values["aa.wireless"] ? "Eingeschaltet" : "Ausgeschaltet"
+                Button {
+                    text: "Einrichten"
+                    onClicked: page.category = "bluetooth"
+                }
             }
             SettingRow {
                 title: "Telefon neu verbinden"
@@ -303,19 +306,115 @@ Item {
         }
     }
 
+    function wirelessStatus(state) {
+        if (state.bluetooth === "error")
+            return state.bluetoothError
+        if (state.hotspot === "error")
+            return state.hotspotError
+        if (state.hotspot === "starting")
+            return "WLAN-Hotspot startet …"
+        if (state.phaseText)
+            return state.phaseText + (state.device ? " (" + state.device + ")" : "")
+        return "Bereit · WLAN „" + state.ssid + "“ auf " + state.interface
+    }
+
     Component {
         id: bluetooth
         Section {
+            SettingSwitch {
+                title: "Kabelloses Android Auto"
+                description: "Das Telefon wird einmal per Bluetooth gekoppelt und verbindet sich danach automatisch über den WLAN-Hotspot von OpenHU."
+                key: "aa.wireless"
+            }
+            SettingRow {
+                visible: wireless.state.running
+                title: "Status"
+                description: page.wirelessStatus(wireless.state)
+                Button {
+                    visible: !!wireless.state.wifiOff
+                    text: "WLAN einschalten"
+                    onClicked: wireless.enableWifi()
+                }
+            }
+
+            SectionTitle {
+                visible: settings.values["aa.wireless"] && wireless.state.bluetooth !== "error"
+                text: "Telefone"
+            }
+            SettingRow {
+                visible: settings.values["aa.wireless"] && wireless.state.bluetooth !== "error"
+                title: wireless.state.pairing ? "Sichtbar als „" + wireless.state.adapter + "“" : "Neues Telefon koppeln"
+                description: wireless.state.pairing
+                             ? "Auf dem Telefon unter Bluetooth „" + wireless.state.adapter + "“ auswählen und den Code hier bestätigen."
+                             : "OpenHU ist dann 2 Minuten lang für Telefone sichtbar."
+                Button {
+                    text: wireless.state.pairing ? "Abbrechen" : "Koppeln"
+                    highlighted: !wireless.state.pairing
+                    onClicked: {
+                        if (wireless.state.pairing) {
+                            wireless.setPairing(false)
+                        } else {
+                            wireless.pair()
+                            settings.refresh()
+                        }
+                    }
+                }
+            }
+            Repeater {
+                model: wireless.state.running ? wireless.devices : []
+                SettingRow {
+                    title: modelData.name
+                    description: modelData.address + (modelData.connected ? " · verbunden" : "")
+                    Row {
+                        spacing: Theme.spacing / 3
+                        Button {
+                            text: "Verbinden"
+                            onClicked: wireless.connectDevice(modelData.address)
+                        }
+                        Button {
+                            text: "Entfernen"
+                            onClicked: wireless.removeDevice(modelData.address)
+                        }
+                    }
+                }
+            }
+
+            SectionTitle { text: "WLAN-Hotspot" }
+            SettingText {
+                title: "Name (SSID)"
+                description: "Leer lassen für „" + wireless.state.ssid + "“."
+                key: "wireless.ssid"
+                placeholder: wireless.state.ssid
+            }
+            SettingText {
+                title: "Passwort"
+                description: "Muss nirgends eingetippt werden: Das Telefon bekommt es über Bluetooth."
+                key: "wireless.password"
+            }
+            SettingChoice {
+                title: "Frequenzband"
+                description: "Android Auto braucht in der Regel 5 GHz."
+                key: "wireless.band"
+                options: [{ value: "5", label: "5 GHz" }, { value: "2.4", label: "2,4 GHz" }]
+            }
+            SettingText {
+                title: "Land"
+                description: "Legt die erlaubten WLAN-Kanäle fest (für 5 GHz nötig)."
+                key: "wireless.country"
+                placeholder: "DE"
+            }
+
+            SectionTitle { text: "Telefonate über Bluetooth" }
             SettingChoice {
                 title: "Bluetooth-Adapter"
-                description: "Wird für kabelloses Android Auto gebraucht."
+                description: "Telefon über das USB-Kabel per Bluetooth koppeln (bei kabellosem Android Auto immer aktiv)."
                 key: "bluetooth.adapter"
                 options: [{ value: "none", label: "Keiner" }, { value: "local", label: "Lokal" }]
             }
             SettingText {
                 visible: settings.values["bluetooth.adapter"] === "local"
                 title: "Adapter-Adresse"
-                description: "MAC-Adresse des Adapters, z. B. aus „bluetoothctl list“."
+                description: "MAC-Adresse, z. B. aus „bluetoothctl list“. Leer: erster Adapter."
                 key: "bluetooth.address"
                 placeholder: "00:11:22:33:44:55"
             }

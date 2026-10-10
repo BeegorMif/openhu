@@ -37,6 +37,17 @@ namespace autoapp
 namespace configuration
 {
 
+// Wireless Android Auto: WiFi hotspot (NetworkManager) the phone joins after the Bluetooth handshake
+struct WirelessSettings
+{
+    std::string ssid;       // empty: "OpenHU" + name suffix
+    std::string password;   // generated on first start
+    std::string band;       // "5" or "2.4" (GHz)
+    std::string country;    // regulatory domain, e.g. "DE" (5 GHz needs it)
+    std::string interface;  // empty: first WiFi device
+    std::string lastDevice; // Bluetooth address of the last phone, connected first
+};
+
 // Settings in openhu.ini (edited on the shell's settings page).
 class IConfiguration
 {
@@ -90,6 +101,8 @@ public:
     virtual void setBluetoothAdapterAddress(const std::string& value) = 0;
     virtual bool getWirelessProjectionEnabled() const = 0;
     virtual void setWirelessProjectionEnabled(bool value) = 0;
+    virtual WirelessSettings getWirelessSettings() const = 0;
+    virtual void setWirelessSettings(const WirelessSettings& value) = 0;
 
     // Android Auto audio channels and output
     virtual bool musicAudioChannelEnabled() const = 0;

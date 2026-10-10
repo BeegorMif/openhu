@@ -23,7 +23,6 @@ case "$1" in
         # Stop services before removal/upgrade
         if [ -x /bin/systemctl ]; then
             /bin/systemctl stop openhu.service || true
-            /bin/systemctl stop openhu-btservice.service || true
         fi
         ;;
 

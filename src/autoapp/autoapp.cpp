@@ -16,13 +16,17 @@
 *  along with openauto. If not, see <http://www.gnu.org/licenses/>.
 */
 
+#include <csignal>
 #include <fstream>
 #include <thread>
+#include <sys/socket.h>
+#include <unistd.h>
 #include <QGuiApplication>
 #include <QQmlApplicationEngine>
 #include <QQmlContext>
 #include <QQuickWindow>
 #include <QScreen>
+#include <QSocketNotifier>
 #include <aasdk/USB/USBHub.hpp>
 #include <aasdk/USB/ConnectedAccessoriesEnumerator.hpp>
 #include <aasdk/USB/AccessoryModeQueryChain.hpp>
@@ -46,6 +50,8 @@
 #include <f1x/openauto/autoapp/Shell/AaSurface.hpp>
 #include <f1x/openauto/autoapp/Shell/SettingsController.hpp>
 #include <f1x/openauto/autoapp/Shell/ShellController.hpp>
+#include <f1x/openauto/autoapp/Wireless/WirelessController.hpp>
+#include <f1x/openauto/autoapp/Wireless/WirelessMethods.hpp>
 #include <f1x/openauto/Common/Log.hpp>
 
 namespace autoapp = f1x::openauto::autoapp;
@@ -154,6 +160,10 @@ int main(int argc, char* argv[])
     autoapp::plugins::QmlApi qmlApi(apiServer);
     pluginManager.load();
 
+    // Wireless Android Auto: Bluetooth (BlueZ) + WiFi hotspot (NetworkManager)
+    autoapp::wireless::WirelessController wirelessController(configuration);
+    autoapp::wireless::registerWirelessMethods(apiServer, wirelessController);
+
     // QML shell: Android Auto inside the main window next to the rest of the UI
     QQmlApplicationEngine engine;
 
@@ -171,11 +181,38 @@ int main(int argc, char* argv[])
     engine.rootContext()->setContextProperty("plugins", &pluginManager);
     engine.rootContext()->setContextProperty("store", &pluginStore);
     engine.rootContext()->setContextProperty("api", &qmlApi);
+    engine.rootContext()->setContextProperty("wireless", &wirelessController);
 
-    QObject::connect(&shellController, &autoapp::shell::ShellController::quitRequested, []() { std::exit(0); });
+    // std::exit skips destructors: take the hotspot down and end plugins first
+    auto shutdown = [&]() {
+        wirelessController.stop();
+        pluginManager.stopAll();
+        volumeController.stop();
+        std::exit(0);
+    };
+    QObject::connect(&shellController, &autoapp::shell::ShellController::quitRequested, shutdown);
+
+    // Qt ends the process with exit() when the display goes away (window closed): hotspot down there too
+    static autoapp::wireless::WirelessController* wirelessAtExit = nullptr;
+    wirelessAtExit = &wirelessController;
+    std::atexit([]() { if(wirelessAtExit) wirelessAtExit->stop(); });
+
+    // SIGTERM (systemd, docker stop) and SIGINT: same clean shutdown, handled in the GUI thread
+    static int signalPipe[2];
+    ::socketpair(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC, 0, signalPipe);
+    for(int sig: {SIGTERM, SIGINT})
+    {
+        std::signal(sig, [](int) { [[maybe_unused]] auto written = ::write(signalPipe[0], "x", 1); });
+    }
+    QSocketNotifier signalNotifier(signalPipe[1], QSocketNotifier::Read);
+    QObject::connect(&signalNotifier, &QSocketNotifier::activated, shutdown);
+
+    QObject::connect(&settingsController, &autoapp::shell::SettingsController::wirelessChanged,
+                     &wirelessController, &autoapp::wireless::WirelessController::apply);
     QObject::connect(&shellController, &autoapp::shell::ShellController::restartRequested,
                      &settingsController, &autoapp::shell::SettingsController::restart);
     QObject::connect(&settingsController, &autoapp::shell::SettingsController::aboutToRestart, [&]() {
+        wirelessController.stop();
         pluginManager.stopAll();
         volumeController.stop();
     });
@@ -203,8 +240,11 @@ int main(int argc, char* argv[])
     }
 
     app->waitForUSBDevice();
+    wirelessController.apply();
 
     auto result = application.exec();
+    wirelessController.stop();
+    wirelessAtExit = nullptr;
 
     std::for_each(threadPool.begin(), threadPool.end(), std::bind(&std::thread::join, std::placeholders::_1));
 

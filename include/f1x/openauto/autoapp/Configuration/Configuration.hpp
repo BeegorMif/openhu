@@ -70,6 +70,8 @@ public:
     void setBluetoothAdapterAddress(const std::string& value) override;
     bool getWirelessProjectionEnabled() const override;
     void setWirelessProjectionEnabled(bool value) override;
+    WirelessSettings getWirelessSettings() const override;
+    void setWirelessSettings(const WirelessSettings& value) override;
 
     bool musicAudioChannelEnabled() const override;
     void setMusicAudioChannelEnabled(bool value) override;
@@ -99,6 +101,7 @@ private:
     BluetoothAdapterType bluetoothAdapterType_;
     std::string bluetoothAdapterAddress_;
     bool wirelessProjectionEnabled_;
+    WirelessSettings wireless_;
     bool audioChannelEnabledMedia_;
     bool audioChannelEnabledGuidance_;
     bool audioChannelEnabledSystem_;

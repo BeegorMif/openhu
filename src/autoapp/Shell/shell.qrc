@@ -13,6 +13,7 @@
         <file>qml/NowPlayingCard.qml</file>
         <file>qml/VolumePanel.qml</file>
         <file>qml/Toast.qml</file>
+        <file>qml/PairingDialog.qml</file>
         <file>qml/PhoneIcon.qml</file>
         <file>qml/SignalBars.qml</file>
         <file>qml/settings/SettingsPage.qml</file>

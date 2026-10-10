@@ -1,6 +1,5 @@
 /*
 *  This file is part of openauto project.
-*  Copyright (C) 2018 f1x.studio (Michal Szwaj)
 *
 *  openauto is free software: you can redistribute it and/or modify
 *  it under the terms of the GNU General Public License as published by
@@ -16,24 +15,38 @@
 *  along with openauto. If not, see <http://www.gnu.org/licenses/>.
 */
 
-#pragma once
-#include <memory>
-#include <QBluetoothAddress>
 
-namespace f1x::openauto::btservice
+#pragma once
+
+#include <f1x/openauto/autoapp/Projection/IBluetoothDevice.hpp>
+
+namespace f1x
+{
+namespace openauto
+{
+namespace autoapp
+{
+namespace projection
 {
 
-class IAndroidBluetoothService
+// Bluetooth adapter as seen by the Android Auto Bluetooth channel: its address is sent to the phone,
+// which then pairs with it (pairing over the USB cable). Reads BlueZ over D-Bus.
+class BluezBluetoothDevice: public IBluetoothDevice
 {
 public:
-  typedef std::shared_ptr<IAndroidBluetoothService> Pointer;
+    // empty address: first adapter
+    explicit BluezBluetoothDevice(std::string adapterAddress);
 
-  virtual ~IAndroidBluetoothService() = default;
+    void stop() override;
+    bool isPaired(const std::string& address) const override;
+    std::string getAdapterAddress() const override;
+    bool isAvailable() const override;
 
-  virtual bool registerService(int16_t portNumber, const QBluetoothAddress& bluetoothAddress) = 0;
-  virtual bool unregisterService() = 0;
+private:
+    std::string adapterAddress_;
 };
 
 }
-
-
+}
+}
+}

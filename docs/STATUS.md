@@ -31,6 +31,7 @@ Gepusht ist der Stand vor Phase 7; Phase 7 (`openhu`) und die neue aasdk-README 
 | 4 | Plugin-System + Store (apt-artige Quellen, sha256, Install/Update/Remove) | erledigt |
 | 5 | Plugins CAN, Lenkradtasten, Rückfahrkamera, Radio | erledigt; Kamera mit Webcam getestet, CAN/Radio nur Unit-Tests |
 | 7 | Einstellungen neu (QML), Legacy-UI und toten Code entfernen | erledigt (siehe unten) |
+| 6a | Kabelloses Android Auto (BlueZ + NetworkManager-Hotspot, eingebaut) | erledigt, mit Fairphone 4 getestet |
 | 6 | Plugin: Bluetooth-Audio an das Autoradio (A2DP-Source, AVRCP, HFP) | offen |
 | – | aasdk-README modernisieren mit KI-Hinweis | erledigt (aasdk `c7b91ed`) |
 | – | arm64-Build für den Raspberry Pi | ganz am Schluss |
@@ -73,6 +74,30 @@ Konfiguration `docker/config/openhu.ini` (Fallback `openauto.ini`), Plugin-Daten
 - Das Handy liefert über Android Auto keine Signalstärke (immer 0) und keinen Akkustand → Phase 6 (HFP).
 - Kabelloses Android Auto (`btservice`) läuft im Container nicht (eigener systemd-Dienst), ungetestet.
 - `vcan0`-Test des CAN-Plugins braucht `sudo` auf dem Host (siehe Plugin-README).
+
+## Kabelloses Android Auto – Ergebnis
+
+- Eingebaut in OpenHU (`src/autoapp/Wireless/`), das separate `btservice` samt systemd-Dienst und Qt Bluetooth
+  ist entfernt. Läuft auf Bare Metal und im Container gleich: BlueZ und NetworkManager über den System-D-Bus
+  (Container: `/run/dbus/system_bus_socket` eingehängt, `--privileged` wegen AppArmor).
+- Ablauf: BlueZ-Profil für den AA-RFCOMM-Kanal (UUID `4de17a00…`, **Kanal 8 fest**, sonst fehlt der
+  RFCOMM-Eintrag im SDP und das Handy hängt bei „Wird mit Android Auto verbunden“) → Handy bekommt
+  `WifiStartRequest` (10.42.0.1:5000) und auf `WifiInfoRequest` SSID/Passwort/BSSID (Sicherheitsmodus 8) →
+  Handy tritt dem Hotspot `openhu-hotspot` bei (NM, IPv4 shared, 5 GHz Kanal 36, Land per `iw reg set`) →
+  TCP auf Port 5000.
+- Handy-Verbindung: Bietet das System schon Freisprechen (PipeWire-HFP), verbindet OpenHU das Handy normal
+  (`Device1.Connect`); ein zusätzliches HSP-Profil daneben lässt das Handy die Verbindung ablehnen. Ohne HFP
+  (Pi ohne PipeWire) eigenes HSP-Profil wie bei den WLAN-Dongles.
+- Kopplung: Knopf „Koppeln“ (2 min sichtbar, Code-Bestätigung im Dialog, eigener BlueZ-Agent nur in dieser
+  Zeit) oder über das USB-Kabel (AA-Bluetooth-Kanal meldet die Adresse, OpenHU akzeptiert genau dieses Handy
+  und schickt den Code über AA zurück) – Kabel-Kopplung noch ungetestet.
+- Wichtiger Fix in `App::waitForDevice`: Der USB-Hub-Start lief inline auf dem App-Strand und blockierte ihn
+  beim Programmstart 10–20 s (Hotplug-Enumeration aller USB-Geräte); das Handy gab nach 10 s ohne Daten auf.
+  Jetzt eigener Worker-Aufruf → kabellos verbunden ca. 5 s nach dem Start.
+- Endet eine kabellose Sitzung oder kommt nach dem Handshake 30 s keine TCP-Verbindung, trennt OpenHU
+  Bluetooth und verbindet neu (das Handy versucht es sonst nicht noch einmal).
+- Hotspot wird bei Beenden, SIGTERM (`docker stop`, Entrypoint reicht es weiter) und Fenster-Schließen
+  (`atexit`) heruntergefahren.
 
 ## Phase 7 – Ergebnis
 

@@ -18,6 +18,7 @@
 
 #pragma once
 
+#include <QMetaObject>
 #include <aasdk/Channel/Bluetooth/BluetoothService.hpp>
 #include <f1x/openauto/autoapp/Projection/IBluetoothDevice.hpp>
 #include <f1x/openauto/autoapp/Service/IService.hpp>
@@ -56,11 +57,14 @@ namespace f1x {
           private:
             using std::enable_shared_from_this<BluetoothService>::shared_from_this;
 
-            void sendBluetoothAuthenticationData();
+            // passkey of the pairing the phone started after onBluetoothPairingRequest (numeric comparison)
+            void sendBluetoothAuthenticationData(const std::string& passkey);
 
             boost::asio::io_service::strand strand_;
             aasdk::channel::bluetooth::BluetoothService::Pointer channel_;
             projection::IBluetoothDevice::Pointer bluetoothDevice_;
+            std::string phoneAddress_;
+            QMetaObject::Connection passkeyConnection_;
           };
 
         }

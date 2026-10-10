@@ -1,142 +1,43 @@
-# OpenAuto Packaging
+# OpenHU Packaging
 
-This directory contains packaging resources for OpenAuto debian packages.
-
-## Structure
+Files that end up in the `openhu` Debian package (built with CPack, see `build.sh` / `docker/dev.sh`).
 
 ```
 packaging/
-├── debian/          # Debian package maintenance scripts
-│   ├── postinst    # Post-installation script
-│   ├── prerm       # Pre-removal script
-│   ├── postrm      # Post-removal script
-│   └── preinst     # Pre-installation script
-├── systemd/         # Systemd service files
-│   ├── openauto.service           # Main OpenAuto service
-│   └── openauto-btservice.service # Bluetooth service
-└── udev/            # Udev rules
-    └── 99-openauto.rules          # Android device USB access rules
+├── debian/                 # maintainer scripts (postinst, prerm, postrm, preinst)
+├── systemd/openhu.service  # runs /usr/bin/autoapp
+└── udev/99-openhu.rules    # USB access for Android phones (also in accessory mode)
 ```
 
-## Debian Scripts
+## Package
 
-### postinst
-Executed after package installation. Performs:
-- Reloads udev rules to apply Android device permissions
-- Reloads systemd daemon
-- Enables openauto and openauto-btservice systemd services
-- Does not auto-start services (user can start manually)
+| | |
+|---|---|
+| Binary | `/usr/bin/autoapp` |
+| Service | `openhu.service` (enabled on install, not started) |
+| Depends | Qt 5 (Quick, Multimedia, WebSockets), GStreamer, `pulseaudio-utils` |
+| Recommends | `bluez`, `network-manager`, `iw` – only needed for wireless Android Auto |
+| Replaces | `openauto` (same binary name) |
 
-### prerm
-Executed before package removal. Performs:
-- Stops openauto and openauto-btservice systemd services
+## Wireless Android Auto on bare metal
 
-### postrm
-Executed after package removal. Performs:
-- On purge: disables systemd services and reloads daemon
+OpenHU talks to BlueZ and NetworkManager over the system D-Bus; there is no separate Bluetooth service.
+Requirements:
 
-### preinst
-Executed before package installation. Currently a placeholder.
+- `bluetoothd` running (package `bluez`)
+- NetworkManager managing the WiFi card (default on Raspberry Pi OS Bookworm and Ubuntu); the card must support
+  access point mode. OpenHU creates the connection `openhu-hotspot` and only activates it while wireless
+  Android Auto is switched on.
+- `iw` to set the WiFi country (needed for 5 GHz)
 
-## Systemd Services
+Enable it on the settings page under **Kabellos**, then pair the phone there once.
 
-### openauto.service
-Main service that runs the `autoapp` binary. Configured to:
-- Start after network, sound, and bluetooth targets
-- Run as root with audio, video, and plugdev groups
-- Auto-restart on failure with 5-second delay
-- Use eglfs QT platform for direct framebuffer rendering
-
-### openauto-btservice.service
-Bluetooth pairing service that runs the `btservice` binary. Configured to:
-- Start after bluetooth target
-- Run as root
-- Auto-restart on failure with 5-second delay
-
-## Udev Rules
-
-### 99-openauto.rules
-Grants USB access permissions for Android devices using Android Auto. Includes:
-- Common Android device vendor IDs (Google, Samsung, LG, etc.)
-- Android Open Accessory (AOA) protocol devices
-- Permissions: MODE="0666", GROUP="plugdev", TAG+="uaccess"
-
-The high number (99) ensures these rules run after system default rules.
-
-## Building Packages
-
-The packaging files are automatically included when building debian packages with CPack:
+## Service
 
 ```bash
-mkdir -p build-release
-cd build-release
-cmake -DCMAKE_BUILD_TYPE=Release ..
-make
-cpack
+sudo systemctl start openhu
+journalctl -u openhu -f
 ```
 
-This will create a `.deb` package that includes:
-- Binaries in `/usr/bin/`
-- Udev rules in `/lib/udev/rules.d/`
-- Systemd services in `/lib/systemd/system/`
-- Automatic service enablement on installation
-
-## Manual Installation
-
-If not using the debian package, you can manually install:
-
-```bash
-# Install udev rules
-sudo cp packaging/udev/99-openauto.rules /lib/udev/rules.d/
-sudo udevadm control --reload-rules
-sudo udevadm trigger
-
-# Install systemd services
-sudo cp packaging/systemd/*.service /lib/systemd/system/
-sudo systemctl daemon-reload
-sudo systemctl enable openauto.service
-sudo systemctl enable openauto-btservice.service
-
-# Start services
-sudo systemctl start openauto
-sudo systemctl start openauto-btservice
-```
-
-## Testing
-
-After installation, verify:
-
-```bash
-# Check udev rules are loaded
-ls -l /lib/udev/rules.d/99-openauto.rules
-
-# Check services are enabled
-systemctl is-enabled openauto.service
-systemctl is-enabled openauto-btservice.service
-
-# Check services status
-systemctl status openauto
-systemctl status openauto-btservice
-
-# View service logs
-journalctl -u openauto -f
-journalctl -u openauto-btservice -f
-```
-
-## Troubleshooting
-
-### USB device not detected
-1. Check udev rules are installed: `ls /lib/udev/rules.d/99-openauto.rules`
-2. Reload udev: `sudo udevadm control --reload-rules && sudo udevadm trigger`
-3. Check device vendor ID: `lsusb` and add to rules if needed
-
-### Service not starting
-1. Check service status: `systemctl status openauto`
-2. View logs: `journalctl -u openauto -n 50`
-3. Check binary exists: `which autoapp`
-4. Verify dependencies are installed
-
-### Bluetooth not pairing
-1. Check bluetooth service: `systemctl status bluetooth`
-2. Check btservice: `systemctl status openauto-btservice`
-3. View logs: `journalctl -u openauto-btservice -n 50`
+The service runs as root with `eglfs` (no desktop needed). Edit the `Environment=` lines in
+`/lib/systemd/system/openhu.service` for other display setups.

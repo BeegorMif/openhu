@@ -166,11 +166,15 @@ namespace f1x::openauto::autoapp {
   void App::waitForDevice() {
     OPENAUTO_LOG(info) << "[App] Waiting for device...";
 
+    startServerSocket();
+
     auto promise = aasdk::usb::IUSBHub::Promise::defer(strand_);
     promise->then(std::bind(&App::aoapDeviceHandler, this->shared_from_this(), std::placeholders::_1),
                   std::bind(&App::onUSBHubError, this->shared_from_this(), std::placeholders::_1));
-    usbHub_->start(std::move(promise));
-    startServerSocket();
+    // Not on our strand: usbHub_->start() runs inline and can take many seconds (hotplug enumeration opens every
+    // USB device). Meanwhile a wireless phone would connect, the session could not start (it needs this strand)
+    // and the phone gives up after 10 s.
+    ioService_.post([hub = usbHub_, promise]() mutable { hub->start(std::move(promise)); });
   }
 
   void App::startServerSocket() {

@@ -119,6 +119,25 @@ Item {
                         color: Theme.textDim
                         font.pixelSize: Theme.fontNormal
                     }
+                    Text {
+                        Layout.fillWidth: true
+                        visible: text !== ""
+                        wrapMode: Text.WordWrap
+                        text: {
+                            const state = wireless.state
+                            if (state.pairing)
+                                return "Sichtbar als „" + state.adapter + "“: am Telefon unter Bluetooth koppeln."
+                            if (!state.running)
+                                return ""
+                            if (state.bluetooth === "error")
+                                return state.bluetoothError
+                            if (state.hotspot === "error")
+                                return state.hotspotError
+                            return state.phaseText || ("Kabellos bereit · WLAN „" + state.ssid + "“")
+                        }
+                        color: Theme.text
+                        font.pixelSize: Theme.fontSmall
+                    }
                     Item { Layout.fillHeight: true }
                 }
             }

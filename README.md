@@ -9,8 +9,11 @@ team and uses [aasdk](https://github.com/opencardev/aasdk). The original README 
 
 ## Features
 
-- **Android Auto in the main window** (USB, wireless via the Bluetooth service): dock and status bar stay
-  usable, margins are computed so the projection is not distorted, touch is mapped into the projection
+- **Android Auto in the main window**: dock and status bar stay usable, margins are computed so the
+  projection is not distorted, touch is mapped into the projection
+- **Wireless Android Auto** built in: pair the phone once (in the settings or over the USB cable), then it
+  connects by itself over Bluetooth and a WiFi hotspot of OpenHU. Uses BlueZ and NetworkManager over D-Bus
+  (Raspberry Pi OS, Ubuntu, Debian; in the container the host's), the WiFi card needs access point mode
 - **Home screen** with the next navigation maneuver and the current track from the phone
 - **WebSocket/JSON API** (`ws://127.0.0.1:5520`) with navigation, media, phone and volume data and control
   of the shell – see [docs/api.md](docs/api.md)
@@ -21,7 +24,7 @@ team and uses [aasdk](https://github.com/opencardev/aasdk). The original README 
   Official plugins: CAN bus, steering wheel keys, reverse camera, FM/AM radio
   ([openhu-plugins](https://github.com/average-web-dev/openhu-plugins))
 - **Settings page** in the shell: Android Auto (automatic resolution for the available area, DPI,
-  audio channels, wireless), audio, Bluetooth, key map, apps & store, API, name shown on the phone
+  audio channels), wireless (hotspot, paired phones), audio, key map, apps & store, API, name shown on the phone
 - Reconnect the phone without unplugging (USB reset), night mode via API/CAN
 
 ## Development in a container

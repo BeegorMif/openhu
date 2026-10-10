@@ -160,6 +160,10 @@ Window {
         anchors.topMargin: Theme.statusHeight + Theme.spacing
     }
 
+    PairingDialog {
+        anchors.fill: parent
+    }
+
     Toast {
         id: toast
         anchors.horizontalCenter: parent.horizontalCenter

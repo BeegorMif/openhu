@@ -9,6 +9,8 @@ VDISPLAY=":99"
 Xephyr "$VDISPLAY" -screen "$RES" -title "OpenHU ($RES)" -nolisten tcp -no-host-grab -ac &
 XEPHYR_PID=$!
 trap 'kill $XEPHYR_PID 2>/dev/null || true' EXIT
+# docker stop: SIGTERM an OpenHU weiterreichen, damit es z. B. den WLAN-Hotspot sauber beendet
+trap 'kill -TERM ${APP_PID:-} 2>/dev/null || true' TERM INT
 
 # warten, bis Xephyr bereit ist
 for _ in $(seq 50); do
@@ -16,4 +18,8 @@ for _ in $(seq 50); do
   sleep 0.1
 done
 
-DISPLAY="$VDISPLAY" autoapp "$@"
+DISPLAY="$VDISPLAY" autoapp "$@" &
+APP_PID=$!
+# wait kehrt beim Signal zurück, das zweite wait wartet auf das Ende von OpenHU
+wait $APP_PID || true
+wait $APP_PID 2>/dev/null || true

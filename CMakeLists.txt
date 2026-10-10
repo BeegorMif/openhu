@@ -105,14 +105,13 @@ endif()
 
 find_package(Boost REQUIRED COMPONENTS system log_setup log OPTIONAL_COMPONENTS unit_test_framework)
 find_package(libusb-1.0 REQUIRED)
-find_package(Qt5 COMPONENTS DBus Multimedia Bluetooth Network Qml Quick WebSockets)
+find_package(Qt5 COMPONENTS DBus Multimedia Network Qml Quick WebSockets)
 find_package(OpenSSL REQUIRED)
 find_package(rtaudio REQUIRED)
 find_package(gps REQUIRED)
 
 include_directories(${CMAKE_CURRENT_BINARY_DIR}
         ${Qt5Multimedia_INCLUDE_DIRS}
-        ${Qt5Bluetooth_INCLUDE_DIRS}
         ${Qt5Network_INCLUDE_DIRS}
         ${Boost_INCLUDE_DIRS}
         ${OPENSSL_INCLUDE_DIR}
@@ -140,7 +139,6 @@ target_link_libraries(autoapp PUBLIC
         ${Boost_LIBRARIES}
         ${Qt5DBus_LIBRARIES}
         ${Qt5Multimedia_LIBRARIES}
-        ${Qt5Bluetooth_LIBRARIES}
         ${Qt5Network_LIBRARIES}
         ${Qt5Qml_LIBRARIES}
         ${Qt5Quick_LIBRARIES}
@@ -179,26 +177,11 @@ else()
     message(STATUS "Repository Status: CLEAN")
 endif()
 
-set(btservice_sources_directory ${sources_directory}/btservice)
-
-set(btservice_include_directory ${include_directory}/f1x/openauto/btservice)
-file(GLOB_RECURSE btservice_source_files ${btservice_sources_directory}/*.cpp ${btservice_include_directory}/*.hpp ${autoapp_sources_directory}/Configuration/*.cpp ${autoapp_includes_directory}/Configuration/*.hpp ${common_include_directory}/*.hpp)
-
-add_executable(btservice ${btservice_source_files}
-        src/btservice/BluetoothHandler.cpp)
-
-target_link_libraries(btservice PUBLIC
-        ${Boost_LIBRARIES}
-        ${Qt5Bluetooth_LIBRARIES}
-        ${Qt5Network_LIBRARIES}
-        ${PROTOBUF_LIBRARIES}
-        ${AAP_PROTOBUF_LIB_DIR})
-
 set_target_properties(autoapp
     PROPERTIES VERSION ${PROGRAM_VERSION_STRING} SOVERSION ${OPENAUTO_BUILD_MAJOR_RELEASE})
 
 # Install rules
-install(TARGETS autoapp btservice
+install(TARGETS autoapp
     RUNTIME DESTINATION bin
 )
 
@@ -210,7 +193,6 @@ install(FILES packaging/udev/99-openhu.rules
 # Install systemd service files
 install(FILES 
     packaging/systemd/openhu.service
-    packaging/systemd/openhu-btservice.service
     DESTINATION /lib/systemd/system
 )
 
@@ -269,6 +251,8 @@ set(CPACK_DEBIAN_PACKAGE_SHLIBDEPS ON)
 
 # Explicit dependencies for GStreamer video codec support and Qt Multimedia backend
 # These are required for H.264/H.265 video decoding from Android Auto via QtVideoOutput
+# Wireless Android Auto: BlueZ for Bluetooth, NetworkManager for the hotspot, iw for the WiFi country
+set(CPACK_DEBIAN_PACKAGE_RECOMMENDS "bluez, network-manager, iw")
 set(CPACK_DEBIAN_PACKAGE_DEPENDS "libqt5multimedia5, libqt5websockets5, pulseaudio-utils, libqt5multimedia5-plugins, qml-module-qtquick2, qml-module-qtquick-window2, qml-module-qtquick-layouts, qml-module-qtmultimedia, gstreamer1.0-plugins-base, gstreamer1.0-plugins-good, gstreamer1.0-libav, gstreamer1.0-plugins-bad, gstreamer1.0-plugins-ugly")
 
 # Debian package control scripts

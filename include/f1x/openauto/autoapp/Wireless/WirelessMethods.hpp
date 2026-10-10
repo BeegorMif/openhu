@@ -1,6 +1,5 @@
 /*
 *  This file is part of openauto project.
-*  Copyright (C) 2018 f1x.studio (Michal Szwaj)
 *
 *  openauto is free software: you can redistribute it and/or modify
 *  it under the terms of the GNU General Public License as published by
@@ -16,26 +15,25 @@
 *  along with openauto. If not, see <http://www.gnu.org/licenses/>.
 */
 
+
 #pragma once
 
-#include <QBluetoothServiceInfo>
-#include <f1x/openauto/btservice/IAndroidBluetoothService.hpp>
+#include <f1x/openauto/autoapp/Api/ApiServer.hpp>
+#include <f1x/openauto/autoapp/Wireless/WirelessController.hpp>
 
-namespace f1x::openauto::btservice
+namespace f1x
+{
+namespace openauto
+{
+namespace autoapp
+{
+namespace wireless
 {
 
-class AndroidBluetoothService: public IAndroidBluetoothService
-{
-public:
-    AndroidBluetoothService();
-
-    bool registerService(int16_t portNumber, const QBluetoothAddress& bluetoothAddress) override;
-    bool unregisterService() override;
-
-private:
-    QBluetoothServiceInfo serviceInfo_;
-};
+// wireless.*, bluetooth.* (see docs/api.md)
+void registerWirelessMethods(api::ApiServer& server, WirelessController& wireless);
 
 }
-
-
+}
+}
+}

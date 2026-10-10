@@ -31,6 +31,7 @@ done
 # --network host: nötig, damit udev-Hotplug-Events (Handy wechselt in den AOA-Modus) ankommen.
 #                 Außerdem sind so die OpenHU-API (Port 5520) und CAN-Interfaces (vcan0/can0) direkt erreichbar.
 # Nur den Host-X-Socket einhängen, damit Xephyrs eigener Socket im Container bleibt.
+# /run/dbus: BlueZ und NetworkManager des Hosts (kabelloses Android Auto).
 docker run --rm -it --privileged \
   --name openhu \
   --network host \
@@ -43,6 +44,7 @@ docker run --rm -it --privileged \
   -v "${PULSE_SOCK}:/run/pulse/native" \
   -v /dev/bus/usb:/dev/bus/usb \
   -v /run/udev:/run/udev:ro \
+  -v /run/dbus/system_bus_socket:/run/dbus/system_bus_socket \
   --device /dev/snd \
   --device /dev/dri \
   "${VIDEO_DEVICES[@]}" \

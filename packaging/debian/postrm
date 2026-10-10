@@ -23,7 +23,6 @@ case "$1" in
         # Disable and remove service files on purge
         if [ -x /bin/systemctl ]; then
             /bin/systemctl disable openhu.service || true
-            /bin/systemctl disable openhu-btservice.service || true
             /bin/systemctl daemon-reload || true
         fi
         ;;

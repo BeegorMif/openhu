@@ -48,6 +48,12 @@ const std::string cTouchscreenKey = "Input.EnableTouchscreen";
 const std::string cBluetoothAdapterTypeKey = "Bluetooth.AdapterType";
 const std::string cBluetoothAdapterAddressKey = "Bluetooth.AdapterAddress";
 const std::string cWirelessProjectionKey = "Bluetooth.WirelessProjectionEnabled";
+const std::string cWirelessSsidKey = "Wireless.Ssid";
+const std::string cWirelessPasswordKey = "Wireless.Password";
+const std::string cWirelessBandKey = "Wireless.Band";
+const std::string cWirelessCountryKey = "Wireless.Country";
+const std::string cWirelessInterfaceKey = "Wireless.Interface";
+const std::string cWirelessLastDeviceKey = "Wireless.LastDevice";
 const std::string cAudioMediaKey = "AudioChannel.MediaEnabled";
 const std::string cAudioGuidanceKey = "AudioChannel.GuidanceEnabled";
 const std::string cAudioSystemKey = "AudioChannel.SystemEnabled";
@@ -97,6 +103,12 @@ void Configuration::load()
             ini.get<uint32_t>(cBluetoothAdapterTypeKey, static_cast<uint32_t>(bluetoothAdapterType_)));
         bluetoothAdapterAddress_ = ini.get<std::string>(cBluetoothAdapterAddressKey, bluetoothAdapterAddress_);
         wirelessProjectionEnabled_ = ini.get<bool>(cWirelessProjectionKey, wirelessProjectionEnabled_);
+        wireless_.ssid = ini.get<std::string>(cWirelessSsidKey, wireless_.ssid);
+        wireless_.password = ini.get<std::string>(cWirelessPasswordKey, wireless_.password);
+        wireless_.band = ini.get<std::string>(cWirelessBandKey, wireless_.band);
+        wireless_.country = ini.get<std::string>(cWirelessCountryKey, wireless_.country);
+        wireless_.interface = ini.get<std::string>(cWirelessInterfaceKey, wireless_.interface);
+        wireless_.lastDevice = ini.get<std::string>(cWirelessLastDeviceKey, wireless_.lastDevice);
 
         audioChannelEnabledMedia_ = ini.get<bool>(cAudioMediaKey, audioChannelEnabledMedia_);
         audioChannelEnabledGuidance_ = ini.get<bool>(cAudioGuidanceKey, audioChannelEnabledGuidance_);
@@ -127,7 +139,9 @@ void Configuration::reset()
     enableTouchscreen_ = true;
     bluetoothAdapterType_ = BluetoothAdapterType::NONE;
     bluetoothAdapterAddress_ = "";
-    wirelessProjectionEnabled_ = true;
+    // off by default: it turns the WiFi card into a hotspot
+    wirelessProjectionEnabled_ = false;
+    wireless_ = WirelessSettings{"", "", "5", "DE", "", ""};
     audioChannelEnabledMedia_ = true;
     audioChannelEnabledGuidance_ = true;
     audioChannelEnabledSystem_ = true;
@@ -153,6 +167,12 @@ void Configuration::save()
     ini.put<uint32_t>(cBluetoothAdapterTypeKey, static_cast<uint32_t>(bluetoothAdapterType_));
     ini.put<std::string>(cBluetoothAdapterAddressKey, bluetoothAdapterAddress_);
     ini.put<bool>(cWirelessProjectionKey, wirelessProjectionEnabled_);
+    ini.put<std::string>(cWirelessSsidKey, wireless_.ssid);
+    ini.put<std::string>(cWirelessPasswordKey, wireless_.password);
+    ini.put<std::string>(cWirelessBandKey, wireless_.band);
+    ini.put<std::string>(cWirelessCountryKey, wireless_.country);
+    ini.put<std::string>(cWirelessInterfaceKey, wireless_.interface);
+    ini.put<std::string>(cWirelessLastDeviceKey, wireless_.lastDevice);
     ini.put<bool>(cAudioMediaKey, audioChannelEnabledMedia_);
     ini.put<bool>(cAudioGuidanceKey, audioChannelEnabledGuidance_);
     ini.put<bool>(cAudioSystemKey, audioChannelEnabledSystem_);
@@ -319,6 +339,16 @@ bool Configuration::getWirelessProjectionEnabled() const
 void Configuration::setWirelessProjectionEnabled(bool value)
 {
     wirelessProjectionEnabled_ = value;
+}
+
+WirelessSettings Configuration::getWirelessSettings() const
+{
+    return wireless_;
+}
+
+void Configuration::setWirelessSettings(const WirelessSettings& value)
+{
+    wireless_ = value;
 }
 
 bool Configuration::musicAudioChannelEnabled() const

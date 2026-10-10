@@ -36,6 +36,8 @@ Example: `websocat ws://127.0.0.1:5520` and then `{"type":"subscribe","topics":[
 | `projection.exit` | – one-shot: "exit" inside Android Auto, the shell shows its home page |
 | `plugins.state` | `plugins` – installed plugins after (re)loading |
 | `store.state` | `busy`, `status`, `error` – progress of store operations |
+| `wireless.state` | `enabled`, `running`, `hotspot` (`off`, `starting`, `on`, `error`), `hotspotError`, `wifiOff`, `interface`, `ssid`, `bluetooth` (`off`, `on`, `error`), `bluetoothError`, `adapter`, `pairing`, `phase` (`idle`, `waiting`, `handshake`, `joining`, `connected`, `error`), `phaseText`, `device` |
+| `bluetooth.pairing` | `active`, `device`, `passkey` – a phone asks to pair (confirmed in the shell or with `bluetooth.confirm`) |
 
 Plugins publish their own topics with `bus.publish` (e.g. `vehicle.speed`).
 
@@ -73,6 +75,11 @@ Plugins publish their own topics with `bus.publish` (e.g. `vehicle.speed`).
 | `store.sources.list` | – | sources |
 | `store.sources.add` | `type` (`github`/`url`/`file`), `location`, `branch` | sources |
 | `store.sources.remove` | `index` | sources |
+| `wireless.state` | – | like the topic `wireless.state` |
+| `bluetooth.devices` | – | paired phones (`address`, `name`, `connected`, `icon`) |
+| `bluetooth.pairing` | `enabled` (default `true`) | `{pairing}` – visible for 2 minutes, wireless Android Auto must be on |
+| `bluetooth.confirm` | `accept` (bool) | `{}` – answer to `bluetooth.pairing` |
+| `bluetooth.connect` | `address` | `{}` – use this phone for wireless Android Auto and connect it |
 
 Store operations run in the background; progress and errors arrive as `store.state` (`busy`, `status`, `error`).
 Plugins: see [plugins.md](plugins.md).

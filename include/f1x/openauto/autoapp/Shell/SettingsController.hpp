@@ -52,6 +52,8 @@ public:
     // Returns an error message, empty on success.
     Q_INVOKABLE QString set(const QString& key, const QVariant& value);
     Q_INVOKABLE void clearPending(const QString& what);
+    // Values were changed elsewhere (e.g. wireless.pair() switched wireless on)
+    Q_INVOKABLE void refresh();
 
     // Restarts OpenHU in place (same process id, works under systemd and in the container).
     Q_INVOKABLE void restart();
@@ -62,6 +64,8 @@ signals:
     void changed();
     // Right before restart(): stop child processes (plugins, pactl)
     void aboutToRestart();
+    // Wireless Android Auto switched or hotspot settings changed (applied right away)
+    void wirelessChanged();
 
 private:
     void markPending(const QString& what);

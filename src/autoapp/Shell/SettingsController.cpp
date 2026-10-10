@@ -82,6 +82,7 @@ QVariantMap SettingsController::values() const
 {
     const QRect margins = configuration_->getVideoMargins();
     const std::string listen = configuration_->getApiListenAddress();
+    const auto wireless = configuration_->getWirelessSettings();
 
     return {
         {"general.driverSide", configuration_->getHandednessOfTrafficType()
@@ -97,6 +98,10 @@ QVariantMap SettingsController::values() const
         {"aa.marginHeight", margins.height()},
         {"aa.touchscreen", configuration_->getTouchscreenEnabled()},
         {"aa.wireless", configuration_->getWirelessProjectionEnabled()},
+        {"wireless.ssid", QString::fromStdString(wireless.ssid)},
+        {"wireless.password", QString::fromStdString(wireless.password)},
+        {"wireless.band", QString::fromStdString(wireless.band)},
+        {"wireless.country", QString::fromStdString(wireless.country)},
         {"aa.audioMedia", configuration_->musicAudioChannelEnabled()},
         {"aa.audioGuidance", configuration_->guidanceAudioChannelEnabled()},
         {"aa.audioTelephony", configuration_->telephonyAudioChannelEnabled()},
@@ -152,6 +157,11 @@ QString SettingsController::set(const QString& key, const QVariant& value)
         }
         configuration_->setNameSuffix(suffix.toStdString());
         this->markPending(cReconnect);
+        // the default WiFi name contains the suffix
+        if(configuration_->getWirelessSettings().ssid.empty())
+        {
+            QMetaObject::invokeMethod(this, &SettingsController::wirelessChanged, Qt::QueuedConnection);
+        }
     }
     else if(key == "aa.resolution")
     {
@@ -208,7 +218,46 @@ QString SettingsController::set(const QString& key, const QVariant& value)
     else if(key == "aa.wireless")
     {
         configuration_->setWirelessProjectionEnabled(value.toBool());
-        this->markPending(cRestart);
+        QMetaObject::invokeMethod(this, &SettingsController::wirelessChanged, Qt::QueuedConnection);
+    }
+    else if(key.startsWith("wireless."))
+    {
+        auto wireless = configuration_->getWirelessSettings();
+        const QString text = value.toString().trimmed();
+        if(key == "wireless.ssid")
+        {
+            if(text.toUtf8().size() > 32)
+            {
+                return "Höchstens 32 Zeichen";
+            }
+            wireless.ssid = text.toStdString();
+        }
+        else if(key == "wireless.password")
+        {
+            if(text.size() < 8 || text.size() > 63)
+            {
+                return "Passwort: 8 bis 63 Zeichen";
+            }
+            wireless.password = text.toStdString();
+        }
+        else if(key == "wireless.band")
+        {
+            wireless.band = text == "2.4" ? "2.4" : "5";
+        }
+        else if(key == "wireless.country")
+        {
+            if(text.size() != 2)
+            {
+                return "Ländercode mit 2 Buchstaben, z. B. DE";
+            }
+            wireless.country = text.toUpper().toStdString();
+        }
+        else
+        {
+            return "Unbekannte Einstellung: " + key;
+        }
+        configuration_->setWirelessSettings(wireless);
+        QMetaObject::invokeMethod(this, &SettingsController::wirelessChanged, Qt::QueuedConnection);
     }
     else if(key == "aa.audioMedia")
     {
@@ -273,6 +322,11 @@ void SettingsController::clearPending(const QString& what)
     {
         emit changed();
     }
+}
+
+void SettingsController::refresh()
+{
+    emit changed();
 }
 
 void SettingsController::markPending(const QString& what)

@@ -17,6 +17,7 @@
 */
 
 #include <f1x/openauto/Common/Log.hpp>
+#include <f1x/openauto/autoapp/Core/EventBus.hpp>
 #include <f1x/openauto/autoapp/Service/Bluetooth/BluetoothService.hpp>
 
 namespace f1x::openauto::autoapp::service::bluetooth {
@@ -40,6 +41,7 @@ namespace f1x::openauto::autoapp::service::bluetooth {
   void BluetoothService::stop() {
     strand_.dispatch([this, self = this->shared_from_this()]() {
       OPENAUTO_LOG(info) << "[BluetoothService] stop()";
+      QObject::disconnect(passkeyConnection_);
       bluetoothDevice_->stop();
     });
   }
@@ -124,26 +126,48 @@ namespace f1x::openauto::autoapp::service::bluetooth {
     response.set_status(aap_protobuf::shared::MessageStatus::STATUS_SUCCESS);
     response.set_already_paired(isPaired);
 
+    if (!isPaired) {
+      // The phone pairs with OpenHU next: the wireless controller accepts exactly this phone (it is on the cable)
+      // and reports the passkey, which goes back to the phone so it can confirm by itself.
+      phoneAddress_ = request.phone_address();
+      QObject::disconnect(passkeyConnection_);
+      std::weak_ptr<BluetoothService> weak = this->shared_from_this();
+      passkeyConnection_ = QObject::connect(&core::EventBus::instance(), &core::EventBus::event,
+                                            [weak](const QString& topic, const QVariantMap& data) {
+        if (topic != "bluetooth.passkey") {
+          return;
+        }
+        if (auto self = weak.lock()) {
+          const std::string address = data.value("address").toString().toUpper().toStdString();
+          const std::string passkey = data.value("passkey").toString().toStdString();
+          self->strand_.dispatch([self, address, passkey]() {
+            if (QString::fromStdString(self->phoneAddress_).toUpper().toStdString() == address) {
+              self->sendBluetoothAuthenticationData(passkey);
+            }
+          });
+        }
+      });
+      core::EventBus::instance().emitEvent("bluetooth.expect", {{"address", QString::fromStdString(phoneAddress_)}});
+    }
+
     auto promise = aasdk::channel::SendPromise::defer(strand_);
-    promise->then(std::bind(&BluetoothService::sendBluetoothAuthenticationData, this->shared_from_this()),
-                  std::bind(&BluetoothService::onChannelError, this->shared_from_this(),
-                            std::placeholders::_1));
+    promise->then([]() {}, std::bind(&BluetoothService::onChannelError, this->shared_from_this(),
+                                     std::placeholders::_1));
     channel_->sendBluetoothPairingResponse(response, std::move(promise));
     channel_->receive(this->shared_from_this());
   }
 
-  void BluetoothService::sendBluetoothAuthenticationData() {
+  void BluetoothService::sendBluetoothAuthenticationData(const std::string& passkey) {
     OPENAUTO_LOG(info) << "[BluetoothService] sendBluetoothAuthenticationData()";
-
     aap_protobuf::service::bluetooth::message::BluetoothAuthenticationData data;
-    // TODO: Bluetooth Authentication Data
-    data.set_auth_data("123456");
-    data.set_pairing_method(aap_protobuf::service::bluetooth::message::BluetoothPairingMethod::BLUETOOTH_PAIRING_PIN);
+    data.set_auth_data(passkey);
+    data.set_pairing_method(
+        aap_protobuf::service::bluetooth::message::BluetoothPairingMethod::BLUETOOTH_PAIRING_NUMERIC_COMPARISON);
+
     auto promise = aasdk::channel::SendPromise::defer(strand_);
     promise->then([]() {}, std::bind(&BluetoothService::onChannelError, this->shared_from_this(),
                                      std::placeholders::_1));
     channel_->sendBluetoothAuthenticationData(data, std::move(promise));
-    channel_->receive(this->shared_from_this());
   }
 
   void BluetoothService::onBluetoothAuthenticationResult(
