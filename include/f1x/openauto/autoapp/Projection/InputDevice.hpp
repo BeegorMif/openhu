@@ -21,6 +21,8 @@
 #include <QObject>
 #include <QKeyEvent>
 #include <QTouchEvent>
+#include <QRect>
+#include <QSizeF>
 #include <map>
 #include <f1x/openauto/autoapp/Projection/IInputDevice.hpp>
 #include <f1x/openauto/autoapp/Configuration/IConfiguration.hpp>
@@ -48,6 +50,12 @@ public:
     bool hasTouchscreen() const override;
     QRect getTouchscreenGeometry() const override;
 
+    // Pointer event from the shell's Android Auto surface (item coordinates). contentRect is the part
+    // of the video frame showing the Android Auto UI; the surface is mapped onto it.
+    void handleSurfaceEvent(QEvent* event, const QSizeF& surfaceSize, const QRect& contentRect);
+    // Button event from the ActionDispatcher (keyboard, steering wheel, API). False without session.
+    bool injectButton(const ButtonEvent& event);
+
 private:
     void setVideoGeometry();
     bool handleKeyEvent(QEvent* event, QKeyEvent* key);
@@ -55,6 +63,7 @@ private:
     bool handleTouchEvent(QEvent* event);
     bool handleMultiTouchEvent(QTouchEvent* touchEvent);
     void translateTouchPoint(const QTouchEvent::TouchPoint& qtPoint, TouchPoint& ourPoint);
+    void mapToDisplay(const QPointF& pos, uint32_t& x, uint32_t& y) const;
 
     QObject& parent_;
     configuration::IConfiguration::Pointer configuration_;
@@ -64,6 +73,9 @@ private:
     std::mutex mutex_;
     std::map<int, uint32_t> touchPointIdMap_; // Maps Qt touch IDs to our sequential IDs
     uint32_t nextTouchPointId_;
+    bool surfaceMode_;
+    QSizeF surfaceSize_;
+    QRect surfaceContentRect_;
 };
 
 }

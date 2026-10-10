@@ -19,6 +19,7 @@
 
 #include <f1x/openauto/Common/Log.hpp>
 #include <f1x/openauto/autoapp/Service/Sensor/SensorService.hpp>
+#include <f1x/openauto/autoapp/Core/EventBus.hpp>
 #include <fstream>
 #include <cmath>
 #include <gps.h>
@@ -42,7 +43,7 @@ namespace f1x::openauto::autoapp::service::sensor {
         this->gpsEnabled_ = true;
       }
 
-      if (is_file_exist("/tmp/night_mode_enabled")) {
+      if (this->isNightMode()) {
         this->isNight = true;
       }
       this->sensorPolling();
@@ -230,7 +231,7 @@ namespace f1x::openauto::autoapp::service::sensor {
           return;
         }
         
-        this->isNight = is_file_exist("/tmp/night_mode_enabled");
+        this->isNight = this->isNightMode();
         if (this->previous != this->isNight && !this->firstRun) {
           this->previous = this->isNight;
           this->sendNightData();
@@ -264,6 +265,12 @@ namespace f1x::openauto::autoapp::service::sensor {
         }
       });
     }
+  }
+
+  bool SensorService::isNightMode() {
+    // Set via API/plugins ("daynight.set", e.g. from the light sensor or CAN), the file is the classic trigger.
+    return core::EventBus::instance().last("system.daynight").value("night").toBool()
+           || is_file_exist("/tmp/night_mode_enabled");
   }
 
   bool SensorService::is_file_exist(const char *fileName) {

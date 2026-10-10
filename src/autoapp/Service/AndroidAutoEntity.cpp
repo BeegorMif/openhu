@@ -16,6 +16,8 @@
 *  along with openauto. If not, see <http://www.gnu.org/licenses/>.
 */
 
+#include <f1x/openauto/autoapp/Core/EventBus.hpp>
+#include <QVariantList>
 #include <aasdk/Channel/Control/ControlServiceChannel.hpp>
 #include <f1x/openauto/autoapp/Service/AndroidAutoEntity.hpp>
 #include <f1x/openauto/Common/Log.hpp>
@@ -46,6 +48,7 @@ namespace f1x {
         void AndroidAutoEntity::start(IAndroidAutoEntityEventHandler &eventHandler) {
           strand_.dispatch([this, self = this->shared_from_this(), eventHandler = &eventHandler]() {
             OPENAUTO_LOG(info) << "[AndroidAutoEntity] start()";
+            core::EventBus::instance().publish("projection.state", {{"connected", true}});
 
             eventHandler_ = eventHandler;
             std::for_each(serviceList_.begin(), serviceList_.end(), std::bind(&IService::start, std::placeholders::_1));
@@ -65,6 +68,11 @@ namespace f1x {
           stopping_.store(true, std::memory_order_relaxed);
           strand_.dispatch([this, self = this->shared_from_this()]() {
             OPENAUTO_LOG(info) << "[AndroidAutoEntity] stop()";
+            core::EventBus::instance().publish("projection.state", {{"connected", false}});
+            // Data of the finished session is no longer valid
+            core::EventBus::instance().publish("nav.status", {{"state", "unavailable"}});
+            core::EventBus::instance().publish("media.status", {{"state", "stopped"}, {"source", "androidauto"}});
+            core::EventBus::instance().publish("phone.status", {{"callState", "idle"}, {"calls", QVariantList()}});
 
             try {
               eventHandler_ = nullptr;

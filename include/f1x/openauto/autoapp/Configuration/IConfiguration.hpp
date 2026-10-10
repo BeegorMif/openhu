@@ -74,6 +74,12 @@ public:
     virtual bool showNetworkinfo() const = 0;
     virtual void hideWarning(bool value) = 0;
     virtual bool hideWarning() const = 0;
+    // "qml" (new shell, default) or "legacy" (old widget UI)
+    virtual std::string getUiMode() const = 0;
+    virtual void setUiMode(const std::string& value) = 0;
+    // WebSocket API (docs/api.md)
+    virtual uint16_t getApiPort() const = 0;
+    virtual std::string getApiListenAddress() const = 0;
 
     virtual std::string getMp3MasterPath() const = 0;
     virtual void setMp3MasterPath(const std::string& value) = 0;

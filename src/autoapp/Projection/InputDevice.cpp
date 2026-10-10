@@ -19,6 +19,8 @@
 #include <f1x/openauto/Common/Log.hpp>
 #include <f1x/openauto/autoapp/Projection/IInputDeviceEventHandler.hpp>
 #include <f1x/openauto/autoapp/Projection/InputDevice.hpp>
+#include <f1x/openauto/autoapp/Shell/AaBridge.hpp>
+#include <algorithm>
 
 namespace f1x
 {
@@ -36,6 +38,7 @@ InputDevice::InputDevice(QObject& parent, configuration::IConfiguration::Pointer
     , displayGeometry_(displayGeometry)
     , eventHandler_(nullptr)
     , nextTouchPointId_(0)
+    , surfaceMode_(shell::AaBridge::instance().enabled())
 {
     this->moveToThread(parent.thread());
     // Note: Touch events are accepted automatically when we install the event filter
@@ -44,20 +47,79 @@ InputDevice::InputDevice(QObject& parent, configuration::IConfiguration::Pointer
 
 void InputDevice::start(IInputDeviceEventHandler& eventHandler)
 {
-    std::lock_guard<decltype(mutex_)> lock(mutex_);
+    {
+        std::lock_guard<decltype(mutex_)> lock(mutex_);
 
-    OPENAUTO_LOG(info) << "[InputDevice] start()";
-    eventHandler_ = &eventHandler;
-    parent_.installEventFilter(this);
+        OPENAUTO_LOG(info) << "[InputDevice] start()";
+        eventHandler_ = &eventHandler;
+        parent_.installEventFilter(this);
+    }
+
+    // Outside of mutex_: AaBridge locks its own mutex before calling into us.
+    if(surfaceMode_)
+    {
+        shell::AaBridge::instance().attachInputDevice(this);
+    }
 }
 
 void InputDevice::stop()
 {
+    if(surfaceMode_)
+    {
+        shell::AaBridge::instance().detachInputDevice(this);
+    }
+
     std::lock_guard<decltype(mutex_)> lock(mutex_);
 
     OPENAUTO_LOG(info) << "[InputDevice] stop()";
     parent_.removeEventFilter(this);
     eventHandler_ = nullptr;
+}
+
+void InputDevice::handleSurfaceEvent(QEvent* event, const QSizeF& surfaceSize, const QRect& contentRect)
+{
+    std::lock_guard<decltype(mutex_)> lock(mutex_);
+
+    if(eventHandler_ == nullptr)
+    {
+        return;
+    }
+
+    surfaceSize_ = surfaceSize;
+    surfaceContentRect_ = contentRect;
+
+    switch(event->type())
+    {
+    case QEvent::TouchBegin:
+    case QEvent::TouchUpdate:
+    case QEvent::TouchEnd:
+    case QEvent::TouchCancel:
+        this->handleMultiTouchEvent(static_cast<QTouchEvent*>(event));
+        break;
+    case QEvent::MouseButtonPress:
+    case QEvent::MouseButtonRelease:
+    case QEvent::MouseMove:
+        this->handleTouchEvent(event);
+        break;
+    default:
+        break;
+    }
+}
+
+void InputDevice::mapToDisplay(const QPointF& pos, uint32_t& x, uint32_t& y) const
+{
+    if(surfaceMode_)
+    {
+        const double fx = std::clamp(pos.x() / surfaceSize_.width(), 0.0, 1.0);
+        const double fy = std::clamp(pos.y() / surfaceSize_.height(), 0.0, 1.0);
+        x = static_cast<uint32_t>(surfaceContentRect_.x() + fx * (surfaceContentRect_.width() - 1));
+        y = static_cast<uint32_t>(surfaceContentRect_.y() + fy * (surfaceContentRect_.height() - 1));
+    }
+    else
+    {
+        x = static_cast<uint32_t>((pos.x() / touchscreenGeometry_.width()) * displayGeometry_.width());
+        y = static_cast<uint32_t>((pos.y() / touchscreenGeometry_.height()) * displayGeometry_.height());
+    }
 }
 
 bool InputDevice::eventFilter(QObject* obj, QEvent* event)
@@ -66,6 +128,12 @@ bool InputDevice::eventFilter(QObject* obj, QEvent* event)
 
     if(eventHandler_ != nullptr)
     {
+        if(surfaceMode_)
+        {
+            // Shell mode: pointer events arrive via handleSurfaceEvent(), keys via the ActionDispatcher (injectButton()).
+            return QObject::eventFilter(obj, event);
+        }
+
         if(event->type() == QEvent::KeyPress || event->type() == QEvent::KeyRelease)
         {
             QKeyEvent* key = static_cast<QKeyEvent*>(event);
@@ -224,8 +292,9 @@ bool InputDevice::handleTouchEvent(QEvent* event)
     QMouseEvent* mouse = static_cast<QMouseEvent*>(event);
     if(event->type() == QEvent::MouseButtonRelease || mouse->buttons().testFlag(Qt::LeftButton))
     {
-        const uint32_t x = (static_cast<float>(mouse->pos().x()) / touchscreenGeometry_.width()) * displayGeometry_.width();
-        const uint32_t y = (static_cast<float>(mouse->pos().y()) / touchscreenGeometry_.height()) * displayGeometry_.height();
+        uint32_t x = 0;
+        uint32_t y = 0;
+        this->mapToDisplay(mouse->localPos(), x, y);
         
         // Create single-touch event for mouse fallback
         TouchEvent event;
@@ -251,7 +320,47 @@ QRect InputDevice::getTouchscreenGeometry() const
 
 IInputDevice::ButtonCodes InputDevice::getSupportedButtonCodes() const
 {
-    return configuration_->getButtonCodes();
+    auto codes = configuration_->getButtonCodes();
+
+    if(surfaceMode_)
+    {
+        // Shell mode: actions (keyboard, steering wheel, CAN, API) can produce all of these.
+        using KeyCode = aap_protobuf::service::media::sink::message::KeyCode;
+        for(auto code: {KeyCode::KEYCODE_HOME, KeyCode::KEYCODE_BACK, KeyCode::KEYCODE_CALL, KeyCode::KEYCODE_ENDCALL,
+                        KeyCode::KEYCODE_DPAD_UP, KeyCode::KEYCODE_DPAD_DOWN, KeyCode::KEYCODE_DPAD_LEFT,
+                        KeyCode::KEYCODE_DPAD_RIGHT, KeyCode::KEYCODE_DPAD_CENTER, KeyCode::KEYCODE_SEARCH,
+                        KeyCode::KEYCODE_MEDIA_PLAY_PAUSE, KeyCode::KEYCODE_MEDIA_NEXT, KeyCode::KEYCODE_MEDIA_PREVIOUS,
+                        KeyCode::KEYCODE_MEDIA_PLAY, KeyCode::KEYCODE_MEDIA_PAUSE, KeyCode::KEYCODE_ROTARY_CONTROLLER,
+                        KeyCode::KEYCODE_MEDIA, KeyCode::KEYCODE_NAVIGATION, KeyCode::KEYCODE_TEL})
+        {
+            if(std::find(codes.begin(), codes.end(), code) == codes.end())
+            {
+                codes.push_back(code);
+            }
+        }
+    }
+
+    return codes;
+}
+
+bool InputDevice::injectButton(const ButtonEvent& event)
+{
+    std::lock_guard<decltype(mutex_)> lock(mutex_);
+
+    if(eventHandler_ == nullptr)
+    {
+        return false;
+    }
+
+    const auto& buttonCodes = this->getSupportedButtonCodes();
+    if(std::find(buttonCodes.begin(), buttonCodes.end(), event.code) == buttonCodes.end())
+    {
+        OPENAUTO_LOG(warning) << "[InputDevice] key code not announced to the phone: " << event.code;
+        return false;
+    }
+
+    eventHandler_->onButtonEvent(event);
+    return true;
 }
 
 bool InputDevice::handleMultiTouchEvent(QTouchEvent* touchEvent)
@@ -387,9 +496,7 @@ void InputDevice::translateTouchPoint(const QTouchEvent::TouchPoint& qtPoint, To
     ourPoint.pointerId = touchPointIdMap_[qtId];
 
     // Scale coordinates from touchscreen geometry to display geometry
-    QPointF pos = qtPoint.pos();
-    ourPoint.x = static_cast<uint32_t>((pos.x() / touchscreenGeometry_.width()) * displayGeometry_.width());
-    ourPoint.y = static_cast<uint32_t>((pos.y() / touchscreenGeometry_.height()) * displayGeometry_.height());
+    this->mapToDisplay(qtPoint.pos(), ourPoint.x, ourPoint.y);
 
     OPENAUTO_LOG(debug) << "[InputDevice] Touch point: qtId=" << qtId 
                         << " ourId=" << ourPoint.pointerId 

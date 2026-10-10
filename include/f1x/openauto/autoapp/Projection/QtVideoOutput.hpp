@@ -59,6 +59,7 @@ protected slots:
     void onError(QMediaPlayer::Error error);
 
 private:
+    void showVideoWidget();
     void cleanupPlayer();
     SequentialBuffer videoBuffer_;
     std::unique_ptr<QVideoWidget> videoWidget_;

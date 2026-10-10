@@ -18,6 +18,8 @@
 
 #include <f1x/openauto/Common/Log.hpp>
 #include <f1x/openauto/autoapp/Service/MediaPlaybackStatus/MediaPlaybackStatusService.hpp>
+#include <f1x/openauto/autoapp/Core/EventBus.hpp>
+#include <f1x/openauto/autoapp/Core/DataUrl.hpp>
 #include <fstream>
 #include <QString>
 
@@ -38,6 +40,7 @@ namespace f1x {
           void MediaPlaybackStatusService::start() {
             strand_.dispatch([this, self = this->shared_from_this()]() {
               OPENAUTO_LOG(info) << "[MediaPlaybackStatusService] start()";
+              channel_->receive(this->shared_from_this());
             });
           }
 
@@ -86,6 +89,34 @@ namespace f1x {
             channel_->receive(this->shared_from_this());
           }
 
+
+          void MediaPlaybackStatusService::onMetadataUpdate(const aap_protobuf::service::mediaplayback::message::MediaPlaybackMetadata &metadata) {
+            QVariantMap data;
+            data["title"] = QString::fromStdString(metadata.song());
+            data["artist"] = QString::fromStdString(metadata.artist());
+            data["album"] = QString::fromStdString(metadata.album());
+            data["playlist"] = QString::fromStdString(metadata.playlist());
+            data["duration"] = metadata.duration_seconds();
+            data["cover"] = core::imageDataUrl(metadata.album_art());
+            data["source"] = "androidauto";
+            core::EventBus::instance().publish("media.metadata", data);
+            channel_->receive(this->shared_from_this());
+          }
+
+          void MediaPlaybackStatusService::onPlaybackUpdate(const aap_protobuf::service::mediaplayback::message::MediaPlaybackStatus &playback) {
+            using Status = aap_protobuf::service::mediaplayback::message::MediaPlaybackStatus;
+            QVariantMap data;
+            data["state"] = playback.state() == Status::PLAYING ? "playing"
+                            : playback.state() == Status::PAUSED ? "paused" : "stopped";
+            data["app"] = QString::fromStdString(playback.media_source());
+            data["position"] = playback.playback_seconds();
+            data["shuffle"] = playback.shuffle();
+            data["repeat"] = playback.repeat();
+            data["repeatOne"] = playback.repeat_one();
+            data["source"] = "androidauto";
+            core::EventBus::instance().publish("media.status", data);
+            channel_->receive(this->shared_from_this());
+          }
 
           void MediaPlaybackStatusService::onChannelError(const aasdk::error::Error &e) {
             OPENAUTO_LOG(error) << "[MediaPlaybackStatusService] onChannelError(): " << e.what();

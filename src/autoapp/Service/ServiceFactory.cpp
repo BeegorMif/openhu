@@ -38,12 +38,16 @@
 #include <f1x/openauto/autoapp/Service/Bluetooth/BluetoothService.hpp>
 #include <f1x/openauto/autoapp/Service/InputSource/InputSourceService.hpp>
 #include <f1x/openauto/autoapp/Service/WifiProjection/WifiProjectionService.hpp>
+#include <f1x/openauto/autoapp/Service/NavigationStatus/NavigationStatusService.hpp>
+#include <f1x/openauto/autoapp/Service/MediaPlaybackStatus/MediaPlaybackStatusService.hpp>
+#include <f1x/openauto/autoapp/Service/PhoneStatus/PhoneStatusService.hpp>
 #include <f1x/openauto/autoapp/Projection/QtVideoOutput.hpp>
 #include <f1x/openauto/autoapp/Projection/OMXVideoOutput.hpp>
 #include <f1x/openauto/autoapp/Projection/RtAudioOutput.hpp>
 #include <f1x/openauto/autoapp/Projection/QtAudioOutput.hpp>
 #include <f1x/openauto/autoapp/Projection/QtAudioInput.hpp>
 #include <f1x/openauto/autoapp/Projection/InputDevice.hpp>
+#include <f1x/openauto/autoapp/Shell/AaBridge.hpp>
 #include <f1x/openauto/autoapp/Projection/LocalBluetoothDevice.hpp>
 #include <f1x/openauto/autoapp/Projection/DummyBluetoothDevice.hpp>
 
@@ -63,6 +67,19 @@ namespace f1x::openauto::autoapp::service {
     this->createMediaSourceServices(serviceList, messenger);
     serviceList.emplace_back(this->createSensorService(messenger));
     serviceList.emplace_back(this->createInputService(messenger));
+    // Status channels: navigation, now playing and calls -> EventBus/API (nav.*, media.*, phone.*)
+    // DEBUG: OA_STATUS_CHANNELS="nav,media,phone" selects the offered channels (default: all).
+    const QString statusChannels = qEnvironmentVariable("OA_STATUS_CHANNELS", "nav,media,phone");
+    OPENAUTO_LOG(info) << "[ServiceFactory] status channels: '" << statusChannels.toStdString() << "'";
+    if (statusChannels.contains("nav")) {
+      serviceList.emplace_back(std::make_shared<navigationstatus::NavigationStatusService>(ioService_, messenger));
+    }
+    if (statusChannels.contains("media")) {
+      serviceList.emplace_back(std::make_shared<mediaplaybackstatus::MediaPlaybackStatusService>(ioService_, messenger));
+    }
+    if (statusChannels.contains("phone")) {
+      serviceList.emplace_back(std::make_shared<phonestatus::PhoneStatusService>(ioService_, messenger));
+    }
     if (configuration_->getWirelessProjectionEnabled())
     {
         // TODO: What is WiFi Projection Service?
@@ -113,6 +130,10 @@ namespace f1x::openauto::autoapp::service {
 
     QScreen *screen = QGuiApplication::primaryScreen();
     QRect screenGeometry = screen == nullptr ? QRect(0, 0, 1, 1) : screen->geometry();
+    if (shell::AaBridge::instance().enabled()) {
+      // Shell mode: the AaSurface delivers touches already mapped to video coordinates.
+      screenGeometry = videoGeometry;
+    }
     projection::IInputDevice::Pointer inputDevice(
         std::make_shared<projection::InputDevice>(*QApplication::instance(), configuration_,
                                                   std::move(screenGeometry), std::move(videoGeometry)));

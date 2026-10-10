@@ -46,6 +46,8 @@ namespace f1x {
 
             void onChannelError(const aasdk::error::Error &e) override;
 
+            void onPhoneStatus(const aap_protobuf::service::phonestatus::message::PhoneStatus &status) override;
+
 
           private:
             using std::enable_shared_from_this<PhoneStatusService>::shared_from_this;

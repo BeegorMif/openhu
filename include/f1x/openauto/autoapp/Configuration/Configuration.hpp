@@ -71,6 +71,10 @@ public:
     bool showNetworkinfo() const override;
     void hideWarning(bool value) override;
     bool hideWarning() const override;
+    std::string getUiMode() const override;
+    void setUiMode(const std::string& value) override;
+    uint16_t getApiPort() const override;
+    std::string getApiListenAddress() const override;
 
     std::string getMp3MasterPath() const override;
     void setMp3MasterPath(const std::string& value) override;
@@ -143,6 +147,9 @@ private:
     bool hideBrightnessControl_;
     bool showNetworkinfo_;
     bool hideWarning_;
+    std::string uiMode_;
+    uint16_t apiPort_;
+    std::string apiListenAddress_;
     std::string mp3MasterPath_;
     std::string mp3SubFolder_;
     int32_t mp3Track_;
@@ -183,6 +190,9 @@ private:
     static const std::string cGeneralHideBrightnessControlKey;
     static const std::string cGeneralShowNetworkinfoKey;
     static const std::string cGeneralHideWarningKey;
+    static const std::string cGeneralUiModeKey;
+    static const std::string cApiPortKey;
+    static const std::string cApiListenKey;
 
     static const std::string cGeneralHandednessOfTrafficTypeKey;
 

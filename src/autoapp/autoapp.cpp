@@ -20,6 +20,9 @@
 #include <QApplication>
 #include <QScreen>
 #include <QDesktopWidget>
+#include <QQmlApplicationEngine>
+#include <QQmlContext>
+#include <QQuickWindow>
 #include <aasdk/USB/USBHub.hpp>
 #include <aasdk/USB/ConnectedAccessoriesEnumerator.hpp>
 #include <aasdk/USB/AccessoryModeQueryChain.hpp>
@@ -38,6 +41,14 @@
 #include <f1x/openauto/autoapp/UI/ConnectDialog.hpp>
 #include <f1x/openauto/autoapp/UI/WarningDialog.hpp>
 #include <f1x/openauto/autoapp/UI/UpdateDialog.hpp>
+#include <f1x/openauto/autoapp/Api/ApiServer.hpp>
+#include <f1x/openauto/autoapp/Api/CoreMethods.hpp>
+#include <f1x/openauto/autoapp/Audio/VolumeController.hpp>
+#include <f1x/openauto/autoapp/Core/EventBus.hpp>
+#include <f1x/openauto/autoapp/Input/ActionDispatcher.hpp>
+#include <f1x/openauto/autoapp/Shell/AaBridge.hpp>
+#include <f1x/openauto/autoapp/Shell/AaSurface.hpp>
+#include <f1x/openauto/autoapp/Shell/ShellController.hpp>
 #include <f1x/openauto/Common/Log.hpp>
 
 namespace autoapp = f1x::openauto::autoapp;
@@ -131,9 +142,9 @@ int main(int argc, char* argv[])
     OPENAUTO_LOG(info) << "[AutoApp] Display height: " << height;
 
     auto configuration = std::make_shared<autoapp::configuration::Configuration>();
-
-    autoapp::ui::MainWindow mainWindow(configuration);
-    //mainWindow.setWindowFlags(Qt::WindowStaysOnTopHint);
+    autoapp::shell::AaBridge::instance().configure(configuration);
+    const bool useShell = autoapp::shell::AaBridge::instance().enabled();
+    OPENAUTO_LOG(info) << "[AutoApp] UI mode: " << (useShell ? "qml shell" : "legacy");
 
     autoapp::ui::SettingsWindow settingsWindow(configuration);
     //settingsWindow.setWindowFlags(Qt::WindowStaysOnTopHint);
@@ -145,93 +156,12 @@ int main(int argc, char* argv[])
     recentAddressesList.read();
 
     aasdk::tcp::TCPWrapper tcpWrapper;
-    autoapp::ui::ConnectDialog connectdialog(ioService, tcpWrapper, recentAddressesList);
-    //connectdialog.setWindowFlags(Qt::WindowStaysOnTopHint);
-    connectdialog.move((width - 500)/2,(height-300)/2);
-
-    autoapp::ui::WarningDialog warningdialog;
-    //warningdialog.setWindowFlags(Qt::WindowStaysOnTopHint);
-    warningdialog.move((width - 500)/2,(height-300)/2);
-
-    autoapp::ui::UpdateDialog updatedialog;
-    //updatedialog.setWindowFlags(Qt::WindowStaysOnTopHint);
-    updatedialog.setFixedSize(500, 260);
-    updatedialog.move((width - 500)/2,(height-260)/2);
-
-    QObject::connect(&mainWindow, &autoapp::ui::MainWindow::exit, []() { system("touch /tmp/shutdown"); std::exit(0); });
-    QObject::connect(&mainWindow, &autoapp::ui::MainWindow::reboot, []() { system("touch /tmp/reboot"); std::exit(0); });
-    QObject::connect(&mainWindow, &autoapp::ui::MainWindow::openSettings, &settingsWindow, &autoapp::ui::SettingsWindow::showFullScreen);
-    QObject::connect(&mainWindow, &autoapp::ui::MainWindow::openSettings, &settingsWindow, &autoapp::ui::SettingsWindow::show_tab1);
-    QObject::connect(&mainWindow, &autoapp::ui::MainWindow::openSettings, &settingsWindow, &autoapp::ui::SettingsWindow::loadSystemValues);
-    QObject::connect(&mainWindow, &autoapp::ui::MainWindow::openConnectDialog, &connectdialog, &autoapp::ui::ConnectDialog::loadClientList);
-    QObject::connect(&mainWindow, &autoapp::ui::MainWindow::openConnectDialog, &connectdialog, &autoapp::ui::ConnectDialog::exec);
-    QObject::connect(&mainWindow, &autoapp::ui::MainWindow::openUpdateDialog, &updatedialog, &autoapp::ui::UpdateDialog::updateCheck);
-    QObject::connect(&mainWindow, &autoapp::ui::MainWindow::openUpdateDialog, &updatedialog, &autoapp::ui::UpdateDialog::exec);
 
     if (configuration->showCursor() == false) {
         qApplication.setOverrideCursor(Qt::BlankCursor);
     } else {
         qApplication.setOverrideCursor(Qt::ArrowCursor);
     }
-
-    QObject::connect(&mainWindow, &autoapp::ui::MainWindow::cameraHide, [&qApplication]() {
-        system("/opt/crankshaft/cameracontrol.py Background &");
-        OPENAUTO_LOG(debug) << "[AutoApp] Camera Background.";
-    });
-
-    QObject::connect(&mainWindow, &autoapp::ui::MainWindow::cameraShow, [&qApplication]() {
-        system("/opt/crankshaft/cameracontrol.py Foreground &");
-        OPENAUTO_LOG(debug) << "[AutoApp] Camera Foreground.";
-    });
-
-    QObject::connect(&mainWindow, &autoapp::ui::MainWindow::cameraPosYUp, [&qApplication]() {
-        system("/opt/crankshaft/cameracontrol.py PosYUp &");
-        OPENAUTO_LOG(debug) << "[AutoApp] Camera PosY up.";
-    });
-
-    QObject::connect(&mainWindow, &autoapp::ui::MainWindow::cameraPosYDown, [&qApplication]() {
-        system("/opt/crankshaft/cameracontrol.py PosYDown &");
-        OPENAUTO_LOG(debug) << "[AutoApp] Camera PosY down.";
-    });
-
-    QObject::connect(&mainWindow, &autoapp::ui::MainWindow::cameraZoomPlus, [&qApplication]() {
-        system("/opt/crankshaft/cameracontrol.py ZoomPlus &");
-        OPENAUTO_LOG(debug) << "[AutoApp] Camera Zoom plus.";
-    });
-
-    QObject::connect(&mainWindow, &autoapp::ui::MainWindow::cameraZoomMinus, [&qApplication]() {
-        system("/opt/crankshaft/cameracontrol.py ZoomMinus &");
-        OPENAUTO_LOG(debug) << "[AutoApp] Camera Zoom minus.";
-    });
-
-    QObject::connect(&mainWindow, &autoapp::ui::MainWindow::cameraRecord, [&qApplication]() {
-        system("/opt/crankshaft/cameracontrol.py Record &");
-        OPENAUTO_LOG(debug) << "[AutoApp] Camera Record.";
-    });
-
-    QObject::connect(&mainWindow, &autoapp::ui::MainWindow::cameraStop, [&qApplication]() {
-        system("/opt/crankshaft/cameracontrol.py Stop &");
-        OPENAUTO_LOG(debug) << "[AutoApp] Camera Stop.";
-    });
-
-    QObject::connect(&mainWindow, &autoapp::ui::MainWindow::cameraSave, [&qApplication]() {
-        system("/opt/crankshaft/cameracontrol.py Save &");
-        OPENAUTO_LOG(debug) << "[AutoApp] Camera Save.";
-    });
-
-    QObject::connect(&mainWindow, &autoapp::ui::MainWindow::TriggerScriptNight, [&qApplication]() {
-        system("/opt/crankshaft/service_daynight.sh app night");
-        OPENAUTO_LOG(debug) << "[AutoApp] MainWindow Night.";
-    });
-
-    QObject::connect(&mainWindow, &autoapp::ui::MainWindow::TriggerScriptDay, [&qApplication]() {
-        system("/opt/crankshaft/service_daynight.sh app day");
-        OPENAUTO_LOG(debug) << "[AutoApp] MainWindow Day.";
-    });
-
-    mainWindow.showFullScreen();
-    mainWindow.setFixedSize(width, height);
-    mainWindow.adjustSize();
 
     aasdk::usb::USBWrapper usbWrapper(usbContext);
     aasdk::usb::AccessoryModeQueryFactory queryFactory(usbWrapper, ioService);
@@ -243,60 +173,190 @@ int main(int argc, char* argv[])
     auto connectedAccessoriesEnumerator(std::make_shared<aasdk::usb::ConnectedAccessoriesEnumerator>(usbWrapper, ioService, queryChainFactory));
     auto app = std::make_shared<autoapp::App>(ioService, usbWrapper, tcpWrapper, androidAutoEntityFactory, std::move(usbHub), std::move(connectedAccessoriesEnumerator));
 
-    QObject::connect(&connectdialog, &autoapp::ui::ConnectDialog::connectionSucceed, [&app](auto socket) {
-        app->start(std::move(socket));
-    });
+    autoapp::shell::ShellController shellController;
+    autoapp::audio::VolumeController volumeController;
+    autoapp::input::ActionDispatcher actionDispatcher(volumeController, shellController);
 
-    QObject::connect(&mainWindow, &autoapp::ui::MainWindow::TriggerAppStart, [&app]() {
-        OPENAUTO_LOG(debug) << "[AutoApp] TriggerAppStart: Manual start android auto.";
-        try {
-            app->disableAutostartEntity = false;
-            app->resume();
-            app->waitForUSBDevice();
-        } catch (...) {
-            OPENAUTO_LOG(error) << "[AutoApp] TriggerAppStart: app->waitForUSBDevice();";
+    // WebSocket API for external tools and plugins (docs/api.md)
+    autoapp::api::ApiServer apiServer;
+    autoapp::api::registerCoreMethods(apiServer, volumeController, shellController, actionDispatcher);
+    apiServer.listen(QHostAddress(QString::fromStdString(configuration->getApiListenAddress())), configuration->getApiPort());
+
+    // New QML shell: Android Auto is shown inside the main window next to the rest of the UI.
+    QQmlApplicationEngine engine;
+
+    // Legacy widget UI (General.UI=legacy)
+    std::unique_ptr<autoapp::ui::MainWindow> mainWindow;
+    std::unique_ptr<autoapp::ui::ConnectDialog> connectdialog;
+    std::unique_ptr<autoapp::ui::WarningDialog> warningdialog;
+    std::unique_ptr<autoapp::ui::UpdateDialog> updatedialog;
+
+    if (useShell) {
+        qmlRegisterType<autoapp::shell::AaSurface>("OpenAuto", 1, 0, "AaSurface");
+        engine.rootContext()->setContextProperty("aaBridge", &autoapp::shell::AaBridge::instance());
+        engine.rootContext()->setContextProperty("eventBus", &autoapp::core::EventBus::instance());
+        engine.rootContext()->setContextProperty("shell", &shellController);
+        engine.rootContext()->setContextProperty("volume", &volumeController);
+        engine.rootContext()->setContextProperty("actions", &actionDispatcher);
+        // Keyboard -> actions (keymap.json); in legacy mode the InputDevice handles keys itself.
+        actionDispatcher.installKeyboardHandler();
+
+        QObject::connect(&shellController, &autoapp::shell::ShellController::settingsRequested, &settingsWindow, &autoapp::ui::SettingsWindow::showFullScreen);
+        QObject::connect(&shellController, &autoapp::shell::ShellController::settingsRequested, &settingsWindow, &autoapp::ui::SettingsWindow::show_tab1);
+        QObject::connect(&shellController, &autoapp::shell::ShellController::settingsRequested, &settingsWindow, &autoapp::ui::SettingsWindow::loadSystemValues);
+        QObject::connect(&shellController, &autoapp::shell::ShellController::quitRequested, []() { std::exit(0); });
+
+        engine.load(QUrl(QStringLiteral("qrc:/shell/qml/Main.qml")));
+        if (engine.rootObjects().isEmpty()) {
+            OPENAUTO_LOG(error) << "[AutoApp] Failed to load the QML shell.";
+            std::exit(1); // worker threads are still running, a plain return would abort
         }
-    });
 
-    QObject::connect(&mainWindow, &autoapp::ui::MainWindow::TriggerAppStop, [&app]() {
-        try {
-            if (std::ifstream("/tmp/android_device")) {
-                OPENAUTO_LOG(debug) << "[AutoApp] TriggerAppStop: Manual stop usb android auto.";
-                app->disableAutostartEntity = true;
-                system("/usr/local/bin/autoapp_helper usbreset");
-                usleep(500000);
-                try {
-                    app->stop();
-                    //app->pause();
-                } catch (...) {
-                    OPENAUTO_LOG(error) << "[AutoApp] TriggerAppStop: stop();";
-                }
+        if (auto *window = qobject_cast<QQuickWindow *>(engine.rootObjects().first())) {
+            window->setGeometry(0, 0, width, height);
+            window->showFullScreen();
+        }
+    } else {
+        mainWindow = std::make_unique<autoapp::ui::MainWindow>(configuration);
+        //mainWindow->setWindowFlags(Qt::WindowStaysOnTopHint);
 
-            } else {
-                OPENAUTO_LOG(debug) << "[AutoApp] TriggerAppStop: Manual stop wifi android auto.";
-                try {
-                    app->onAndroidAutoQuit();
-                    //app->pause();
-                } catch (...) {
-                    OPENAUTO_LOG(error) << "[Autoapp] TriggerAppStop: stop();";
-                }
+        connectdialog = std::make_unique<autoapp::ui::ConnectDialog>(ioService, tcpWrapper, recentAddressesList);
+        //connectdialog->setWindowFlags(Qt::WindowStaysOnTopHint);
+        connectdialog->move((width - 500)/2,(height-300)/2);
 
+        warningdialog = std::make_unique<autoapp::ui::WarningDialog>();
+        //warningdialog->setWindowFlags(Qt::WindowStaysOnTopHint);
+        warningdialog->move((width - 500)/2,(height-300)/2);
+
+        updatedialog = std::make_unique<autoapp::ui::UpdateDialog>();
+        //updatedialog->setWindowFlags(Qt::WindowStaysOnTopHint);
+        updatedialog->setFixedSize(500, 260);
+        updatedialog->move((width - 500)/2,(height-260)/2);
+
+        QObject::connect(mainWindow.get(), &autoapp::ui::MainWindow::exit, []() { system("touch /tmp/shutdown"); std::exit(0); });
+        QObject::connect(mainWindow.get(), &autoapp::ui::MainWindow::reboot, []() { system("touch /tmp/reboot"); std::exit(0); });
+        QObject::connect(mainWindow.get(), &autoapp::ui::MainWindow::openSettings, &settingsWindow, &autoapp::ui::SettingsWindow::showFullScreen);
+        QObject::connect(mainWindow.get(), &autoapp::ui::MainWindow::openSettings, &settingsWindow, &autoapp::ui::SettingsWindow::show_tab1);
+        QObject::connect(mainWindow.get(), &autoapp::ui::MainWindow::openSettings, &settingsWindow, &autoapp::ui::SettingsWindow::loadSystemValues);
+        QObject::connect(mainWindow.get(), &autoapp::ui::MainWindow::openConnectDialog, connectdialog.get(), &autoapp::ui::ConnectDialog::loadClientList);
+        QObject::connect(mainWindow.get(), &autoapp::ui::MainWindow::openConnectDialog, connectdialog.get(), &autoapp::ui::ConnectDialog::exec);
+        QObject::connect(mainWindow.get(), &autoapp::ui::MainWindow::openUpdateDialog, updatedialog.get(), &autoapp::ui::UpdateDialog::updateCheck);
+        QObject::connect(mainWindow.get(), &autoapp::ui::MainWindow::openUpdateDialog, updatedialog.get(), &autoapp::ui::UpdateDialog::exec);
+
+        QObject::connect(mainWindow.get(), &autoapp::ui::MainWindow::cameraHide, [&qApplication]() {
+            system("/opt/crankshaft/cameracontrol.py Background &");
+            OPENAUTO_LOG(debug) << "[AutoApp] Camera Background.";
+        });
+
+        QObject::connect(mainWindow.get(), &autoapp::ui::MainWindow::cameraShow, [&qApplication]() {
+            system("/opt/crankshaft/cameracontrol.py Foreground &");
+            OPENAUTO_LOG(debug) << "[AutoApp] Camera Foreground.";
+        });
+
+        QObject::connect(mainWindow.get(), &autoapp::ui::MainWindow::cameraPosYUp, [&qApplication]() {
+            system("/opt/crankshaft/cameracontrol.py PosYUp &");
+            OPENAUTO_LOG(debug) << "[AutoApp] Camera PosY up.";
+        });
+
+        QObject::connect(mainWindow.get(), &autoapp::ui::MainWindow::cameraPosYDown, [&qApplication]() {
+            system("/opt/crankshaft/cameracontrol.py PosYDown &");
+            OPENAUTO_LOG(debug) << "[AutoApp] Camera PosY down.";
+        });
+
+        QObject::connect(mainWindow.get(), &autoapp::ui::MainWindow::cameraZoomPlus, [&qApplication]() {
+            system("/opt/crankshaft/cameracontrol.py ZoomPlus &");
+            OPENAUTO_LOG(debug) << "[AutoApp] Camera Zoom plus.";
+        });
+
+        QObject::connect(mainWindow.get(), &autoapp::ui::MainWindow::cameraZoomMinus, [&qApplication]() {
+            system("/opt/crankshaft/cameracontrol.py ZoomMinus &");
+            OPENAUTO_LOG(debug) << "[AutoApp] Camera Zoom minus.";
+        });
+
+        QObject::connect(mainWindow.get(), &autoapp::ui::MainWindow::cameraRecord, [&qApplication]() {
+            system("/opt/crankshaft/cameracontrol.py Record &");
+            OPENAUTO_LOG(debug) << "[AutoApp] Camera Record.";
+        });
+
+        QObject::connect(mainWindow.get(), &autoapp::ui::MainWindow::cameraStop, [&qApplication]() {
+            system("/opt/crankshaft/cameracontrol.py Stop &");
+            OPENAUTO_LOG(debug) << "[AutoApp] Camera Stop.";
+        });
+
+        QObject::connect(mainWindow.get(), &autoapp::ui::MainWindow::cameraSave, [&qApplication]() {
+            system("/opt/crankshaft/cameracontrol.py Save &");
+            OPENAUTO_LOG(debug) << "[AutoApp] Camera Save.";
+        });
+
+        QObject::connect(mainWindow.get(), &autoapp::ui::MainWindow::TriggerScriptNight, [&qApplication]() {
+            system("/opt/crankshaft/service_daynight.sh app night");
+            OPENAUTO_LOG(debug) << "[AutoApp] MainWindow Night.";
+        });
+
+        QObject::connect(mainWindow.get(), &autoapp::ui::MainWindow::TriggerScriptDay, [&qApplication]() {
+            system("/opt/crankshaft/service_daynight.sh app day");
+            OPENAUTO_LOG(debug) << "[AutoApp] MainWindow Day.";
+        });
+
+        mainWindow->showFullScreen();
+        mainWindow->setFixedSize(width, height);
+        mainWindow->adjustSize();
+
+        QObject::connect(connectdialog.get(), &autoapp::ui::ConnectDialog::connectionSucceed, [&app](auto socket) {
+            app->start(std::move(socket));
+        });
+
+        QObject::connect(mainWindow.get(), &autoapp::ui::MainWindow::TriggerAppStart, [&app]() {
+            OPENAUTO_LOG(debug) << "[AutoApp] TriggerAppStart: Manual start android auto.";
+            try {
+                app->disableAutostartEntity = false;
+                app->resume();
+                app->waitForUSBDevice();
+            } catch (...) {
+                OPENAUTO_LOG(error) << "[AutoApp] TriggerAppStart: app->waitForUSBDevice();";
             }
-        } catch (...) {
-            OPENAUTO_LOG(error) << "[AutoApp] Exception in manual stop android auto.";
+        });
+
+        QObject::connect(mainWindow.get(), &autoapp::ui::MainWindow::TriggerAppStop, [&app]() {
+            try {
+                if (std::ifstream("/tmp/android_device")) {
+                    OPENAUTO_LOG(debug) << "[AutoApp] TriggerAppStop: Manual stop usb android auto.";
+                    app->disableAutostartEntity = true;
+                    system("/usr/local/bin/autoapp_helper usbreset");
+                    usleep(500000);
+                    try {
+                        app->stop();
+                        //app->pause();
+                    } catch (...) {
+                        OPENAUTO_LOG(error) << "[AutoApp] TriggerAppStop: stop();";
+                    }
+
+                } else {
+                    OPENAUTO_LOG(debug) << "[AutoApp] TriggerAppStop: Manual stop wifi android auto.";
+                    try {
+                        app->onAndroidAutoQuit();
+                        //app->pause();
+                    } catch (...) {
+                        OPENAUTO_LOG(error) << "[Autoapp] TriggerAppStop: stop();";
+                    }
+
+                }
+            } catch (...) {
+                OPENAUTO_LOG(error) << "[AutoApp] Exception in manual stop android auto.";
+            }
+        });
+
+        QObject::connect(mainWindow.get(), &autoapp::ui::MainWindow::CloseAllDialogs, [&settingsWindow, &connectdialog, &updatedialog, &warningdialog]() {
+            settingsWindow.close();
+            connectdialog->close();
+            warningdialog->close();
+            updatedialog->close();
+            OPENAUTO_LOG(debug) << "[AutoApp] Close all possible open dialogs.";
+        });
+
+        if (configuration->hideWarning() == false) {
+            warningdialog->show();
         }
-    });
-
-    QObject::connect(&mainWindow, &autoapp::ui::MainWindow::CloseAllDialogs, [&settingsWindow, &connectdialog, &updatedialog, &warningdialog]() {
-        settingsWindow.close();
-        connectdialog.close();
-        warningdialog.close();
-        updatedialog.close();
-        OPENAUTO_LOG(debug) << "[AutoApp] Close all possible open dialogs.";
-    });
-
-    if (configuration->hideWarning() == false) {
-        warningdialog.show();
     }
 
     app->waitForUSBDevice();

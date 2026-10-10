@@ -40,6 +40,9 @@ const std::string Configuration::cGeneralShowCursorKey = "General.ShowCursor";
 const std::string Configuration::cGeneralHideBrightnessControlKey = "General.HideBrightnessControl";
 const std::string Configuration::cGeneralShowNetworkinfoKey = "General.ShowNetworkinfo";
 const std::string Configuration::cGeneralHideWarningKey = "General.HideWarning";
+const std::string Configuration::cGeneralUiModeKey = "General.UI";
+const std::string Configuration::cApiPortKey = "Api.Port";
+const std::string Configuration::cApiListenKey = "Api.Listen";
 
 const std::string Configuration::cGeneralHandednessOfTrafficTypeKey = "General.HandednessOfTrafficType";
 
@@ -113,6 +116,9 @@ void Configuration::load()
         showCursor_ = iniConfig.get<bool>(cGeneralShowCursorKey, false);
         hideBrightnessControl_ = iniConfig.get<bool>(cGeneralHideBrightnessControlKey, false);
         hideWarning_ = iniConfig.get<bool>(cGeneralHideWarningKey, false);
+        uiMode_ = iniConfig.get<std::string>(cGeneralUiModeKey, "qml");
+        apiPort_ = iniConfig.get<uint16_t>(cApiPortKey, 5520);
+        apiListenAddress_ = iniConfig.get<std::string>(cApiListenKey, "127.0.0.1");
         showNetworkinfo_ = iniConfig.get<bool>(cGeneralShowNetworkinfoKey, false);
         mp3MasterPath_ = iniConfig.get<std::string>(cGeneralMp3MasterPathKey, "/media/MYMEDIA");
         mp3SubFolder_ = iniConfig.get<std::string>(cGeneralMp3SubFolderKey, "/");
@@ -171,6 +177,9 @@ void Configuration::reset()
     showCursor_ = false;
     hideBrightnessControl_ = false;
     hideWarning_ = false;
+    uiMode_ = "qml";
+    apiPort_ = 5520;
+    apiListenAddress_ = "127.0.0.1";
     showNetworkinfo_ = false;
     mp3MasterPath_ = "/media/MYMEDIA";
     mp3SubFolder_ = "/";
@@ -213,6 +222,9 @@ void Configuration::save()
     iniConfig.put<bool>(cGeneralShowCursorKey, showCursor_);
     iniConfig.put<bool>(cGeneralHideBrightnessControlKey, hideBrightnessControl_);
     iniConfig.put<bool>(cGeneralHideWarningKey, hideWarning_);
+    iniConfig.put<std::string>(cGeneralUiModeKey, uiMode_);
+    iniConfig.put<uint16_t>(cApiPortKey, apiPort_);
+    iniConfig.put<std::string>(cApiListenKey, apiListenAddress_);
     iniConfig.put<bool>(cGeneralShowNetworkinfoKey, showNetworkinfo_);
     iniConfig.put<std::string>(cGeneralMp3MasterPathKey, mp3MasterPath_);
     iniConfig.put<std::string>(cGeneralMp3SubFolderKey, mp3SubFolder_);
@@ -372,6 +384,26 @@ void Configuration::hideWarning(bool value)
 bool Configuration::hideWarning() const
 {
     return hideWarning_;
+}
+
+std::string Configuration::getUiMode() const
+{
+    return uiMode_;
+}
+
+void Configuration::setUiMode(const std::string& value)
+{
+    uiMode_ = value;
+}
+
+uint16_t Configuration::getApiPort() const
+{
+    return apiPort_;
+}
+
+std::string Configuration::getApiListenAddress() const
+{
+    return apiListenAddress_;
 }
 
 void Configuration::showNetworkinfo(bool value)

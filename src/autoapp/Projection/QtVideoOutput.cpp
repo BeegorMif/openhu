@@ -21,6 +21,7 @@
 #include <QScreen>
 #include <mutex>
 #include <f1x/openauto/autoapp/Projection/QtVideoOutput.hpp>
+#include <f1x/openauto/autoapp/Shell/AaBridge.hpp>
 #include <f1x/openauto/Common/Log.hpp>
 
 namespace f1x
@@ -51,13 +52,22 @@ QtVideoOutput::~QtVideoOutput()
     if (playerReady_ || mediaPlayer_) {
         cleanupPlayer();
     }
+    if (mediaPlayer_) {
+        shell::AaBridge::instance().releaseMediaPlayer(mediaPlayer_.get());
+    }
 }
 
 void QtVideoOutput::createVideoOutput()
 {
     OPENAUTO_LOG(info) << "[QtVideoOutput] createVideoOutput()";
-    videoWidget_ = std::make_unique<QVideoWidget>();
     mediaPlayer_ = std::make_unique<QMediaPlayer>(nullptr, QMediaPlayer::StreamPlayback);
+
+    if (shell::AaBridge::instance().enabled()) {
+        // Shell mode: the QML VideoOutput (source: aaBridge) renders the player inside the main window.
+        shell::AaBridge::instance().setMediaPlayer(mediaPlayer_.get());
+    } else {
+        videoWidget_ = std::make_unique<QVideoWidget>();
+    }
 }
 
 
@@ -98,10 +108,8 @@ void QtVideoOutput::write(uint64_t, const aasdk::common::DataConstBuffer& buffer
     }
 }
 
-void QtVideoOutput::onStartPlayback()
+void QtVideoOutput::showVideoWidget()
 {
-    OPENAUTO_LOG(info) << "[QtVideoOutput] onStartPlayback()";
-    
     videoWidget_->setAttribute(Qt::WA_OpaquePaintEvent, true);
     videoWidget_->setAttribute(Qt::WA_NoSystemBackground, true);
     videoWidget_->setAspectRatioMode(Qt::IgnoreAspectRatio);
@@ -125,6 +133,15 @@ void QtVideoOutput::onStartPlayback()
     videoWidget_->show();
     videoWidget_->setFocus();
     videoWidget_->activateWindow();
+}
+
+void QtVideoOutput::onStartPlayback()
+{
+    OPENAUTO_LOG(info) << "[QtVideoOutput] onStartPlayback()";
+
+    if (videoWidget_) {
+        showVideoWidget();
+    }
 
     // Connect state change signals to track when player is ready
     connect(mediaPlayer_.get(), &QMediaPlayer::mediaStatusChanged, this, &QtVideoOutput::onMediaStatusChanged);
@@ -132,7 +149,9 @@ void QtVideoOutput::onStartPlayback()
     connect(mediaPlayer_.get(), static_cast<void(QMediaPlayer::*)(QMediaPlayer::Error)>(&QMediaPlayer::error), 
             this, &QtVideoOutput::onError);
     
-    mediaPlayer_->setVideoOutput(videoWidget_.get());
+    if (videoWidget_) {
+        mediaPlayer_->setVideoOutput(videoWidget_.get());
+    }
     mediaPlayer_->setMedia(QMediaContent(), &videoBuffer_);
     mediaPlayer_->play();
     
@@ -142,6 +161,9 @@ void QtVideoOutput::onStartPlayback()
         playerReady_ = true;
     }
 
+    if (!videoWidget_) {
+        shell::AaBridge::instance().setVideoActive(true);
+    }
     OPENAUTO_LOG(info) << "[QtVideoOutput] Player started and marked ready";
     OPENAUTO_LOG(debug) << "[QtVideoOutput] Player error state -> " << mediaPlayer_->errorString().toStdString();
 }
@@ -159,6 +181,10 @@ void QtVideoOutput::cleanupPlayer()
     if (videoWidget_) {
         videoWidget_->hide();
         videoWidget_->clearFocus();
+    }
+    // A late-destroyed output of a previous session must not hide the current one.
+    if (mediaPlayer_ && shell::AaBridge::instance().mediaObject() == mediaPlayer_.get()) {
+        shell::AaBridge::instance().setVideoActive(false);
     }
 }
 

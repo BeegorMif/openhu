@@ -28,6 +28,7 @@ PACKAGE=false
 OUTPUT_DIR="/output"
 WITH_AASDK=false
 AASDK_BRANCH="newdev"
+AASDK_PATH=""
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SOURCE_DIR="${SCRIPT_DIR}"
 
@@ -70,6 +71,11 @@ while [[ $# -gt 0 ]]; do
             AASDK_BRANCH="$2"
             shift 2
             ;;
+        --aasdk-path)
+            AASDK_PATH="$2"
+            WITH_AASDK=true
+            shift 2
+            ;;
         --help|-h)
             echo "Usage: $0 [release|debug] [OPTIONS]"
             echo ""
@@ -83,6 +89,7 @@ while [[ $# -gt 0 ]]; do
             echo "  --output-dir   Directory to copy packages (default: /output)"
             echo "  --with-aasdk   Clone AASDK branch and build/install it"
             echo "  --aasdk-branch Branch to use for AASDK (default: newdev)"
+            echo "  --aasdk-path   Build/install AASDK from a local source tree instead of cloning"
             echo "  --help         Show this help message"
             echo ""
             echo "Examples:"
@@ -103,12 +110,17 @@ done
 # Handle AASDK cloning and building if requested
 if [ "$WITH_AASDK" = true ]; then
     echo ""
-    echo "Cloning AASDK ${AASDK_BRANCH} branch..."
-    if [ -d "aasdk-build" ]; then
-        rm -rf "aasdk-build"
+    if [ -n "$AASDK_PATH" ]; then
+        echo "Using local AASDK source from ${AASDK_PATH}..."
+        cd "${AASDK_PATH}"
+    else
+        echo "Cloning AASDK ${AASDK_BRANCH} branch..."
+        if [ -d "aasdk-build" ]; then
+            rm -rf "aasdk-build"
+        fi
+        git clone --branch "${AASDK_BRANCH}" https://github.com/opencardev/aasdk.git aasdk-build
+        cd aasdk-build
     fi
-    git clone --branch "${AASDK_BRANCH}" https://github.com/opencardev/aasdk.git aasdk-build
-    cd aasdk-build
     echo "Building and installing AASDK..."
     chmod +x build.sh
     export TARGET_ARCH="$TARGET_ARCH"

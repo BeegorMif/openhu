@@ -18,6 +18,9 @@
 
 #include <f1x/openauto/Common/Log.hpp>
 #include <f1x/openauto/autoapp/Service/PhoneStatus/PhoneStatusService.hpp>
+#include <f1x/openauto/autoapp/Core/EventBus.hpp>
+#include <f1x/openauto/autoapp/Core/DataUrl.hpp>
+#include <QVariantList>
 #include <fstream>
 #include <QString>
 
@@ -38,6 +41,7 @@ namespace f1x {
           void PhoneStatusService::start() {
             strand_.dispatch([this, self = this->shared_from_this()]() {
               OPENAUTO_LOG(info) << "[PhoneStatusService] start()";
+              channel_->receive(this->shared_from_this());
             });
           }
 
@@ -86,6 +90,28 @@ namespace f1x {
             channel_->receive(this->shared_from_this());
           }
 
+
+          void PhoneStatusService::onPhoneStatus(const aap_protobuf::service::phonestatus::message::PhoneStatus &status) {
+            using PhoneStatus = aap_protobuf::service::phonestatus::message::PhoneStatus;
+            QVariantList calls;
+            for (const auto &call : status.calls()) {
+              QVariantMap entry;
+              entry["state"] = core::enumName(PhoneStatus::State_Name(call.phone_state()));
+              entry["duration"] = call.call_duration_seconds();
+              entry["number"] = QString::fromStdString(call.caller_number());
+              entry["name"] = QString::fromStdString(call.caller_id());
+              entry["numberType"] = QString::fromStdString(call.caller_number_type());
+              entry["thumbnail"] = core::imageDataUrl(call.caller_thumbnail());
+              calls.append(entry);
+            }
+
+            QVariantMap data;
+            data["calls"] = calls;
+            data["callState"] = calls.isEmpty() ? QString("idle") : calls.first().toMap().value("state").toString();
+            data["signal"] = status.signal_strength();
+            core::EventBus::instance().publish("phone.status", data);
+            channel_->receive(this->shared_from_this());
+          }
 
           void PhoneStatusService::onChannelError(const aasdk::error::Error &e) {
             OPENAUTO_LOG(error) << "[PhoneStatusService] onChannelError(): " << e.what();

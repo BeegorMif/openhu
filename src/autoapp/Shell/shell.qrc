@@ -1,0 +1,20 @@
+<RCC>
+    <qresource prefix="/shell">
+        <file>qml/qmldir</file>
+        <file>qml/Theme.qml</file>
+        <file>qml/Main.qml</file>
+        <file>qml/Dock.qml</file>
+        <file>qml/DockButton.qml</file>
+        <file>qml/StatusBar.qml</file>
+        <file>qml/HomePage.qml</file>
+        <file>qml/AaPage.qml</file>
+        <file>qml/BusTopic.qml</file>
+        <file>qml/Maneuver.js</file>
+        <file>qml/NavigationCard.qml</file>
+        <file>qml/NowPlayingCard.qml</file>
+        <file>qml/VolumePanel.qml</file>
+        <file>qml/Toast.qml</file>
+        <file>qml/PhoneIcon.qml</file>
+        <file>qml/SignalBars.qml</file>
+    </qresource>
+</RCC>

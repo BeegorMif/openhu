@@ -49,12 +49,15 @@ namespace f1x {
             void onStatusUpdate(const aap_protobuf::service::navigationstatus::message::NavigationStatus &navStatus) override;
             void onTurnEvent(const aap_protobuf::service::navigationstatus::message::NavigationNextTurnEvent &turnEvent) override;
             void onDistanceEvent(const aap_protobuf::service::navigationstatus::message::NavigationNextTurnDistanceEvent &distanceEvent) override;
+            void onNavigationState(const aap_protobuf::service::navigationstatus::message::NavigationState &state) override;
+            void onCurrentPosition(const aap_protobuf::service::navigationstatus::message::NavigationCurrentPosition &position) override;
 
           private:
             using std::enable_shared_from_this<NavigationStatusService>::shared_from_this;
             boost::asio::io_service::strand strand_;
             boost::asio::deadline_timer timer_;
             aasdk::channel::navigationstatus::NavigationStatusService::Pointer channel_;
+            std::string destinationAddress_;
           };
         }
       }

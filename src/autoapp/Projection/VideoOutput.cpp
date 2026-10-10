@@ -18,6 +18,7 @@
 
 #include <f1x/openauto/Common/Log.hpp>
 #include <f1x/openauto/autoapp/Projection/VideoOutput.hpp>
+#include <f1x/openauto/autoapp/Shell/AaBridge.hpp>
 
 namespace f1x {
   namespace openauto {
@@ -42,6 +43,9 @@ namespace f1x {
         }
 
         QRect VideoOutput::getVideoMargins() const {
+          if (shell::AaBridge::instance().enabled()) {
+            return shell::AaBridge::instance().videoMargins();
+          }
           return configuration_->getVideoMargins();
         }
 

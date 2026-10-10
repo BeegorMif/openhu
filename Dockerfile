@@ -1,3 +1,4 @@
+# syntax=docker/dockerfile:1
 # * Project: OpenAuto
 # * This file is part of openauto project.
 # * Copyright (C) 2025 OpenCarDev Team
@@ -20,6 +21,11 @@
 
 # Allow selecting Debian base (bookworm or trixie). Default to trixie.
 ARG DEBIAN_VERSION=trixie
+
+# Optional local AASDK source tree. Empty by default (-> AASDK is cloned from GitHub);
+# override with: docker build --build-context aasdk=../aasdk-ref ...
+FROM scratch AS aasdk
+
 FROM debian:${DEBIAN_VERSION}-slim
 
 # Build arguments
@@ -60,6 +66,15 @@ RUN apt-get update && apt-get install -y \
     qttools5-dev \
     qttools5-dev-tools \
     qtconnectivity5-dev \
+    qtdeclarative5-dev \
+    qtquickcontrols2-5-dev \
+    libqt5websockets5-dev \
+    qml-module-qtquick2 \
+    qml-module-qtquick-window2 \
+    qml-module-qtquick-layouts \
+    qml-module-qtquick-controls2 \
+    qml-module-qtmultimedia \
+    libpulse-dev \
     # Packaging tools
     file \
     dpkg-dev \
@@ -85,7 +100,9 @@ RUN mkdir -p /output
 RUN chmod +x /src/build.sh
 
 # Build OpenAuto using unified build script
-RUN /src/build.sh ${BUILD_TYPE} --with-aasdk --package --output-dir /output
+COPY --from=aasdk / /aasdk
+RUN if [ -f /aasdk/CMakeLists.txt ]; then AASDK_OPT="--aasdk-path /aasdk"; else AASDK_OPT="--with-aasdk"; fi; \
+    /src/build.sh ${BUILD_TYPE} ${AASDK_OPT} --package --output-dir /output
 
 # Default command
 CMD ["bash", "-c", "echo 'OpenAuto build container ready. Packages are in /output/'"]

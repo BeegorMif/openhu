@@ -117,7 +117,7 @@ endif()
 
 find_package(Boost REQUIRED COMPONENTS system log_setup log OPTIONAL_COMPONENTS unit_test_framework)
 find_package(libusb-1.0 REQUIRED)
-find_package(Qt5 COMPONENTS DBus Multimedia MultimediaWidgets Bluetooth Network)
+find_package(Qt5 COMPONENTS DBus Multimedia MultimediaWidgets Bluetooth Network Qml Quick WebSockets)
 find_package(OpenSSL REQUIRED)
 find_package(rtaudio REQUIRED)
 find_package(taglib REQUIRED)
@@ -149,7 +149,7 @@ set(common_include_directory ${include_directory}/f1x/openauto/Common)
 set(autoapp_sources_directory ${sources_directory}/autoapp)
 set(autoapp_include_directory ${include_directory}/f1x/openauto/autoapp)
 
-file(GLOB_RECURSE autoapp_source_files ${autoapp_sources_directory}/*.ui ${autoapp_sources_directory}/*.cpp ${autoapp_include_directory}/*.hpp ${autoapp_include_directory}/*.h ${common_include_directory}/*.hpp ${resources_directory}/*.qrc)
+file(GLOB_RECURSE autoapp_source_files ${autoapp_sources_directory}/*.ui ${autoapp_sources_directory}/*.cpp ${autoapp_include_directory}/*.hpp ${autoapp_include_directory}/*.h ${common_include_directory}/*.hpp ${resources_directory}/*.qrc ${autoapp_sources_directory}/*.qrc)
 
 add_executable(autoapp ${autoapp_source_files})
 
@@ -163,6 +163,9 @@ target_link_libraries(autoapp PUBLIC
         ${Qt5MultimediaWidgets_LIBRARIES}
         ${Qt5Bluetooth_LIBRARIES}
         ${Qt5Network_LIBRARIES}
+        ${Qt5Qml_LIBRARIES}
+        ${Qt5Quick_LIBRARIES}
+        ${Qt5WebSockets_LIBRARIES}
         ${BCM_HOST_LIBRARIES}
         ${ILCLIENT_LIBRARIES}
         ${WINSOCK2_LIBRARIES}
@@ -305,7 +308,7 @@ set(CPACK_DEBIAN_PACKAGE_SHLIBDEPS ON)
 
 # Explicit dependencies for GStreamer video codec support and Qt Multimedia backend
 # These are required for H.264/H.265 video decoding from Android Auto via QtVideoOutput
-set(CPACK_DEBIAN_PACKAGE_DEPENDS "libqt5multimedia5, libqt5multimedia5-plugins, gstreamer1.0-plugins-base, gstreamer1.0-plugins-good, gstreamer1.0-libav, gstreamer1.0-plugins-bad, gstreamer1.0-plugins-ugly")
+set(CPACK_DEBIAN_PACKAGE_DEPENDS "libqt5multimedia5, libqt5websockets5, pulseaudio-utils, libqt5multimedia5-plugins, qml-module-qtquick2, qml-module-qtquick-window2, qml-module-qtquick-layouts, qml-module-qtmultimedia, gstreamer1.0-plugins-base, gstreamer1.0-plugins-good, gstreamer1.0-libav, gstreamer1.0-plugins-bad, gstreamer1.0-plugins-ugly")
 
 # Debian package control scripts
 set(CPACK_DEBIAN_PACKAGE_CONTROL_EXTRA
