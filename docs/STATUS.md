@@ -17,7 +17,9 @@ Namespaces `f1x::openauto` und Binary `autoapp` bleiben, damit Upstream-Änderun
 | `aasdk-ref/` (Upstream `opencardev/aasdk`) | `feature/oa-extensions` | aasdk + Navigation-State/Position, PhoneStatus |
 | `openhu-plugins/` (GitHub `average-web-dev/openhu-plugins`) | `main` | offizielle Plugins + Store-Index |
 
-Noch nichts gepusht.
+`openhu` und `openhu-plugins` sind gepusht. Die aasdk-Änderung liegt zusätzlich als Patch in
+`aasdk-patches/`; die CI (`.github/workflows/ci.yml`) wendet ihn auf aasdk-Commit `9bf6adf` an
+(kein eigener aasdk-Fork nötig). Die alten opencardev-Workflows (APT-Publish, Release) sind entfernt.
 
 ## Phasen
 
@@ -29,7 +31,7 @@ Noch nichts gepusht.
 | 3 | Aktionen (Tastatur, Lenkrad, API) → AA-Tasten / Shell | erledigt (`N`, `B`, `M`, Widgets → Maps/Spotify getestet) |
 | 4 | Plugin-System + Store (apt-artige Quellen, sha256, Install/Update/Remove) | erledigt |
 | 5 | Plugins CAN, Lenkradtasten, Rückfahrkamera, Radio | erledigt; Kamera mit Webcam getestet, CAN/Radio nur Unit-Tests |
-| 7 | Einstellungen neu (QML), Legacy-UI und toten Code entfernen, CI-Workflows anpassen | **als Nächstes** |
+| 7 | Einstellungen neu (QML), Legacy-UI und toten Code entfernen | **als Nächstes** |
 | 6 | Plugin: Bluetooth-Audio an das Autoradio (A2DP-Source, AVRCP, HFP) | offen |
 | – | aasdk-README modernisieren mit KI-Hinweis | offen |
 | – | arm64-Build für den Raspberry Pi | ganz am Schluss |
@@ -80,4 +82,3 @@ Konfiguration `docker/config/openhu.ini`, Plugin-Daten `docker/data/`, Plugin-Re
 - Legacy-UI/Crankshaft: `MainWindow`, `SettingsWindow`, Dialoge (~23 000 Zeilen inkl. .ui),
   Crankshaft-Teile in `autoapp.cpp`, `Configuration` (CS-Parameter, Mp3, alte GUI-Optionen),
   `helpers/`, `packaging/opt/crankshaft`, `RecentAddressesList`, `/tmp`-Signaldateien.
-- CI: `.github/workflows` auf opencardev-Infrastruktur zugeschnitten (APT-Publish) → anpassen.

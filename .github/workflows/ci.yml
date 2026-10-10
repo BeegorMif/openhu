@@ -1,0 +1,44 @@
+# Builds OpenHU with aasdk (upstream commit + the patches in aasdk-patches/) and uploads the .deb.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+env:
+  AASDK_REPO: https://github.com/opencardev/aasdk.git
+  # aasdk "newdev" commit the patches are based on (update together with aasdk-patches/)
+  AASDK_COMMIT: 9bf6adf933665dee26532201719fac14a047ccf1
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: aasdk sources (upstream + OpenHU patches)
+        run: |
+          git clone --filter=blob:none "$AASDK_REPO" "$RUNNER_TEMP/aasdk"
+          git -C "$RUNNER_TEMP/aasdk" checkout --quiet "$AASDK_COMMIT"
+          git -C "$RUNNER_TEMP/aasdk" -c user.name=ci -c user.email=ci@localhost am "$GITHUB_WORKSPACE"/aasdk-patches/*.patch
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Build
+        run: |
+          docker buildx build --load -t openhu:build \
+            --build-context aasdk="$RUNNER_TEMP/aasdk" .
+
+      - name: Collect packages
+        run: |
+          mkdir -p packages
+          docker run --rm -v "$PWD/packages:/packages" openhu:build bash -c 'cp /output/*.deb /packages/'
+          ls -l packages
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: openhu-amd64
+          path: packages/*.deb
+          retention-days: 30

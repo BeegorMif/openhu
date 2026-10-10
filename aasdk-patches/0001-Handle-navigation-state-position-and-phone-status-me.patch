@@ -1,0 +1,192 @@
+From 8e03d0b0f66484883b7e7af891e46cdeb071dd62 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Leon=20Strau=C3=9F?= <github.require@alias.strauss-hub.de>
+Date: Sat, 10 Oct 2026 16:36:14 +0200
+Subject: [PATCH] Handle navigation state/position and phone status messages
+
+Current Android Auto versions send INSTRUMENT_CLUSTER_NAVIGATION_STATE and
+INSTRUMENT_CLUSTER_NAVIGATION_CURRENT_POSITION instead of the deprecated
+turn/distance events, and PHONE_STATUS was not parsed at all. Both were
+dropped as "Message Id not Handled".
+
+- NavigationStatus: onNavigationState(), onCurrentPosition(); cluster
+  start/stop no longer logged as errors
+- PhoneStatus: onPhoneStatus()
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ .../INavigationStatusServiceEventHandler.hpp  |  9 +++++
+ .../NavigationStatusService.hpp               |  6 ++++
+ .../IPhoneStatusServiceEventHandler.hpp       |  4 +++
+ .../PhoneStatus/PhoneStatusService.hpp        |  3 ++
+ .../NavigationStatusService.cpp               | 35 +++++++++++++++++++
+ .../PhoneStatus/PhoneStatusService.cpp        | 14 ++++++++
+ 6 files changed, 71 insertions(+)
+
+diff --git a/include/aasdk/Channel/NavigationStatus/INavigationStatusServiceEventHandler.hpp b/include/aasdk/Channel/NavigationStatus/INavigationStatusServiceEventHandler.hpp
+index 2d03f8b..2bae6ef 100644
+--- a/include/aasdk/Channel/NavigationStatus/INavigationStatusServiceEventHandler.hpp
++++ b/include/aasdk/Channel/NavigationStatus/INavigationStatusServiceEventHandler.hpp
+@@ -21,6 +21,8 @@
+ #include <aap_protobuf/service/navigationstatus/message/NavigationNextTurnDistanceEvent.pb.h>
+ #include <aap_protobuf/service/navigationstatus/message/NavigationNextTurnEvent.pb.h>
+ #include <aap_protobuf/service/navigationstatus/message/NavigationStatus.pb.h>
++#include <aap_protobuf/service/navigationstatus/message/NavigationState.pb.h>
++#include <aap_protobuf/service/navigationstatus/message/NavigationCurrentPosition.pb.h>
+ #include "aasdk/Error/Error.hpp"
+ 
+ namespace aasdk::channel::navigationstatus {
+@@ -43,6 +45,13 @@ namespace aasdk::channel::navigationstatus {
+ 
+     virtual void
+     onDistanceEvent(const aap_protobuf::service::navigationstatus::message::NavigationNextTurnDistanceEvent &distanceEvent) = 0;
++
++    // Current protocol (replaces the deprecated turn/distance events): upcoming steps and destinations
++    virtual void onNavigationState(const aap_protobuf::service::navigationstatus::message::NavigationState &state) = 0;
++
++    // Current protocol: distance/time to the next step and to the destinations
++    virtual void
++    onCurrentPosition(const aap_protobuf::service::navigationstatus::message::NavigationCurrentPosition &position) = 0;
+   };
+ 
+ }
+diff --git a/include/aasdk/Channel/NavigationStatus/NavigationStatusService.hpp b/include/aasdk/Channel/NavigationStatus/NavigationStatusService.hpp
+index bab1da1..4834dbc 100644
+--- a/include/aasdk/Channel/NavigationStatus/NavigationStatusService.hpp
++++ b/include/aasdk/Channel/NavigationStatus/NavigationStatusService.hpp
+@@ -54,6 +54,12 @@ namespace aasdk::channel::navigationstatus {
+ 
+     void handleDistanceEvent(const common::DataConstBuffer &payload,
+                              INavigationStatusServiceEventHandler::Pointer eventHandler);
++
++    void handleNavigationState(const common::DataConstBuffer &payload,
++                               INavigationStatusServiceEventHandler::Pointer eventHandler);
++
++    void handleCurrentPosition(const common::DataConstBuffer &payload,
++                               INavigationStatusServiceEventHandler::Pointer eventHandler);
+   };
+ 
+ }
+diff --git a/include/aasdk/Channel/PhoneStatus/IPhoneStatusServiceEventHandler.hpp b/include/aasdk/Channel/PhoneStatus/IPhoneStatusServiceEventHandler.hpp
+index ee412c6..7bfedc2 100644
+--- a/include/aasdk/Channel/PhoneStatus/IPhoneStatusServiceEventHandler.hpp
++++ b/include/aasdk/Channel/PhoneStatus/IPhoneStatusServiceEventHandler.hpp
+@@ -19,6 +19,7 @@
+ 
+ 
+ #include <aap_protobuf/service/control/message/ChannelOpenRequest.pb.h>
++#include <aap_protobuf/service/phonestatus/message/PhoneStatus.pb.h>
+ #include "aasdk/Error/Error.hpp"
+ 
+ namespace aasdk::channel::phonestatus {
+@@ -35,6 +36,9 @@ namespace aasdk::channel::phonestatus {
+     virtual void onChannelOpenRequest(const aap_protobuf::service::control::message::ChannelOpenRequest &request) = 0;
+ 
+     virtual void onChannelError(const error::Error &e) = 0;
++
++    // Calls in progress (state, caller, duration) and signal strength
++    virtual void onPhoneStatus(const aap_protobuf::service::phonestatus::message::PhoneStatus &status) = 0;
+   };
+ 
+ }
+diff --git a/include/aasdk/Channel/PhoneStatus/PhoneStatusService.hpp b/include/aasdk/Channel/PhoneStatus/PhoneStatusService.hpp
+index 732805c..eca49e0 100644
+--- a/include/aasdk/Channel/PhoneStatus/PhoneStatusService.hpp
++++ b/include/aasdk/Channel/PhoneStatus/PhoneStatusService.hpp
+@@ -48,6 +48,9 @@ namespace aasdk::channel::phonestatus {
+     void handleChannelOpenRequest(const common::DataConstBuffer &payload,
+                                   IPhoneStatusServiceEventHandler::Pointer eventHandler);
+ 
++    void handlePhoneStatus(const common::DataConstBuffer &payload,
++                           IPhoneStatusServiceEventHandler::Pointer eventHandler);
++
+   };
+ 
+ }
+diff --git a/src/Channel/NavigationStatus/NavigationStatusService.cpp b/src/Channel/NavigationStatus/NavigationStatusService.cpp
+index 3091d36..46ea5c8 100644
+--- a/src/Channel/NavigationStatus/NavigationStatusService.cpp
++++ b/src/Channel/NavigationStatus/NavigationStatusService.cpp
+@@ -80,6 +80,17 @@ namespace aasdk::channel::navigationstatus {
+       case aap_protobuf::service::navigationstatus::NavigationStatusMessageId::INSTRUMENT_CLUSTER_NAVIGATION_DISTANCE_EVENT:
+         this->handleDistanceEvent(payload, std::move(eventHandler));
+         break;
++      case aap_protobuf::service::navigationstatus::NavigationStatusMessageId::INSTRUMENT_CLUSTER_NAVIGATION_STATE:
++        this->handleNavigationState(payload, std::move(eventHandler));
++        break;
++      case aap_protobuf::service::navigationstatus::NavigationStatusMessageId::INSTRUMENT_CLUSTER_NAVIGATION_CURRENT_POSITION:
++        this->handleCurrentPosition(payload, std::move(eventHandler));
++        break;
++      case aap_protobuf::service::navigationstatus::NavigationStatusMessageId::INSTRUMENT_CLUSTER_START:
++      case aap_protobuf::service::navigationstatus::NavigationStatusMessageId::INSTRUMENT_CLUSTER_STOP:
++        AASDK_LOG_CHANNEL_NAVIGATION(debug, "instrument cluster start/stop");
++        this->receive(std::move(eventHandler));
++        break;
+       default:
+         AASDK_LOG(error) << "[NavigationStatusService] Message Id not Handled: " << messageId.getId() << " : "
+                          << dump(payload);
+@@ -139,6 +150,30 @@ namespace aasdk::channel::navigationstatus {
+ 
+   }
+ 
++  void NavigationStatusService::handleNavigationState(const common::DataConstBuffer &payload,
++                                                      INavigationStatusServiceEventHandler::Pointer eventHandler) {
++    AASDK_LOG_CHANNEL_NAVIGATION(debug, "handleNavigationState()");
++    aap_protobuf::service::navigationstatus::message::NavigationState state;
++    if (state.ParseFromArray(payload.cdata, payload.size)) {
++      eventHandler->onNavigationState(state);
++    } else {
++      eventHandler->onChannelError(error::Error(error::ErrorCode::PARSE_PAYLOAD));
++      AASDK_LOG(error) << "[NavigationStatusService] encountered error with message: " << dump(payload);
++    }
++  }
++
++  void NavigationStatusService::handleCurrentPosition(const common::DataConstBuffer &payload,
++                                                      INavigationStatusServiceEventHandler::Pointer eventHandler) {
++    AASDK_LOG_CHANNEL_NAVIGATION(debug, "handleCurrentPosition()");
++    aap_protobuf::service::navigationstatus::message::NavigationCurrentPosition position;
++    if (position.ParseFromArray(payload.cdata, payload.size)) {
++      eventHandler->onCurrentPosition(position);
++    } else {
++      eventHandler->onChannelError(error::Error(error::ErrorCode::PARSE_PAYLOAD));
++      AASDK_LOG(error) << "[NavigationStatusService] encountered error with message: " << dump(payload);
++    }
++  }
++
+ }
+ 
+ 
+diff --git a/src/Channel/PhoneStatus/PhoneStatusService.cpp b/src/Channel/PhoneStatus/PhoneStatusService.cpp
+index b567c33..6bb1eee 100644
+--- a/src/Channel/PhoneStatus/PhoneStatusService.cpp
++++ b/src/Channel/PhoneStatus/PhoneStatusService.cpp
+@@ -71,6 +71,8 @@ namespace aasdk::channel::phonestatus {
+         this->handleChannelOpenRequest(payload, std::move(eventHandler));
+         break;
+       case aap_protobuf::service::phonestatus::PhoneStatusMessageId::PHONE_STATUS:
++        this->handlePhoneStatus(payload, std::move(eventHandler));
++        break;
+       case aap_protobuf::service::phonestatus::PhoneStatusMessageId::PHONE_STATUS_INPUT:
+       default:
+         AASDK_LOG(error) << "[PhoneStatusService] Message Id not Handled: " << messageId.getId();
+@@ -89,6 +91,18 @@ namespace aasdk::channel::phonestatus {
+       eventHandler->onChannelError(error::Error(error::ErrorCode::PARSE_PAYLOAD));
+     }
+   }
++
++  void PhoneStatusService::handlePhoneStatus(const common::DataConstBuffer &payload,
++                                             IPhoneStatusServiceEventHandler::Pointer eventHandler) {
++    AASDK_LOG_CHANNEL_PHONE_STATUS(debug, "handlePhoneStatus()");
++    aap_protobuf::service::phonestatus::message::PhoneStatus status;
++    if (status.ParseFromArray(payload.cdata, payload.size)) {
++      eventHandler->onPhoneStatus(status);
++    } else {
++      eventHandler->onChannelError(error::Error(error::ErrorCode::PARSE_PAYLOAD));
++      AASDK_LOG(error) << "[PhoneStatusService] encountered error with message: " << dump(payload);
++    }
++  }
+ }
+ 
+ 
+-- 
+2.53.0
+
