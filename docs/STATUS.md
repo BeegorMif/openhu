@@ -85,7 +85,7 @@ Konfiguration `docker/config/openhu.ini` (Fallback `openauto.ini`), Plugin-Daten
   Play/Pause an, im Gespräch legt es auf; Display zeigt Titel/Interpret bzw. den Anrufer.
 - Lautstärke am Radio: AVRCP Absolute Volume über PipeWire → Standardausgabe → `audio.volume`.
 - Anrufton geht per A2DP ans Radio, das Mikrofon ist am OpenHU-Gerät (Entscheidung: kein HFP-Gateway).
-- Statusleiste: Bluetooth-Symbol, solange ein Gerät verbunden ist.
+- Statusleiste: Bluetooth-Symbol, solange das Autoradio verbunden ist (das Handy hat sein eigenes Symbol).
 - Getestet: Kopplung/Verbindung/Ausgabe, Wiederverbinden nach Neustart, Tasten und Ton (Buds+). Anruftasten und
   Titelanzeige auf einem Gerät mit Display noch ungetestet; kabelloses AA nach dem Umbau noch nicht gegengetestet.
 

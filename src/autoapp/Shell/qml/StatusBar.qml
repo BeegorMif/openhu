@@ -14,8 +14,6 @@ Rectangle {
     BusTopic { id: phone; topic: "phone.status" }
 
     readonly property bool connected: projection.data.connected === true
-    // names of the connected Bluetooth devices (phone, car radio, headphones)
-    readonly property var bluetoothConnected: bluetooth.devices.filter(d => d.connected).map(d => d.name)
     readonly property bool inCall: !!phone.data.callState && phone.data.callState !== "idle" && phone.data.callState !== "inactive"
     // signal_strength from the phone: 0-4 bars, larger values treated as percent
     readonly property int signalLevel: {
@@ -87,9 +85,10 @@ Rectangle {
             color: Theme.success
             font.pixelSize: Theme.fontSmall
         }
+        // sound goes to the Bluetooth car radio (the phone has its own icon)
         BluetoothIcon {
             anchors.verticalCenter: parent.verticalCenter
-            visible: bar.bluetoothConnected.length > 0
+            visible: carAudio.state.connected === true
         }
         SignalBars {
             anchors.verticalCenter: parent.verticalCenter

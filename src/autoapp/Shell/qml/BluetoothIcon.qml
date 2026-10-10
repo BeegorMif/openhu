@@ -2,7 +2,7 @@ import QtQuick 2.15
 import OpenHU 1.0
 import "."
 
-// Bluetooth rune, shown in the status bar while a device (phone, car radio, headphones) is connected.
+// Bluetooth rune, shown in the status bar while the car radio is connected.
 Canvas {
     id: icon
     width: Theme.fontNormal * 0.75
