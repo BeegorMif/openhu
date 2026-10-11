@@ -391,9 +391,15 @@ void PluginManager::onProcessFinished(const QString& id, int exitCode, QProcess:
     }
 
     auto& plugin = *it->second;
+    if(plugin.stopping)
+    {
+        // terminated by OpenHU (quit, disable, update): SIGTERM counts as CrashExit for Qt
+        OPENAUTO_LOG(info) << "[PluginManager] " << id.toStdString() << " stopped";
+        return;
+    }
     OPENAUTO_LOG(info) << "[PluginManager] " << id.toStdString() << " exited (code " << exitCode
                        << (status == QProcess::CrashExit ? ", crashed" : "") << ")";
-    if(plugin.stopping || !plugin.enabled)
+    if(!plugin.enabled)
     {
         return;
     }

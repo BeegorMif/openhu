@@ -263,13 +263,14 @@ set(CPACK_DEBIAN_PACKAGE_CONFLICTS "openauto")
 set(CPACK_DEBIAN_PACKAGE_REPLACES "openauto")
 set(CPACK_DEBIAN_PACKAGE_SHLIBDEPS ON)
 
-# Libraries come from shlibdeps (Qt 6, FFmpeg for the video); the QML modules of the shell, pactl for the volume
+# Libraries come from shlibdeps (Qt 6, FFmpeg for the video); the QML modules of the shell, the SVG image plugin
+# (plugin icons), pactl for the volume
 # Wireless Android Auto and car radio: BlueZ for Bluetooth, NetworkManager for the hotspot, iw for the WiFi country
 # Plugins written in Python use the API client of openhu-plugins (python3-websockets)
 set(CPACK_DEBIAN_PACKAGE_RECOMMENDS "bluez, network-manager, iw, python3, python3-websockets")
 string(REGEX MATCH "^[0-9]+" _aasdk_major "${OPENHU_AASDK_VERSION}")
 math(EXPR _aasdk_next_major "${_aasdk_major} + 1")
-set(CPACK_DEBIAN_PACKAGE_DEPENDS "libaasdk (>= ${OPENHU_AASDK_VERSION}), libaasdk (<< ${_aasdk_next_major}), pulseaudio-utils, qml6-module-qtquick, qml6-module-qtquick-window, qml6-module-qtquick-layouts, qml6-module-qtquick-controls, qml6-module-qtmultimedia")
+set(CPACK_DEBIAN_PACKAGE_DEPENDS "libaasdk (>= ${OPENHU_AASDK_VERSION}), libaasdk (<< ${_aasdk_next_major}), pulseaudio-utils, qt6-svg-plugins, qml6-module-qtquick, qml6-module-qtquick-window, qml6-module-qtquick-layouts, qml6-module-qtquick-controls, qml6-module-qtmultimedia")
 
 # Debian package control scripts
 set(CPACK_DEBIAN_PACKAGE_CONTROL_EXTRA

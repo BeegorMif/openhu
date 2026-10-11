@@ -24,7 +24,23 @@ Window {
         page = name
     }
     onPageChanged: shell.setCurrentPage(page)
-    Component.onCompleted: shell.setCurrentPage(page)
+    Component.onCompleted: {
+        shell.setCurrentPage(page)
+        updatePluginPages()
+    }
+
+    // Plugin pages and overlays, rebuilt only when a page itself changes. plugins.plugins also changes for the
+    // dock, running state, ...: rebuilding then would e.g. take the camera away from a camera page while it is shown.
+    property var pluginPages: []
+    function updatePluginPages() {
+        var pages = plugins.plugins.map(p => ({ id: p.id, name: p.name, version: p.version, page: p.page, overlay: p.overlay, enabled: p.enabled }))
+        if (JSON.stringify(pages) !== JSON.stringify(pluginPages))
+            pluginPages = pages
+    }
+    Connections {
+        target: plugins
+        function onPluginsChanged() { root.updatePluginPages() }
+    }
 
     // Sizes are designed for 1280x720 (720x1280 in portrait)
     function updateScale() {
@@ -108,7 +124,7 @@ Window {
 
                 // Plugin pages, loaded when first shown and kept alive afterwards
                 Repeater {
-                    model: plugins.plugins
+                    model: root.pluginPages
 
                     Loader {
                         id: pluginPage
@@ -134,7 +150,7 @@ Window {
 
     // Plugin overlays (e.g. reverse camera) above the whole shell, shown via plugins.setOverlayVisible / ui.overlay.show
     Repeater {
-        model: plugins.plugins
+        model: root.pluginPages
 
         Loader {
             anchors.fill: parent

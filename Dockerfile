@@ -69,6 +69,8 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
         qml6-module-qtquick-layouts \
         qml6-module-qtquick-controls \
         qml6-module-qtmultimedia \
+        # SVG icons of the plugins
+        qt6-svg-plugins \
         # H.264 decoder of the Android Auto video (same FFmpeg as Qt Multimedia)
         libavcodec-dev \
         libavutil-dev \
