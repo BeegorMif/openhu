@@ -31,9 +31,6 @@ RELEASE.txt
 Dockerfile.rootfs
 .dockerignore
 
-# Test files
-tests/
-test_*/
 
 # Temporary files
 *.tmp

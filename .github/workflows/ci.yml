@@ -1,5 +1,6 @@
-# Builds OpenHU for amd64 and arm64 against the newest fitting aasdk release (OPENHU_AASDK_VERSION),
-# installs the packages in a clean Debian and uploads them.
+# Builds OpenHU for amd64 and arm64 against the newest fitting aasdk release (OPENHU_AASDK_VERSION)
+# with qmllint and the unit tests (Dockerfile), installs the packages in a clean Debian, starts the
+# shell headless and uploads the packages.
 name: CI
 
 on:
@@ -46,18 +47,21 @@ jobs:
           cache-from: type=gha,scope=${{ matrix.arch }}
           cache-to: type=gha,mode=max,scope=${{ matrix.arch }}
 
-      # Package name/architecture, then install in a clean Debian: every library of autoapp must resolve
+      # Package name/architecture, then install in a clean Debian: every library of autoapp must resolve,
+      # and the shell starts headless and shows all pages without QML warnings (tests/shell-smoke.sh)
       - name: Smoke test
         run: |
           deb=$(ls packages/openhu_*_${{ matrix.arch }}.deb)
           [ "$(dpkg-deb -f "$deb" Architecture)" = "${{ matrix.arch }}" ]
           dpkg-deb -f "$deb" Package Version Architecture | paste -sd " " >> "$GITHUB_STEP_SUMMARY"
-          docker run --rm -e DEBIAN_FRONTEND=noninteractive -v "$PWD/packages:/packages:ro" debian:trixie-slim bash -euo pipefail -c '
+          docker run --rm -e DEBIAN_FRONTEND=noninteractive -v "$PWD/packages:/packages:ro" -v "$PWD/tests:/tests:ro" \
+              debian:trixie-slim bash -euo pipefail -c '
             apt-get update -qq
-            apt-get install -y -qq --no-install-recommends /packages/libaasdk_*.deb /packages/openhu_*.deb >/dev/null
+            apt-get install -y -qq --no-install-recommends /packages/libaasdk_*.deb /packages/openhu_*.deb python3-websockets >/dev/null
             dpkg -s openhu libaasdk | grep -E "^(Package|Status|Version):"
             ldd /usr/bin/autoapp
-            if ldd /usr/bin/autoapp | grep "not found"; then exit 1; fi'
+            if ldd /usr/bin/autoapp | grep "not found"; then exit 1; fi
+            /tests/shell-smoke.sh /usr/bin/autoapp'
 
       # openhu and the libaasdk packages it was built against
       - uses: actions/upload-artifact@v4

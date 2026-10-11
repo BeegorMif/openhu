@@ -39,6 +39,7 @@ workspace/
 docker/dev.sh run            # build incrementally (aasdk + OpenHU), then OpenHU in a window
 docker/dev.sh run --no-build # start without building (OPENHU_RESOLUTION=1920x1080 for another size)
 docker/dev.sh build          # only build
+docker/dev.sh test           # build, unit tests, qmllint, start the shell headless (same checks as CI)
 docker/dev.sh package        # .deb -> docker/output/
 docker/dev.sh shell          # shell in the build environment
 docker/dev.sh reconnect      # USB reset of the phone while running

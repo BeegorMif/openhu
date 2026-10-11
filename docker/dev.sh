@@ -3,6 +3,7 @@
 #
 #   ./dev.sh run [args]   inkrementell bauen (aasdk + OpenHU) und OpenHU im Fenster starten
 #   ./dev.sh build        nur bauen
+#   ./dev.sh test         bauen, Unit-Tests (ctest), qmllint und Shell headless starten (wie die CI)
 #   ./dev.sh package      bauen und .deb nach output/ legen
 #   ./dev.sh shell        Shell in der Entwicklungsumgebung (Quellen eingehängt)
 #   ./dev.sh reconnect    Handy per USB-Reset neu verbinden (laufendes OpenHU)
@@ -69,6 +70,18 @@ cmd_build() {
             -DCPACK_PROJECT_CONFIG_FILE=/src/cmake_modules/CPackProjectConfig.cmake >/dev/null
     fi
     cmake --build /build/openhu
+  '
+}
+
+cmd_test() {
+  cmd_build
+  dev_container bash -euo pipefail -c '
+    echo "=== qmllint ==="
+    find src/autoapp/Shell/qml \( -name "*.qml" -o -name "*.js" \) -print0 | xargs -0 qmllint
+    echo "=== ctest ==="
+    ctest --test-dir /build/openhu --output-on-failure
+    echo "=== shell ==="
+    bash tests/shell-smoke.sh /build/openhu/bin/autoapp
   '
 }
 
@@ -171,10 +184,11 @@ cmd_clean() {
 case "${1:-}" in
   run) shift; cmd_run "$@" ;;
   build) cmd_build ;;
+  test) cmd_test ;;
   package) cmd_package ;;
   shell) cmd_shell ;;
   reconnect) cmd_reconnect ;;
   image) ensure_image --pull --no-cache ;;
   clean) cmd_clean ;;
-  *) sed -n '2,12p' "$0"; exit 1 ;;
+  *) sed -n '2,13p' "$0"; exit 1 ;;
 esac

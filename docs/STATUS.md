@@ -24,6 +24,10 @@ für amd64 und arm64 und veröffentlicht sie beim Tag `openhu-v<version>` als Gi
 (`.github/workflows/ci.yml`) holt das neueste Release, das zu `OPENHU_AASDK_VERSION` passt
 (`scripts/fetch-aasdk.sh`), baut OpenHU für amd64 und arm64 (nativer arm-Runner), installiert die Pakete testweise in einem
 frischen `debian:trixie-slim` und lädt OpenHU- und aasdk-`.deb` als Artefakte `openhu-amd64`/`openhu-arm64` hoch.
+Sicherheitsnetz (vor allem für die Qt-6-Migration): Unit-Tests mit QtTest in `tests/` (EventBus, Konfiguration,
+Aktionen/Keymap, API inkl. WebSocket, Plugin-Store mit lokalem Repo), `qmllint` über die Shell-QML und
+`tests/shell-smoke.sh`, das die installierte Shell headless startet, alle Seiten per API zeigt und bei QML-Warnungen
+fehlschlägt. Lokal: `docker/dev.sh test`. Der Code außer `main()` liegt dafür in der Bibliothek `openhu_core`.
 
 ## Phasen
 

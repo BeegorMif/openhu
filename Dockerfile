@@ -156,11 +156,15 @@ COPY src src
 COPY assets assets
 COPY packaging packaging
 COPY scripts scripts
+COPY tests tests
+# qmllint (syntax of the shell QML), build, unit tests, package
 RUN --mount=type=cache,target=/ccache \
-    cmake -S /src -B /tmp/build -DCMAKE_BUILD_TYPE=Release \
+    find src/autoapp/Shell/qml \( -name '*.qml' -o -name '*.js' \) -print0 | xargs -0 qmllint \
+    && cmake -S /src -B /tmp/build -DCMAKE_BUILD_TYPE=Release \
         -DCPACK_DEBIAN_PACKAGE_RELEASE="$(bash scripts/distro_release.sh)" \
         -DCPACK_PROJECT_CONFIG_FILE=/src/cmake_modules/CPackProjectConfig.cmake \
     && cmake --build /tmp/build \
+    && ctest --test-dir /tmp/build --output-on-failure \
     && cd /tmp/build && cpack -G DEB \
     && mkdir /out && cp -v /tmp/build/*.deb /aasdk-debs/*.deb /out/
 

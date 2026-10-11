@@ -128,9 +128,16 @@ set(autoapp_include_directory ${include_directory}/f1x/openauto/autoapp)
 
 file(GLOB_RECURSE autoapp_source_files ${autoapp_sources_directory}/*.cpp ${autoapp_include_directory}/*.hpp ${common_include_directory}/*.hpp ${resources_directory}/*.qrc ${autoapp_sources_directory}/*.qrc)
 
-add_executable(autoapp ${autoapp_source_files})
+# Everything except main() and the QML resources is a library, so the tests link the same code.
+set(autoapp_main_file ${autoapp_sources_directory}/autoapp.cpp)
+set(autoapp_resource_files ${autoapp_source_files})
+list(FILTER autoapp_resource_files INCLUDE REGEX "\\.qrc$")
+list(FILTER autoapp_source_files EXCLUDE REGEX "\\.qrc$")
+list(REMOVE_ITEM autoapp_source_files ${autoapp_main_file})
 
-target_link_libraries(autoapp PUBLIC
+add_library(openhu_core STATIC ${autoapp_source_files})
+
+target_link_libraries(openhu_core PUBLIC
         libusb
         ${Boost_LIBRARIES}
         ${Qt5DBus_LIBRARIES}
@@ -144,6 +151,15 @@ target_link_libraries(autoapp PUBLIC
         ${GPS_LIBRARIES}
         ${PROTOBUF_LIBRARIES}
         AASDK::aasdk)
+
+add_executable(autoapp ${autoapp_main_file} ${autoapp_resource_files})
+target_link_libraries(autoapp PRIVATE openhu_core)
+
+option(OPENHU_TESTS "Build the unit tests (ctest)" ON)
+if(OPENHU_TESTS)
+    enable_testing()
+    add_subdirectory(tests)
+endif()
 
 set(PROGRAM_VERSION_STRING "${OPENAUTO_BUILD_MAJOR_RELEASE}.${OPENAUTO_BUILD_MINOR_RELEASE}.${OPENAUTO_BUILD_PATCH_RELEASE}")
 
@@ -161,7 +177,7 @@ if(CMAKE_BUILD_TYPE STREQUAL "Debug")
 endif()
 
 message(STATUS "Project Version: ${PROGRAM_VERSION_STRING}")
-target_compile_definitions(autoapp PRIVATE OPENHU_VERSION="${PROGRAM_VERSION_STRING}" OPENHU_GIT="${GIT_DESCRIBE}")
+target_compile_definitions(openhu_core PRIVATE OPENHU_VERSION="${PROGRAM_VERSION_STRING}" OPENHU_GIT="${GIT_DESCRIBE}")
 message(STATUS "Git Branch: ${GIT_BRANCH}")
 message(STATUS "Git Commit: ${GIT_COMMIT_ID}")
 message(STATUS "Git Describe: ${GIT_DESCRIBE}")

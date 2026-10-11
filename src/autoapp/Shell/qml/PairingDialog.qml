@@ -1,6 +1,5 @@
 import QtQuick 2.15
 import QtQuick.Controls 2.15
-import QtQuick.Layouts 1.15
 import OpenHU 1.0
 import "."
 
@@ -16,25 +15,28 @@ Rectangle {
     Rectangle {
         anchors.centerIn: parent
         width: Math.min(parent.width - Theme.spacing * 4, Theme.dockWidth * 6)
-        height: content.implicitHeight + Theme.spacing * 3
+        height: content.height + Theme.spacing * 3
         radius: Theme.radius
         color: Theme.surface
         border.color: Theme.outline
 
-        ColumnLayout {
+        // Column, not ColumnLayout: the height of the box follows the wrapped text without a binding loop
+        Column {
             id: content
-            anchors.fill: parent
+            anchors.top: parent.top
+            anchors.left: parent.left
+            anchors.right: parent.right
             anchors.margins: Theme.spacing * 1.5
             spacing: Theme.spacing
 
             Text {
-                Layout.fillWidth: true
+                width: parent.width
                 text: "Bluetooth-Kopplung"
                 color: Theme.text
                 font.pixelSize: Theme.fontLarge
             }
             Text {
-                Layout.fillWidth: true
+                width: parent.width
                 wrapMode: Text.WordWrap
                 text: bluetooth.state.pairingPasskey
                       ? "„" + bluetooth.state.pairingDevice + "“ möchte sich koppeln. Zeigt das Gerät denselben Code?"
@@ -43,15 +45,15 @@ Rectangle {
                 font.pixelSize: Theme.fontNormal
             }
             Text {
-                Layout.alignment: Qt.AlignHCenter
+                anchors.horizontalCenter: parent.horizontalCenter
                 visible: !!bluetooth.state.pairingPasskey
                 text: bluetooth.state.pairingPasskey || ""
                 color: Theme.text
                 font.pixelSize: Theme.fontHuge * 0.6
                 font.letterSpacing: Theme.spacing / 2
             }
-            RowLayout {
-                Layout.alignment: Qt.AlignRight
+            Row {
+                anchors.right: parent.right
                 spacing: Theme.spacing / 2
                 Button {
                     text: "Ablehnen"
