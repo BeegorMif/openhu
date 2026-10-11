@@ -1,6 +1,5 @@
-import QtQuick 2.15
+import QtQuick
 import OpenHU 1.0
-import "."
 
 // Short message at the bottom of the screen (API: ui.toast).
 Rectangle {

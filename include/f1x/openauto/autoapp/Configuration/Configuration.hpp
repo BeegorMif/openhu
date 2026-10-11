@@ -59,6 +59,8 @@ public:
     void setVideoResolution(aap_protobuf::service::media::sink::message::VideoCodecResolutionType value) override;
     bool getVideoResolutionAuto() const override;
     void setVideoResolutionAuto(bool value) override;
+    std::string getVideoDecoder() const override;
+    void setVideoDecoder(const std::string& value) override;
     size_t getScreenDPI() const override;
     void setScreenDPI(size_t value) override;
     void setVideoMargins(QRect value) override;
@@ -95,6 +97,7 @@ private:
     bool showCursor_;
     std::string nameSuffix_;
     bool videoResolutionAuto_;
+    std::string videoDecoder_;
     uint16_t apiPort_;
     std::string apiListenAddress_;
     bool apiAllowHotspot_;

@@ -59,7 +59,7 @@ public:
 private:
     void handleMouseEvent(QEvent* event);
     void handleTouchEvent(QTouchEvent* touchEvent);
-    void translateTouchPoint(const QTouchEvent::TouchPoint& qtPoint, TouchPoint& ourPoint);
+    void translateTouchPoint(const QEventPoint& qtPoint, TouchPoint& ourPoint);
     void mapToVideo(const QPointF& pos, uint32_t& x, uint32_t& y) const;
 
     configuration::IConfiguration::Pointer configuration_;

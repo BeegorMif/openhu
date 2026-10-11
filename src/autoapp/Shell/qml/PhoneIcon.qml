@@ -1,6 +1,5 @@
-import QtQuick 2.15
+import QtQuick
 import OpenHU 1.0
-import "."
 
 // Phone outline, crossed out when no phone is connected.
 Canvas {

@@ -1,6 +1,6 @@
-import QtQuick 2.15
-import QtQuick.Controls 2.15
-import QtQuick.Layouts 1.15
+import QtQuick
+import QtQuick.Controls
+import QtQuick.Layouts
 import OpenHU 1.0
 import ".."
 
@@ -85,6 +85,7 @@ Item {
 
             // Changes that need a reconnect or restart
             Rectangle {
+                id: pendingBar
                 Layout.fillWidth: true
                 Layout.preferredHeight: Theme.fontNormal * 3
                 visible: settings.pending.length > 0
@@ -99,17 +100,17 @@ Item {
 
                     Text {
                         Layout.fillWidth: true
-                        text: parent.parent.restart ? "Einige Änderungen gelten erst nach einem Neustart von OpenHU."
+                        text: pendingBar.restart ? "Einige Änderungen gelten erst nach einem Neustart von OpenHU."
                                                     : "Änderungen gelten ab der nächsten Verbindung mit dem Telefon."
                         color: Theme.text
                         font.pixelSize: Theme.fontSmall
                         elide: Text.ElideRight
                     }
                     Button {
-                        text: parent.parent.restart ? "Neu starten" : "Neu verbinden"
+                        text: pendingBar.restart ? "Neu starten" : "Neu verbinden"
                         highlighted: true
                         onClicked: {
-                            if (parent.parent.restart) {
+                            if (pendingBar.restart) {
                                 shell.restart()
                             } else {
                                 actions.trigger("aa.reconnect")

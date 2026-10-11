@@ -1,5 +1,5 @@
 pragma Singleton
-import QtQuick 2.15
+import QtQuick
 
 QtObject {
     // Set by Main.qml from the window size; all sizes are designed for 1280x720.

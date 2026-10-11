@@ -58,11 +58,21 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
         libssl-dev \
         libgps-dev \
         librtaudio-dev \
-        qtbase5-dev \
-        qtmultimedia5-dev \
-        qtdeclarative5-dev \
-        qtquickcontrols2-5-dev \
-        libqt5websockets5-dev \
+        qt6-base-dev \
+        qt6-declarative-dev \
+        qt6-multimedia-dev \
+        qt6-websockets-dev \
+        # qmllint, and the QML modules of the shell it checks the imports against (also needed at runtime)
+        qt6-declarative-dev-tools \
+        qml6-module-qtquick \
+        qml6-module-qtquick-window \
+        qml6-module-qtquick-layouts \
+        qml6-module-qtquick-controls \
+        qml6-module-qtmultimedia \
+        # H.264 decoder of the Android Auto video (same FFmpeg as Qt Multimedia)
+        libavcodec-dev \
+        libavutil-dev \
+        libswscale-dev \
         # packaging
         file \
         dpkg-dev \
@@ -85,20 +95,7 @@ ARG DEBIAN_FRONTEND=noninteractive
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt,sharing=locked \
     apt-get update && apt-get install -y --no-install-recommends \
-        libqt5multimedia5-plugins \
-        qml-module-qtquick2 \
-        qml-module-qtquick-window2 \
-        qml-module-qtquick-layouts \
-        qml-module-qtquick-controls2 \
-        qml-module-qtmultimedia \
-        gstreamer1.0-plugins-base \
-        gstreamer1.0-plugins-good \
-        gstreamer1.0-plugins-bad \
-        gstreamer1.0-plugins-ugly \
-        gstreamer1.0-libav \
-        gstreamer1.0-pulseaudio \
-        # X video sinks: without them every QMediaPlayer under xcb takes ~10 s (Wayland probe timeout)
-        gstreamer1.0-x \
+        qt6-wayland \
         pulseaudio-utils \
         usbutils \
         fonts-dejavu-core \
@@ -157,9 +154,9 @@ COPY assets assets
 COPY packaging packaging
 COPY scripts scripts
 COPY tests tests
-# qmllint (syntax of the shell QML), build, unit tests, package
+# qmllint of the shell QML, build, unit tests, package
 RUN --mount=type=cache,target=/ccache \
-    find src/autoapp/Shell/qml \( -name '*.qml' -o -name '*.js' \) -print0 | xargs -0 qmllint \
+    bash tests/qmllint.sh \
     && cmake -S /src -B /tmp/build -DCMAKE_BUILD_TYPE=Release \
         -DCPACK_DEBIAN_PACKAGE_RELEASE="$(bash scripts/distro_release.sh)" \
         -DCPACK_PROJECT_CONFIG_FILE=/src/cmake_modules/CPackProjectConfig.cmake \

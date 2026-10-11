@@ -171,14 +171,14 @@ void InputDevice::handleMouseEvent(QEvent* event)
     touch.actionIndex = 0;
     uint32_t x = 0;
     uint32_t y = 0;
-    this->mapToVideo(mouse->localPos(), x, y);
+    this->mapToVideo(mouse->position(), x, y);
     touch.pointers.push_back({x, y, 0});
     eventHandler_->onTouchEvent(touch);
 }
 
 void InputDevice::handleTouchEvent(QTouchEvent* touchEvent)
 {
-    const auto& touchPoints = touchEvent->touchPoints();
+    const auto& touchPoints = touchEvent->points();
     if(touchPoints.isEmpty())
     {
         return;
@@ -186,10 +186,10 @@ void InputDevice::handleTouchEvent(QTouchEvent* touchEvent)
 
     // The pointer that changed state (pressed or released), if any
     int changedIndex = -1;
-    Qt::TouchPointState changedState = Qt::TouchPointStationary;
+    QEventPoint::State changedState = QEventPoint::Stationary;
     for(int i = 0; i < touchPoints.size(); ++i)
     {
-        if(touchPoints[i].state() == Qt::TouchPointPressed || touchPoints[i].state() == Qt::TouchPointReleased)
+        if(touchPoints[i].state() == QEventPoint::Pressed || touchPoints[i].state() == QEventPoint::Released)
         {
             changedIndex = i;
             changedState = touchPoints[i].state();
@@ -215,12 +215,12 @@ void InputDevice::handleTouchEvent(QTouchEvent* touchEvent)
         nextTouchPointId_ = 0;
         break;
     default:  // TouchUpdate
-        if(changedState == Qt::TouchPointPressed)
+        if(changedState == QEventPoint::Pressed)
         {
             event.type = PointerAction::ACTION_POINTER_DOWN;
             event.actionIndex = changedIndex;
         }
-        else if(changedState == Qt::TouchPointReleased)
+        else if(changedState == QEventPoint::Released)
         {
             event.type = PointerAction::ACTION_POINTER_UP;
             event.actionIndex = changedIndex;
@@ -235,7 +235,7 @@ void InputDevice::handleTouchEvent(QTouchEvent* touchEvent)
     for(const auto& qtPoint: touchPoints)
     {
         // Released points only belong to UP events
-        if(qtPoint.state() == Qt::TouchPointReleased && event.type != PointerAction::ACTION_UP
+        if(qtPoint.state() == QEventPoint::Released && event.type != PointerAction::ACTION_UP
            && event.type != PointerAction::ACTION_POINTER_UP)
         {
             continue;
@@ -245,7 +245,7 @@ void InputDevice::handleTouchEvent(QTouchEvent* touchEvent)
         this->translateTouchPoint(qtPoint, point);
         event.pointers.push_back(point);
 
-        if(qtPoint.state() == Qt::TouchPointReleased)
+        if(qtPoint.state() == QEventPoint::Released)
         {
             touchPointIdMap_.erase(qtPoint.id());
         }
@@ -263,14 +263,14 @@ void InputDevice::handleTouchEvent(QTouchEvent* touchEvent)
     }
 }
 
-void InputDevice::translateTouchPoint(const QTouchEvent::TouchPoint& qtPoint, TouchPoint& ourPoint)
+void InputDevice::translateTouchPoint(const QEventPoint& qtPoint, TouchPoint& ourPoint)
 {
     if(touchPointIdMap_.find(qtPoint.id()) == touchPointIdMap_.end())
     {
         touchPointIdMap_[qtPoint.id()] = nextTouchPointId_++;
     }
     ourPoint.pointerId = touchPointIdMap_[qtPoint.id()];
-    this->mapToVideo(qtPoint.pos(), ourPoint.x, ourPoint.y);
+    this->mapToVideo(qtPoint.position(), ourPoint.x, ourPoint.y);
 }
 
 }

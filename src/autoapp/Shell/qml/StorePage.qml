@@ -1,8 +1,7 @@
-import QtQuick 2.15
-import QtQuick.Controls 2.15
-import QtQuick.Layouts 1.15
+import QtQuick
+import QtQuick.Controls
+import QtQuick.Layouts
 import OpenHU 1.0
-import "."
 
 // Plugin store: packages from the sources in ~/.openhu/sources.list
 Item {
@@ -162,7 +161,7 @@ Item {
                                 if (modelData.permissions && modelData.permissions.length)
                                     parts.push("Rechte: " + modelData.permissions.join(", "))
                                 if (!modelData.compatible)
-                                    parts.push("nicht für dieses Gerät")
+                                    parts.push("nicht für dieses Gerät oder diese OpenHU-Version")
                                 return parts.join(" · ")
                             }
                             color: modelData.official ? Theme.success : Theme.textDim

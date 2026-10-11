@@ -1,5 +1,5 @@
-import QtQuick 2.15
-import QtQuick.Controls 2.15
+import QtQuick
+import QtQuick.Controls
 import OpenHU 1.0
 
 // Number setting, applied when the value changes.

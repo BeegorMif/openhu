@@ -104,6 +104,9 @@ public:
     // true: the shell picks the resolution matching its Android Auto area (getVideoResolution() is ignored)
     virtual bool getVideoResolutionAuto() const = 0;
     virtual void setVideoResolutionAuto(bool value) = 0;
+    // H.264 decoder: "auto" (hardware where available, else software), "software" or an FFmpeg decoder name
+    virtual std::string getVideoDecoder() const = 0;
+    virtual void setVideoDecoder(const std::string& value) = 0;
     virtual size_t getScreenDPI() const = 0;
     virtual void setScreenDPI(size_t value) = 0;
     // 0x0 = margins computed by the shell

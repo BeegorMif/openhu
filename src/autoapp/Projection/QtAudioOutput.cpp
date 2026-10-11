@@ -36,10 +36,8 @@ QtAudioOutput::QtAudioOutput(uint32_t channelCount, uint32_t sampleSize, uint32_
 {
     audioFormat_.setChannelCount(channelCount);
     audioFormat_.setSampleRate(sampleRate);
-    audioFormat_.setSampleSize(sampleSize);
-    audioFormat_.setCodec("audio/pcm");
-    audioFormat_.setByteOrder(QAudioFormat::LittleEndian);
-    audioFormat_.setSampleType(QAudioFormat::SignedInt);
+    // Android Auto sends and expects 16 bit PCM (sampleSize is always 16)
+    audioFormat_.setSampleFormat(sampleSize == 16 ? QAudioFormat::Int16 : QAudioFormat::Int32);
 
     QThread * th = QCoreApplication::instance()->thread();
     this->moveToThread(th);
@@ -55,7 +53,7 @@ QtAudioOutput::QtAudioOutput(uint32_t channelCount, uint32_t sampleSize, uint32_
 void QtAudioOutput::createAudioOutput()
 {
     OPENAUTO_LOG(info) << "[QtAudioOutput] createAudioOutput()";
-    audioOutput_ = std::make_unique<QAudioOutput>(QAudioDeviceInfo::defaultOutputDevice(), audioFormat_);
+    audioOutput_ = std::make_unique<QAudioSink>(QMediaDevices::defaultAudioOutput(), audioFormat_);
 }
 
 bool QtAudioOutput::open()
@@ -88,7 +86,7 @@ void QtAudioOutput::suspend()
 
 uint32_t QtAudioOutput::getSampleSize() const
 {
-    return audioFormat_.sampleSize();
+    return audioFormat_.bytesPerSample() * 8;
 }
 
 uint32_t QtAudioOutput::getChannelCount() const

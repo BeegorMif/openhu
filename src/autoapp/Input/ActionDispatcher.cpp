@@ -268,7 +268,7 @@ QVariantList ActionDispatcher::keymapList() const
 
 void ActionDispatcher::setKeyAction(const QString& key, const QString& action)
 {
-    const QString name = keyName(QKeySequence(key)[0] & ~Qt::KeyboardModifierMask);
+    const QString name = keyName(QKeySequence(key)[0].key());
     if(name.isEmpty())
     {
         return;
@@ -327,7 +327,7 @@ void ActionDispatcher::loadKeymap()
             const QKeySequence sequence(it.key());
             if(!sequence.isEmpty())
             {
-                overrides_.insert(keyName(sequence[0] & ~Qt::KeyboardModifierMask), it.value());
+                overrides_.insert(keyName(sequence[0].key()), it.value());
             }
         }
     }
@@ -336,7 +336,7 @@ void ActionDispatcher::loadKeymap()
     const QVariantMap defaults = defaultKeymap();
     for(auto it = defaults.cbegin(); it != defaults.cend(); ++it)
     {
-        keymap.insert(keyName(QKeySequence(it.key())[0] & ~Qt::KeyboardModifierMask), it.value());
+        keymap.insert(keyName(QKeySequence(it.key())[0].key()), it.value());
     }
     for(auto it = overrides_.cbegin(); it != overrides_.cend(); ++it)
     {
@@ -350,7 +350,7 @@ void ActionDispatcher::loadKeymap()
         const QString action = it.value().toString();
         if(!sequence.isEmpty() && !action.isEmpty())
         {
-            keymap_.insert(sequence[0] & ~Qt::KeyboardModifierMask, action);
+            keymap_.insert(sequence[0].key(), action);
         }
     }
 }

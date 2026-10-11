@@ -33,6 +33,7 @@ private slots:
         QVERIFY(!config.getWirelessProjectionEnabled());
         QCOMPARE(config.getWirelessSettings().band, std::string("5"));
         QCOMPARE(config.getCarAudioSettings().pin, std::string("0000"));
+        QCOMPARE(config.getVideoDecoder(), std::string("auto"));
         // without name suffix the vehicle id of OpenAuto, so paired phones keep recognizing the head unit
         QCOMPARE(config.getVehicleId(), std::string("2024110822150988"));
         QVERIFY(!QFile::exists(home.path("openhu.ini")));
@@ -48,6 +49,7 @@ private slots:
             config.setNameSuffix("Golf");
             config.showCursor(true);
             config.setVideoMargins(QRect(0, 0, 40, 20));
+            config.setVideoDecoder("h264_v4l2m2m");
             auto wireless = config.getWirelessSettings();
             wireless.ssid = "Car";
             wireless.channel = 44;
@@ -66,6 +68,7 @@ private slots:
         QCOMPARE(config.getNameSuffix(), std::string("Golf"));
         QVERIFY(config.showCursor());
         QCOMPARE(config.getVideoMargins(), QRect(0, 0, 40, 20));
+        QCOMPARE(config.getVideoDecoder(), std::string("h264_v4l2m2m"));
         QCOMPARE(config.getWirelessSettings().ssid, std::string("Car"));
         QCOMPARE(config.getWirelessSettings().channel, 44);
         QVERIFY(config.getCarAudioSettings().enabled);

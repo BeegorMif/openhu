@@ -1,6 +1,6 @@
-import QtQuick 2.15
+import QtQuick
 import OpenHU 1.0
-import QtQuick.Layouts 1.15
+import QtQuick.Layouts
 import "."
 
 // Current track from Android Auto (media.metadata / media.status).
@@ -86,7 +86,7 @@ Rectangle {
             Rectangle {
                 Layout.fillWidth: true
                 Layout.topMargin: Theme.spacing / 2
-                height: Math.max(3, Theme.spacing / 4)
+                Layout.preferredHeight: Math.max(3, Theme.spacing / 4)
                 radius: height / 2
                 color: Theme.outline
                 visible: (metadata.data.duration || 0) > 0

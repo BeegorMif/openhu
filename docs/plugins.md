@@ -11,7 +11,7 @@ It can bring a QML page, an overlay and a background process in any language tha
   "id": "org.example.radio",
   "name": "Radio",
   "version": "1.2.0",
-  "api": 1,
+  "api": 2,
   "description": "Shown in the store",
   "arch": ["all"],
   "ui": {"page": "qml/Main.qml", "overlay": "qml/Overlay.qml", "icon": "icon.svg", "dock": true},
@@ -25,6 +25,7 @@ It can bring a QML page, an overlay and a background process in any language tha
 |---|---|
 | `id` | folder name, letters, digits, `.`, `-`, `_` |
 | `version` | `1.2.3`, compared numerically for updates |
+| `api` | plugin API the plugin is made for: `2` = OpenHU with Qt 6 (QML pages for Qt 6). Plugins of another API are not installed and, if copied by hand, not loaded |
 | `arch` | `all`, `amd64`, `arm64`, `armhf` |
 | `ui.page` | QML page, shown as `plugin:<id>` (dock, "Öffnen" in the store, `ui.navigate`) |
 | `ui.dock` | page as dock entry (users can change it, `plugin.setDock`) |
@@ -57,7 +58,7 @@ A plugin that shows the speed from the CAN plugin and keeps the top speed – pr
 
 ```
 plugins/org.example.speed/
-├── manifest.json   {"id": "org.example.speed", "name": "Speed", "version": "1.0.0", "api": 1, "arch": ["all"],
+├── manifest.json   {"id": "org.example.speed", "name": "Speed", "version": "1.0.0", "api": 2, "arch": ["all"],
 │                    "ui": {"page": "qml/Main.qml", "dock": true},
 │                    "process": {"exec": "bin/speed.py"}, "shared": ["openhu.py"]}
 ├── bin/speed.py
@@ -93,8 +94,8 @@ asyncio.run(api.run())
 `qml/Main.qml`:
 
 ```qml
-import QtQuick 2.15
-import QtQuick.Controls 2.15
+import QtQuick
+import QtQuick.Controls
 import OpenHU 1.0
 
 Rectangle {

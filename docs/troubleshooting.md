@@ -16,8 +16,10 @@
 `docker/dev.sh reconnect`, API `projection.reconnect`): it resets the phone on USB as if it was plugged in again.
 Check that the udev rule is installed (`/lib/udev/rules.d/99-openhu.rules`) when not running as root.
 
-**Black picture, but Android Auto is connected.** Video is decoded with Qt Multimedia/GStreamer: the H.264 decoder
-comes from `gstreamer1.0-libav` (installed with the package). When building yourself, make sure only one aasdk is
+**Black picture, but Android Auto is connected.** The video is decoded with FFmpeg: the log shows
+`[FfmpegVideoOutput] decoder …` at the start of a session and every 10 s fps, decoding time and errors. A hardware
+decoder that shows no picture is replaced by software automatically; `Video.Decoder=software` in `openhu.ini`
+forces it. When building yourself, make sure only one aasdk is
 installed: builds before the `libaasdk` packages put it into `/usr/local`, and the compiler prefers the old headers in
 `/usr/local/include`. Remove it with
 `sudo rm -r /usr/local/lib/libaasdk* /usr/local/lib/libaap_protobuf* /usr/local/lib/cmake/aasdk /usr/local/lib/cmake/aap_protobuf /usr/local/include/aasdk /usr/local/include/aap_protobuf`.

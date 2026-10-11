@@ -99,26 +99,31 @@ void AaBridge::configure(configuration::IConfiguration::Pointer configuration)
     this->updateMargins();
 }
 
-QObject* AaBridge::mediaObject() const
+QVideoSink* AaBridge::videoSink() const
 {
-    return mediaPlayer_.data();
+    return videoSink_.data();
 }
 
-void AaBridge::setMediaPlayer(QMediaPlayer* player)
+void AaBridge::setVideoSink(QVideoSink* sink)
 {
-    if(mediaPlayer_ != player)
+    if(videoSink_ != sink)
     {
-        mediaPlayer_ = player;
-        emit mediaObjectChanged();
+        videoSink_ = sink;
+        emit videoSinkChanged();
     }
 }
 
-void AaBridge::releaseMediaPlayer(QMediaPlayer* player)
+void AaBridge::setVideoOutputActive(const void* output, bool active)
 {
-    if(mediaPlayer_ == player)
+    if(active)
     {
-        mediaPlayer_ = nullptr;
-        emit mediaObjectChanged();
+        activeOutput_ = output;
+        this->setVideoActive(true);
+    }
+    else if(activeOutput_ == output)
+    {
+        activeOutput_ = nullptr;
+        this->setVideoActive(false);
     }
 }
 

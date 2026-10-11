@@ -30,7 +30,6 @@ if(NOT CMAKE_BUILD_TYPE)
     message(STATUS "Forcing Release build type")
     set(CMAKE_BUILD_TYPE Release CACHE STRING "Choose the type of build." FORCE)
     set(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
-    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,-rpath,/usr/local/qt5/lib")
 
     # Set the possible values of build type for cmake-gui
     set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS "Debug" "Release" "MinSizeRel" "RelWithDebInfo")
@@ -105,14 +104,15 @@ message(STATUS "aasdk ${aasdk_VERSION}: ${aasdk_DIR}")
 
 find_package(Boost REQUIRED COMPONENTS system log_setup log OPTIONAL_COMPONENTS unit_test_framework)
 find_package(libusb-1.0 REQUIRED)
-find_package(Qt5 COMPONENTS DBus Multimedia Network Qml Quick WebSockets)
+find_package(Qt6 6.8 REQUIRED COMPONENTS Core Gui DBus Multimedia Network Qml Quick WebSockets)
+# H.264 decoder of the Android Auto video (Projection/FfmpegVideoOutput)
+find_package(PkgConfig REQUIRED)
+pkg_check_modules(FFMPEG REQUIRED IMPORTED_TARGET libavcodec libavutil libswscale)
 find_package(OpenSSL REQUIRED)
 find_package(rtaudio REQUIRED)
 find_package(gps REQUIRED)
 
 include_directories(${CMAKE_CURRENT_BINARY_DIR}
-        ${Qt5Multimedia_INCLUDE_DIRS}
-        ${Qt5Network_INCLUDE_DIRS}
         ${Boost_INCLUDE_DIRS}
         ${OPENSSL_INCLUDE_DIR}
         ${RTAUDIO_INCLUDE_DIRS}
@@ -140,12 +140,15 @@ add_library(openhu_core STATIC ${autoapp_source_files})
 target_link_libraries(openhu_core PUBLIC
         libusb
         ${Boost_LIBRARIES}
-        ${Qt5DBus_LIBRARIES}
-        ${Qt5Multimedia_LIBRARIES}
-        ${Qt5Network_LIBRARIES}
-        ${Qt5Qml_LIBRARIES}
-        ${Qt5Quick_LIBRARIES}
-        ${Qt5WebSockets_LIBRARIES}
+        Qt6::Core
+        Qt6::Gui
+        Qt6::DBus
+        Qt6::Multimedia
+        Qt6::Network
+        Qt6::Qml
+        Qt6::Quick
+        Qt6::WebSockets
+        PkgConfig::FFMPEG
         ${WINSOCK2_LIBRARIES}
         ${RTAUDIO_LIBRARIES}
         ${GPS_LIBRARIES}
@@ -260,14 +263,13 @@ set(CPACK_DEBIAN_PACKAGE_CONFLICTS "openauto")
 set(CPACK_DEBIAN_PACKAGE_REPLACES "openauto")
 set(CPACK_DEBIAN_PACKAGE_SHLIBDEPS ON)
 
-# Explicit dependencies for GStreamer video codec support and Qt Multimedia backend
-# These are required for H.264/H.265 video decoding from Android Auto via QtVideoOutput
+# Libraries come from shlibdeps (Qt 6, FFmpeg for the video); the QML modules of the shell, pactl for the volume
 # Wireless Android Auto and car radio: BlueZ for Bluetooth, NetworkManager for the hotspot, iw for the WiFi country
 # Plugins written in Python use the API client of openhu-plugins (python3-websockets)
 set(CPACK_DEBIAN_PACKAGE_RECOMMENDS "bluez, network-manager, iw, python3, python3-websockets")
 string(REGEX MATCH "^[0-9]+" _aasdk_major "${OPENHU_AASDK_VERSION}")
 math(EXPR _aasdk_next_major "${_aasdk_major} + 1")
-set(CPACK_DEBIAN_PACKAGE_DEPENDS "libaasdk (>= ${OPENHU_AASDK_VERSION}), libaasdk (<< ${_aasdk_next_major}), libqt5multimedia5, libqt5websockets5, pulseaudio-utils, libqt5multimedia5-plugins, qml-module-qtquick2, qml-module-qtquick-window2, qml-module-qtquick-layouts, qml-module-qtquick-controls2, qml-module-qtmultimedia, gstreamer1.0-plugins-base, gstreamer1.0-plugins-good, gstreamer1.0-libav, gstreamer1.0-plugins-bad, gstreamer1.0-plugins-ugly")
+set(CPACK_DEBIAN_PACKAGE_DEPENDS "libaasdk (>= ${OPENHU_AASDK_VERSION}), libaasdk (<< ${_aasdk_next_major}), pulseaudio-utils, qml6-module-qtquick, qml6-module-qtquick-window, qml6-module-qtquick-layouts, qml6-module-qtquick-controls, qml6-module-qtmultimedia")
 
 # Debian package control scripts
 set(CPACK_DEBIAN_PACKAGE_CONTROL_EXTRA

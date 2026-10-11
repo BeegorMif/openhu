@@ -29,6 +29,12 @@ Aktionen/Keymap, API inkl. WebSocket, Plugin-Store mit lokalem Repo), `qmllint` 
 `tests/shell-smoke.sh`, das die installierte Shell headless startet, alle Seiten per API zeigt und bei QML-Warnungen
 fehlschlägt. Lokal: `docker/dev.sh test`. Der Code außer `main()` liegt dafür in der Bibliothek `openhu_core`.
 
+Qt 6.8 (Branch `qt6`, Issue #5): Video über einen eigenen FFmpeg-Decoder (`Projection/FfmpegVideoOutput`, eine
+AA-Nachricht = ein `AVPacket`, neuester Frame an den `QVideoSink` des `VideoOutput` in `AaPage.qml`, Decoder über
+`Video.Decoder`), GStreamer entfällt. Audio über `QAudioSink`/`QAudioSource`. Plugin-API 2 (`api` im Manifest),
+Plugins anderer API werden weder installiert noch geladen. Debians Qt 6 hat kein eglfs: der Dienst ohne Desktop
+kommt mit #9 (Kiosk-Compositor `cage`).
+
 ## Phasen
 
 | Phase | Inhalt | Status |

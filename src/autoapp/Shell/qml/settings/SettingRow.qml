@@ -1,5 +1,5 @@
-import QtQuick 2.15
-import QtQuick.Layouts 1.15
+import QtQuick
+import QtQuick.Layouts
 import OpenHU 1.0
 
 // One setting: title and description on the left, control on the right.

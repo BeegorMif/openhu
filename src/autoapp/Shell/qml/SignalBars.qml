@@ -1,6 +1,5 @@
-import QtQuick 2.15
+import QtQuick
 import OpenHU 1.0
-import "."
 
 // Mobile reception, level 0-4.
 Row {

@@ -1,6 +1,5 @@
-import QtQuick 2.15
+import QtQuick
 import OpenHU 1.0
-import "."
 
 // Bluetooth rune, shown in the status bar while the car radio is connected.
 Canvas {

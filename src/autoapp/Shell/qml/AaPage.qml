@@ -1,7 +1,6 @@
-import QtQuick 2.15
-import QtMultimedia 5.15
+import QtQuick
+import QtMultimedia
 import OpenHU 1.0
-import "."
 
 // Android Auto inside the shell. The phone renders its UI into contentRect of the video frame
 // (frame minus margins, chosen by AaBridge to match this page's aspect ratio); the video is
@@ -26,11 +25,13 @@ Rectangle {
     onWidthChanged: viewportTimer.restart()
     onHeightChanged: viewportTimer.restart()
 
+    // The decoder (FfmpegVideoOutput) sends its frames to this sink
     VideoOutput {
+        id: video
         readonly property real sx: page.width / aaBridge.contentRect.width
         readonly property real sy: page.height / aaBridge.contentRect.height
 
-        source: aaBridge
+        Component.onCompleted: aaBridge.videoSink = video.videoSink
         fillMode: VideoOutput.Stretch
         x: -aaBridge.contentRect.x * sx
         y: -aaBridge.contentRect.y * sy

@@ -1,6 +1,6 @@
-import QtQuick 2.15
-import QtQuick.Controls 2.15
-import QtQuick.Layouts 1.15
+import QtQuick
+import QtQuick.Controls
+import QtQuick.Layouts
 import OpenHU 1.0
 
 // Key map: keyboard and steering wheel keys (as keyboard keys) -> actions.

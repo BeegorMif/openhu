@@ -62,8 +62,9 @@ cmd_build() {
     cmake --install /build/aasdk --prefix /opt/aasdk >/dev/null
 
     echo "=== openhu ==="
-    # configure only once (Ninja reruns CMake itself), a build directory from another generator is discarded
-    if [ ! -f /build/openhu/build.ninja ]; then
+    # configure only once (Ninja reruns CMake itself), a build directory from another generator
+    # or from the Qt 5 times is discarded
+    if [ ! -f /build/openhu/build.ninja ] || grep -q "^Qt5_DIR" /build/openhu/CMakeCache.txt 2>/dev/null; then
       find /build/openhu -mindepth 1 -delete
       cmake -S /src -B /build/openhu -DCMAKE_BUILD_TYPE=Release \
             -DCPACK_DEBIAN_PACKAGE_RELEASE="$(bash /src/scripts/distro_release.sh)" \
@@ -77,7 +78,7 @@ cmd_test() {
   cmd_build
   dev_container bash -euo pipefail -c '
     echo "=== qmllint ==="
-    find src/autoapp/Shell/qml \( -name "*.qml" -o -name "*.js" \) -print0 | xargs -0 qmllint
+    bash tests/qmllint.sh
     echo "=== ctest ==="
     ctest --test-dir /build/openhu --output-on-failure
     echo "=== shell ==="

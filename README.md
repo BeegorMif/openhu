@@ -7,7 +7,7 @@ wireless, Bluetooth car radio, plugins and an API for everything around it.**
 
 [![CI](https://github.com/average-web-dev/openhu/actions/workflows/ci.yml/badge.svg)](https://github.com/average-web-dev/openhu/actions/workflows/ci.yml)
 [![License: GPL v3](https://img.shields.io/badge/license-GPLv3-blue.svg)](LICENSE)
-![Qt 5.15](https://img.shields.io/badge/Qt-5.15%20QML-41cd52?logo=qt)
+![Qt 6.8](https://img.shields.io/badge/Qt-6.8%20QML-41cd52?logo=qt)
 ![Platforms](https://img.shields.io/badge/platform-x86__64%20%7C%20arm64-lightgrey)
 [![Based on OpenAuto](https://img.shields.io/badge/based%20on-OpenAuto-6e7781)](https://github.com/opencardev/openauto)
 

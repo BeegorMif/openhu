@@ -47,6 +47,10 @@ public:
     PluginManager(quint16 apiPort, QObject* parent = nullptr);
     ~PluginManager() override;
 
+    // "api" in manifest.json: plugins of another version (e.g. QML for Qt 5 = api 1) are listed but not loaded
+    static constexpr int cApiVersion = 2;
+    static bool compatible(const QVariantMap& manifest);
+
     static QString baseDir();
     static QString pluginsDir();
 
@@ -84,6 +88,7 @@ private:
         QString dir;
         QVariantMap manifest;
         bool enabled = true;
+        bool compatible = true;
         int dock = -1;  // -1: manifest, 0/1: user setting
         bool overlayVisible = false;
         std::unique_ptr<QProcess> process;

@@ -16,8 +16,8 @@
 | | |
 |---|---|
 | Computer | Raspberry Pi 4/5 (arm64) or an x86_64 PC |
-| OS | Debian 13 "trixie" based; Raspberry Pi OS / Debian 12 should work (Qt 5.15), untested |
-| Display | any screen Qt can drive (KMS/eglfs without desktop, or X11/Wayland), touch recommended |
+| OS | Debian 13 "trixie" or Raspberry Pi OS based on it (Qt 6.8); Debian 12 / bookworm is not supported (Qt 6.4) |
+| Display | X11 or Wayland, touch recommended (without a desktop: see below) |
 | Audio | PulseAudio or PipeWire with `pipewire-pulse` (volume control uses `pactl`) |
 | Phone | Android with Android Auto; wireless needs Android 11+ and 5 GHz WiFi in most phones |
 | Wireless AA | Bluetooth adapter (BlueZ), WiFi card with access point mode managed by NetworkManager |
@@ -70,9 +70,10 @@ a local source tree instead. Until the APT repository exists, `apt` cannot fetch
 ```bash
 sudo apt install build-essential cmake ninja-build pkg-config git ca-certificates \
     libboost-system-dev libboost-log-dev libprotobuf-dev protobuf-compiler libusb-1.0-0-dev libssl-dev \
-    libgps-dev librtaudio-dev qtbase5-dev qtmultimedia5-dev qtdeclarative5-dev qtquickcontrols2-5-dev \
-    libqt5websockets5-dev qml-module-qtquick2 qml-module-qtquick-window2 qml-module-qtquick-layouts \
-    qml-module-qtquick-controls2 qml-module-qtmultimedia dpkg-dev fakeroot file
+    libgps-dev librtaudio-dev qt6-base-dev qt6-declarative-dev qt6-multimedia-dev qt6-websockets-dev \
+    qt6-declarative-dev-tools libavcodec-dev libavutil-dev libswscale-dev qml6-module-qtquick \
+    qml6-module-qtquick-window qml6-module-qtquick-layouts qml6-module-qtquick-controls qml6-module-qtmultimedia \
+    dpkg-dev fakeroot file
 
 git clone https://github.com/average-web-dev/openhu.git
 cd openhu
@@ -80,13 +81,15 @@ cd openhu
 sudo apt install ./packages/libaasdk_*.deb ./packages/openhu_*.deb
 ```
 
-The package pulls in the runtime libraries (Qt, GStreamer for H.264, `pactl`) and recommends `bluez`,
+The package pulls in the runtime libraries (Qt 6, FFmpeg for H.264, `pactl`) and recommends `bluez`,
 `network-manager`, `iw` (wireless Android Auto, car radio) and `python3-websockets` (Python plugins).
 It installs a udev rule for phones (`/lib/udev/rules.d/99-openhu.rules`).
 
 ### Start
 
-**As a service without desktop** (KMS/eglfs, starts with the system):
+**As a service without desktop** (starts with the system): Debian's Qt 6 has no eglfs platform plugin, which
+the service used with Qt 5. Until it runs in a kiosk Wayland compositor (`cage`, issue #9) it needs a session with
+X11 or Wayland; the commands stay the same:
 
 ```bash
 sudo systemctl enable --now openhu

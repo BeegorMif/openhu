@@ -39,7 +39,7 @@
 #include <f1x/openauto/autoapp/Service/NavigationStatus/NavigationStatusService.hpp>
 #include <f1x/openauto/autoapp/Service/MediaPlaybackStatus/MediaPlaybackStatusService.hpp>
 #include <f1x/openauto/autoapp/Service/PhoneStatus/PhoneStatusService.hpp>
-#include <f1x/openauto/autoapp/Projection/QtVideoOutput.hpp>
+#include <f1x/openauto/autoapp/Projection/FfmpegVideoOutput.hpp>
 #include <f1x/openauto/autoapp/Projection/RtAudioOutput.hpp>
 #include <f1x/openauto/autoapp/Projection/QtAudioOutput.hpp>
 #include <f1x/openauto/autoapp/Projection/QtAudioInput.hpp>
@@ -159,7 +159,7 @@ namespace f1x::openauto::autoapp::service {
     serviceList.emplace_back(
         std::make_shared<mediasink::SystemAudioService>(ioService_, messenger, std::move(systemAudioOutput)));
 
-    projection::IVideoOutput::Pointer videoOutput(new projection::QtVideoOutput(configuration_),
+    projection::IVideoOutput::Pointer videoOutput(new projection::FfmpegVideoOutput(configuration_),
                                                   std::bind(&QObject::deleteLater, std::placeholders::_1));
 
     OPENAUTO_LOG(info) << "[ServiceFactory] Video Channel enabled";

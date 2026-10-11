@@ -40,6 +40,7 @@ the container).
 | `FPS` | `2` | `1` = 60 fps, `2` = 30 fps |
 | `ScreenDPI` | `140` | larger = bigger text and icons in Android Auto |
 | `MarginWidth`, `MarginHeight` | `0` | `0`/`0` = computed so the projection fills the area undistorted |
+| `Decoder` | `auto` | H.264 decoder (FFmpeg): `auto` = hardware decoder where available (`h264_v4l2m2m` on ARM), else software; `software`; or the name of an FFmpeg decoder. The log shows which one runs and its speed every 10 s |
 
 ### [Input]
 

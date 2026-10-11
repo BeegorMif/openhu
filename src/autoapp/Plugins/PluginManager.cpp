@@ -85,6 +85,12 @@ PluginManager::~PluginManager()
     this->stopAll();
 }
 
+bool PluginManager::compatible(const QVariantMap& manifest)
+{
+    // without "api": plugins from before the versioning (Qt 5)
+    return manifest.value("api", 1).toInt() == cApiVersion;
+}
+
 QString PluginManager::baseDir()
 {
     return QDir::homePath() + "/.openhu";
@@ -121,6 +127,13 @@ void PluginManager::load()
         plugin->dir = pluginDir;
         plugin->manifest = manifest;
         plugin->enabled = state.value(id).toMap().value("enabled", true).toBool();
+        plugin->compatible = compatible(manifest);
+        if(!plugin->compatible)
+        {
+            OPENAUTO_LOG(warning) << "[PluginManager] " << id.toStdString() << " is made for plugin API "
+                                  << manifest.value("api", 1).toInt() << ", this OpenHU has " << cApiVersion
+                                  << ": not loaded, update it in the store";
+        }
         plugin->dock = state.value(id).toMap().contains("dock") ? state.value(id).toMap().value("dock").toBool() : -1;
         plugin->restartTimer.setSingleShot(true);
         connect(&plugin->restartTimer, &QTimer::timeout, this, [this, id]() {
@@ -139,7 +152,7 @@ void PluginManager::load()
 
     for(auto& entry: plugins_)
     {
-        if(entry.second->enabled)
+        if(entry.second->enabled && entry.second->compatible)
         {
             this->startProcess(*entry.second);
         }
@@ -288,6 +301,10 @@ void PluginManager::trimQmlCache()
 
 void PluginManager::startProcess(Plugin& plugin)
 {
+    if(!plugin.compatible)
+    {
+        return;
+    }
     const QVariantMap process = plugin.manifest.value("process").toMap();
     const QString exec = process.value("exec").toString();
     if(exec.isEmpty() || (plugin.process && plugin.process->state() != QProcess::NotRunning))
@@ -405,8 +422,10 @@ QVariantMap PluginManager::toVariant(const Plugin& plugin) const
     result["version"] = plugin.manifest.value("version");
     result["description"] = plugin.manifest.value("description");
     result["enabled"] = plugin.enabled;
-    result["page"] = fileUrl(plugin.dir, ui.value("page").toString());
-    result["overlay"] = fileUrl(plugin.dir, ui.value("overlay").toString());
+    result["compatible"] = plugin.compatible;
+    // QML of an incompatible plugin is not loaded
+    result["page"] = plugin.compatible ? fileUrl(plugin.dir, ui.value("page").toString()) : QString();
+    result["overlay"] = plugin.compatible ? fileUrl(plugin.dir, ui.value("overlay").toString()) : QString();
     result["icon"] = imageUrl(plugin.dir, ui.value("icon").toString());
     result["dock"] = plugin.dock >= 0 ? plugin.dock == 1 : ui.value("dock", false).toBool();
     result["overlayVisible"] = plugin.overlayVisible;

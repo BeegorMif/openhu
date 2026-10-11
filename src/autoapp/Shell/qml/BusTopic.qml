@@ -1,4 +1,4 @@
-import QtQuick 2.15
+import QtQuick
 
 // Current value of an EventBus topic, e.g. BusTopic { id: media; topic: "media.metadata" } -> media.data.title
 QtObject {

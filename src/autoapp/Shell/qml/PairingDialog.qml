@@ -1,7 +1,6 @@
-import QtQuick 2.15
-import QtQuick.Controls 2.15
+import QtQuick
+import QtQuick.Controls
 import OpenHU 1.0
-import "."
 
 // Bluetooth pairing request: the phone shows the same code, the user confirms on both sides.
 Rectangle {

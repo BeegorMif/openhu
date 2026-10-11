@@ -43,7 +43,7 @@ public:
     // Packs a plugin and adds it to the index. manifestId differs from id to test broken archives,
     // nested = false puts manifest.json at the top of the archive instead of <id>/manifest.json.
     QVariantMap add(const QString& id, const QString& version, const QStringList& arch = {"all"},
-                    QString manifestId = QString(), bool nested = true)
+                    QString manifestId = QString(), bool nested = true, int api = PluginManager::cApiVersion)
     {
         if(manifestId.isEmpty())
         {
@@ -52,7 +52,7 @@ public:
         const QString staging = path_ + "/staging-" + id + "-" + version;
         const QString pluginDir = nested ? staging + "/" + id : staging;
         QDir().mkpath(pluginDir);
-        writeJson(pluginDir + "/manifest.json", {{"id", manifestId}, {"name", id}, {"version", version}});
+        writeJson(pluginDir + "/manifest.json", {{"id", manifestId}, {"name", id}, {"version", version}, {"api", api}});
 
         const QString archive = id + "-" + version + ".tar.gz";
         QProcess tar;
@@ -65,7 +65,7 @@ public:
         const QString sha256 = QString::fromLatin1(QCryptographicHash::hash(file.readAll(), QCryptographicHash::Sha256).toHex());
 
         QVariantMap entry{{"id", id}, {"name", id}, {"version", version}, {"arch", arch},
-                          {"archive", archive}, {"sha256", sha256}};
+                          {"archive", archive}, {"sha256", sha256}, {"api", api}};
         for(int i = entries_.size() - 1; i >= 0; --i)
         {
             if(entries_[i].toMap().value("id") == id)
@@ -262,6 +262,37 @@ private slots:
 
         QVERIFY(manager.plugins().isEmpty());
         QVERIFY(QDir(PluginManager::pluginsDir()).entryList(QDir::Dirs | QDir::NoDotAndDotDot).isEmpty());
+    }
+
+    void otherPluginApi()
+    {
+        TestHome home;
+        Repository repo(home.path("repo"));
+        repo.add("legacy", "1.0.0", {"all"}, QString(), true, 1);
+        writeSources({"file " + repo.path()});
+
+        PluginManager manager(0);
+        PluginStore store(manager);
+        store.refresh();
+        QVERIFY(waitIdle(store));
+        QVERIFY(!package(store, "legacy").value("compatible").toBool());
+
+        store.install("legacy");
+        QVERIFY(waitIdle(store));
+        QVERIFY2(store.status().contains("andere OpenHU-Version"), qPrintable(store.status()));
+        QVERIFY(!QDir(PluginManager::pluginsDir() + "/legacy").exists());
+
+        // copied by hand (or installed before an OpenHU update): listed, but its QML is not loaded
+        const QString dir = PluginManager::pluginsDir() + "/handmade";
+        QDir().mkpath(dir);
+        writeJson(dir + "/manifest.json", {{"id", "handmade"}, {"name", "Handmade"}, {"version", "1.0.0"},
+                                           {"ui", QVariantMap{{"page", "Main.qml"}}}});
+        manager.load();
+        const QVariantMap handmade = manager.plugin("handmade");
+        QVERIFY(manager.contains("handmade"));
+        QVERIFY(!handmade.value("compatible").toBool());
+        QVERIFY(handmade.value("page").toString().isEmpty());
+        QVERIFY(!package(store, "handmade").value("compatible").toBool());
     }
 
     void firstSourceWins()

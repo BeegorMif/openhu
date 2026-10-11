@@ -1,7 +1,6 @@
-import QtQuick 2.15
+import QtQuick
 import OpenHU 1.0
-import QtQuick.Controls 2.15
-import "."
+import QtQuick.Controls
 
 // Volume overlay: appears on every volume change (keys, API, steering wheel) and on tap in the status bar.
 Rectangle {

@@ -23,7 +23,7 @@
 #include <QPointer>
 #include <QRect>
 #include <QSize>
-#include <QMediaPlayer>
+#include <QVideoSink>
 #include <f1x/openauto/autoapp/Configuration/IConfiguration.hpp>
 #include <f1x/openauto/autoapp/Projection/InputEvent.hpp>
 #include <aap_protobuf/service/media/sink/message/VideoCodecResolutionType.pb.h>
@@ -42,13 +42,13 @@ class InputDevice;
 namespace shell
 {
 
-// Connects the Android Auto projection (video player, input device) with the QML shell.
-// The video is rendered by a QML VideoOutput (source: aaBridge) and touch input comes from an AaSurface item,
+// Connects the Android Auto projection (video decoder, input device) with the QML shell.
+// The video is rendered by a QML VideoOutput (its videoSink is set here) and touch input comes from an AaSurface item,
 // so the projection lives inside the main window instead of a separate fullscreen window.
 class AaBridge: public QObject
 {
     Q_OBJECT
-    Q_PROPERTY(QObject* mediaObject READ mediaObject NOTIFY mediaObjectChanged)
+    Q_PROPERTY(QVideoSink* videoSink READ videoSink WRITE setVideoSink NOTIFY videoSinkChanged)
     Q_PROPERTY(bool videoActive READ videoActive NOTIFY videoActiveChanged)
     Q_PROPERTY(bool surfaceVisible READ surfaceVisible WRITE setSurfaceVisible NOTIFY surfaceVisibleChanged)
     Q_PROPERTY(QSize videoSize READ videoSize NOTIFY geometryChanged)
@@ -60,12 +60,14 @@ public:
     // Called once at startup (GUI thread).
     void configure(configuration::IConfiguration::Pointer configuration);
 
-    QObject* mediaObject() const;
-    void setMediaPlayer(QMediaPlayer* player);
-    void releaseMediaPlayer(QMediaPlayer* player);
+    // Sink of the shell's VideoOutput (AaPage.qml), decoded frames go there. GUI thread.
+    QVideoSink* videoSink() const;
+    void setVideoSink(QVideoSink* sink);
 
     bool videoActive() const;
-    void setVideoActive(bool active);
+    // The video output of a session starts/stops showing. A late-stopped output of an earlier session
+    // does not hide the current one. GUI thread.
+    void setVideoOutputActive(const void* output, bool active);
 
     bool surfaceVisible() const;
     void setSurfaceVisible(bool visible);
@@ -90,7 +92,7 @@ public:
     bool sendButton(const projection::ButtonEvent& event);
 
 signals:
-    void mediaObjectChanged();
+    void videoSinkChanged();
     void videoActiveChanged();
     void surfaceVisibleChanged();
     void geometryChanged();
@@ -98,8 +100,10 @@ signals:
 private:
     AaBridge() = default;
     void updateMargins();
+    void setVideoActive(bool active);
 
-    QPointer<QMediaPlayer> mediaPlayer_;
+    QPointer<QVideoSink> videoSink_;
+    const void* activeOutput_ = nullptr;
     bool videoActive_ = false;
     bool surfaceVisible_ = false;
 

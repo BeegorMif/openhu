@@ -1,5 +1,5 @@
-import QtQuick 2.15
-import QtQuick.Controls 2.15
+import QtQuick
+import QtQuick.Controls
 import OpenHU 1.0
 
 // Text setting, applied with Enter or when the field loses focus.

@@ -83,6 +83,11 @@ bool archCompatible(const QVariantMap& package)
     return arch.isEmpty() || arch.contains("all") || arch.contains(PluginStore::currentArch());
 }
 
+bool compatible(const QVariantMap& package)
+{
+    return archCompatible(package) && PluginManager::compatible(package);
+}
+
 // Plugin ids become folder names
 bool validId(const QString& id)
 {
@@ -176,7 +181,7 @@ QVariantList PluginStore::packages() const
             const bool isInstalled = manager_.contains(id);
             package["source"] = sources_[i].line();
             package["official"] = sources_[i].official();
-            package["compatible"] = archCompatible(package);
+            package["compatible"] = compatible(package);
             package["installed"] = isInstalled;
             package["installedVersion"] = isInstalled ? manager_.plugin(id).value("version").toString() : installedVersion;
             package["updateAvailable"] = isInstalled && compareVersions(package["installedVersion"].toString(),
@@ -195,7 +200,7 @@ QVariantList PluginStore::packages() const
             package["installed"] = true;
             package["installedVersion"] = map.value("version");
             package["updateAvailable"] = false;
-            package["compatible"] = true;
+            package["compatible"] = map.value("compatible", true);
             package["source"] = QString();
             package["official"] = false;
             result.append(package);
@@ -534,6 +539,13 @@ void PluginStore::installPackage(const QString& id, std::function<void()> done)
     if(!archCompatible(package))
     {
         this->setStatus(id + " ist nicht für " + currentArch() + " verfügbar", true);
+        done();
+        return;
+    }
+    if(!PluginManager::compatible(package))
+    {
+        this->setStatus(QString("%1 ist für eine andere OpenHU-Version (Plugin-API %2, OpenHU %3)")
+                            .arg(id).arg(package.value("api", 1).toInt()).arg(PluginManager::cApiVersion), true);
         done();
         return;
     }

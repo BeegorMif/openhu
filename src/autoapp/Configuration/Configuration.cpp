@@ -37,6 +37,7 @@ const std::string cHandednessKey = "General.HandednessOfTrafficType";
 const std::string cShowCursorKey = "General.ShowCursor";
 const std::string cNameSuffixKey = "General.NameSuffix";
 const std::string cVideoResolutionAutoKey = "Video.AutoResolution";
+const std::string cVideoDecoderKey = "Video.Decoder";
 const std::string cApiPortKey = "Api.Port";
 const std::string cApiListenKey = "Api.Listen";
 const std::string cApiAllowHotspotKey = "Api.AllowHotspot";
@@ -105,6 +106,7 @@ void Configuration::load()
         videoResolution_ = static_cast<aap_protobuf::service::media::sink::message::VideoCodecResolutionType>(
             ini.get<uint32_t>(cVideoResolutionKey, videoResolution_));
         videoResolutionAuto_ = ini.get<bool>(cVideoResolutionAutoKey, videoResolutionAuto_);
+        videoDecoder_ = ini.get<std::string>(cVideoDecoderKey, videoDecoder_);
         screenDPI_ = ini.get<size_t>(cVideoScreenDPIKey, screenDPI_);
         videoMargins_ = QRect(0, 0, ini.get<int32_t>(cVideoMarginWidthKey, 0), ini.get<int32_t>(cVideoMarginHeightKey, 0));
         enableTouchscreen_ = ini.get<bool>(cTouchscreenKey, enableTouchscreen_);
@@ -148,6 +150,7 @@ void Configuration::reset()
     showCursor_ = false;
     nameSuffix_ = "";
     videoResolutionAuto_ = true;
+    videoDecoder_ = "auto";
     apiPort_ = 5520;
     apiListenAddress_ = "127.0.0.1";
     apiAllowHotspot_ = false;
@@ -176,6 +179,7 @@ void Configuration::save()
     ini.put<bool>(cShowCursorKey, showCursor_);
     ini.put<std::string>(cNameSuffixKey, nameSuffix_);
     ini.put<bool>(cVideoResolutionAutoKey, videoResolutionAuto_);
+    ini.put<std::string>(cVideoDecoderKey, videoDecoder_);
     ini.put<uint16_t>(cApiPortKey, apiPort_);
     ini.put<std::string>(cApiListenKey, apiListenAddress_);
     ini.put<bool>(cApiAllowHotspotKey, apiAllowHotspot_);
@@ -268,6 +272,16 @@ bool Configuration::getVideoResolutionAuto() const
 void Configuration::setVideoResolutionAuto(bool value)
 {
     videoResolutionAuto_ = value;
+}
+
+std::string Configuration::getVideoDecoder() const
+{
+    return videoDecoder_;
+}
+
+void Configuration::setVideoDecoder(const std::string& value)
+{
+    videoDecoder_ = value;
 }
 
 uint16_t Configuration::getApiPort() const
