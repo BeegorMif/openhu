@@ -1,4 +1,5 @@
-# Builds OpenHU against the newest fitting aasdk release (OPENHU_AASDK_VERSION) and uploads the .deb.
+# Builds OpenHU for amd64 and arm64 against the newest fitting aasdk release (OPENHU_AASDK_VERSION),
+# installs the packages in a clean Debian and uploads them.
 name: CI
 
 on:
@@ -12,7 +13,15 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            runner: ubuntu-24.04
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@v4
 
@@ -20,7 +29,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          version=$(bash scripts/fetch-aasdk.sh "$RUNNER_TEMP/aasdk" amd64)
+          version=$(bash scripts/fetch-aasdk.sh "$RUNNER_TEMP/aasdk" ${{ matrix.arch }})
           echo "Building against aasdk $version:" >> "$GITHUB_STEP_SUMMARY"
           ls "$RUNNER_TEMP/aasdk" | sed 's/^/- /' >> "$GITHUB_STEP_SUMMARY"
           echo "aasdk $version"
@@ -34,12 +43,25 @@ jobs:
           target: packages
           build-contexts: aasdk=${{ runner.temp }}/aasdk
           outputs: type=local,dest=packages
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-from: type=gha,scope=${{ matrix.arch }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.arch }}
+
+      # Package name/architecture, then install in a clean Debian: every library of autoapp must resolve
+      - name: Smoke test
+        run: |
+          deb=$(ls packages/openhu_*_${{ matrix.arch }}.deb)
+          [ "$(dpkg-deb -f "$deb" Architecture)" = "${{ matrix.arch }}" ]
+          dpkg-deb -f "$deb" Package Version Architecture | paste -sd " " >> "$GITHUB_STEP_SUMMARY"
+          docker run --rm -e DEBIAN_FRONTEND=noninteractive -v "$PWD/packages:/packages:ro" debian:trixie-slim bash -euo pipefail -c '
+            apt-get update -qq
+            apt-get install -y -qq --no-install-recommends /packages/libaasdk_*.deb /packages/openhu_*.deb >/dev/null
+            dpkg -s openhu libaasdk | grep -E "^(Package|Status|Version):"
+            ldd /usr/bin/autoapp
+            if ldd /usr/bin/autoapp | grep "not found"; then exit 1; fi'
 
       # openhu and the libaasdk packages it was built against
       - uses: actions/upload-artifact@v4
         with:
-          name: openhu-amd64
+          name: openhu-${{ matrix.arch }}
           path: packages/*.deb
           retention-days: 30

@@ -22,7 +22,8 @@ Alle drei Repos sind gepusht (OpenHU bis Phase 6 + Doku, aasdk mit USB-Filter). 
 SemVer-Version (`project(aasdk VERSION ...)`), der Workflow `openhu.yml` im aasdk-Fork baut `libaasdk`/`libaasdk-dev`
 für amd64 und arm64 und veröffentlicht sie beim Tag `openhu-v<version>` als GitHub-Release. Die OpenHU-CI
 (`.github/workflows/ci.yml`) holt das neueste Release, das zu `OPENHU_AASDK_VERSION` passt
-(`scripts/fetch-aasdk.sh`), und lädt OpenHU- und aasdk-`.deb` (amd64) als Artefakt hoch.
+(`scripts/fetch-aasdk.sh`), baut OpenHU für amd64 und arm64 (nativer arm-Runner), installiert die Pakete testweise in einem
+frischen `debian:trixie-slim` und lädt OpenHU- und aasdk-`.deb` als Artefakte `openhu-amd64`/`openhu-arm64` hoch.
 
 ## Phasen
 
