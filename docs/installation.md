@@ -59,7 +59,12 @@ blocks D-Bus otherwise) need it. Settings are stored in `docker/config/openhu.in
 
 ### Build and install
 
-aasdk is built from the OpenHU fork and installed to `/usr/local` (no package yet), OpenHU becomes a `.deb`.
+OpenHU needs the `libaasdk` packages of the OpenHU fork, released at
+[average-web-dev/aasdk](https://github.com/average-web-dev/aasdk/releases) (tags `openhu-v<version>`). The `.deb`
+depends on `libaasdk (>= 1.0), libaasdk (<< 2)` (`OPENHU_AASDK_VERSION` in `CMakeLists.txt`): any release with the
+same major version works. `--with-aasdk` downloads and installs the newest one; `--aasdk-path ../aasdk-ref` packages
+a local source tree instead. Until the APT repository exists, `apt` cannot fetch aasdk by itself, so install the
+`libaasdk` packages together with OpenHU.
 
 ```bash
 sudo apt install build-essential cmake ninja-build pkg-config git ca-certificates \
@@ -70,8 +75,8 @@ sudo apt install build-essential cmake ninja-build pkg-config git ca-certificate
 
 git clone https://github.com/average-web-dev/openhu.git
 cd openhu
-sudo ./build.sh release --with-aasdk --package --output-dir ./packages   # root: aasdk installs to /usr/local
-sudo apt install ./packages/openhu_*.deb
+./build.sh release --with-aasdk --package --output-dir ./packages   # installs libaasdk(-dev) with sudo
+sudo apt install ./packages/libaasdk_*.deb ./packages/openhu_*.deb
 ```
 
 The package pulls in the runtime libraries (Qt, GStreamer for H.264, `pactl`) and recommends `bluez`,

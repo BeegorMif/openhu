@@ -18,9 +18,11 @@ Namespaces `f1x::openauto` und Binary `autoapp` bleiben, damit Upstream-Änderun
 | `aasdk-ref/` (GitHub-Fork `average-web-dev/aasdk`, Upstream `opencardev/aasdk` als Remote `upstream`) | `openhu` | aasdk + Navigation-State/Position, PhoneStatus |
 | `openhu-plugins/` (GitHub `average-web-dev/openhu-plugins`) | `main` | offizielle Plugins + Store-Index |
 
-Alle drei Repos sind gepusht (OpenHU bis Phase 6 + Doku, aasdk mit USB-Filter). Die CI
-(`.github/workflows/ci.yml`) baut mit dem aasdk-Fork (Branch `openhu`) und lädt das OpenHU-`.deb` (amd64) als
-Artefakt hoch; aasdk wird noch nicht mitpaketiert (→ arm64-Aufgabe).
+Alle drei Repos sind gepusht (OpenHU bis Phase 6 + Doku, aasdk mit USB-Filter). aasdk hat eine eigene
+SemVer-Version (`project(aasdk VERSION ...)`), der Workflow `openhu.yml` im aasdk-Fork baut `libaasdk`/`libaasdk-dev`
+für amd64 und arm64 und veröffentlicht sie beim Tag `openhu-v<version>` als GitHub-Release. Die OpenHU-CI
+(`.github/workflows/ci.yml`) holt das neueste Release, das zu `OPENHU_AASDK_VERSION` passt
+(`scripts/fetch-aasdk.sh`), und lädt OpenHU- und aasdk-`.deb` (amd64) als Artefakt hoch.
 
 ## Phasen
 

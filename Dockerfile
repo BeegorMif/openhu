@@ -18,14 +18,15 @@
 
 # Images for OpenHU (docker/dev.sh uses the dev target):
 #   --target dev       build dependencies + runtime tools; sources, builds and aasdk stay outside in volumes
-#   --target packages  builds aasdk and OpenHU and exports the .deb:
+#   --target packages  builds OpenHU and exports its .deb together with the aasdk packages it was built against:
 #                      docker buildx build --target packages --output type=local,dest=packages \
-#                          --build-context aasdk=../aasdk-ref .
-# Without --build-context aasdk the OpenHU fork of aasdk is cloned from GitHub.
+#                          --build-context aasdk=<dir> .
+# The aasdk context is either a directory with libaasdk*.deb (CI: scripts/fetch-aasdk.sh) or an aasdk
+# source tree (../aasdk-ref), which is packaged first. Without it the branch openhu is cloned from GitHub.
 
 ARG DEBIAN_VERSION=trixie
 
-# Optional local aasdk source tree, empty by default
+# Optional aasdk packages or source tree, empty by default
 FROM scratch AS aasdk
 
 FROM debian:${DEBIAN_VERSION}-slim AS deps
@@ -131,11 +132,20 @@ ARG AASDK_REPO=https://github.com/average-web-dev/aasdk.git
 ARG AASDK_BRANCH=openhu
 RUN --mount=type=bind,from=aasdk,target=/aasdk-src,rw \
     --mount=type=cache,target=/ccache \
-    if [ -f /aasdk-src/CMakeLists.txt ]; then src=/aasdk-src; \
-    else git clone --depth 1 --branch "$AASDK_BRANCH" "$AASDK_REPO" /tmp/aasdk && src=/tmp/aasdk; fi \
-    && cd "$src" \
-    && BUILD_DIR=/tmp/aasdk-build BUILD_TESTS=OFF bash ./build.sh release install --skip-protobuf --skip-absl \
-    && rm -rf /tmp/aasdk /tmp/aasdk-build
+    mkdir -p /aasdk-debs \
+    && if ls /aasdk-src/libaasdk*.deb >/dev/null 2>&1; then cp /aasdk-src/libaasdk*.deb /aasdk-debs/; \
+    else \
+        if [ -f /aasdk-src/CMakeLists.txt ]; then src=/aasdk-src; \
+        else git clone --depth 1 --branch "$AASDK_BRANCH" "$AASDK_REPO" /tmp/aasdk && src=/tmp/aasdk; fi \
+        && cd "$src" \
+        && BUILD_DIR=/tmp/aasdk-build BUILD_TESTS=OFF \
+           CMAKE_EXTRA_ARGS="-DCPACK_DEBIAN_PACKAGE_RELEASE=$(bash scripts/distro_release.sh)" \
+           bash ./build.sh release package --skip-protobuf --skip-absl \
+        && cp /tmp/aasdk-build/packages/libaasdk*.deb /aasdk-debs/ \
+        && rm -rf /tmp/aasdk /tmp/aasdk-build; \
+    fi \
+    && dpkg -i /aasdk-debs/*.deb \
+    && dpkg-query -W libaasdk libaasdk-dev
 
 FROM aasdk-build AS openhu-build
 WORKDIR /src
@@ -152,7 +162,7 @@ RUN --mount=type=cache,target=/ccache \
         -DCPACK_PROJECT_CONFIG_FILE=/src/cmake_modules/CPackProjectConfig.cmake \
     && cmake --build /tmp/build \
     && cd /tmp/build && cpack -G DEB \
-    && mkdir /out && cp -v /tmp/build/*.deb /out/
+    && mkdir /out && cp -v /tmp/build/*.deb /aasdk-debs/*.deb /out/
 
 FROM scratch AS packages
 COPY --from=openhu-build /out/ /

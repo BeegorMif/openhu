@@ -96,12 +96,12 @@ else ()
     set(PROTOBUF_INCLUDE_DIR ${Protobuf_INCLUDE_DIR})
 endif ()
 
-find_package(aap_protobuf)
-find_package(aasdk)
-
-if(NOT AAP_PROTOBUF_FOUND OR NOT AASDK_FOUND)
-message(FATAL_ERROR "aap_protobuf or aasdk not found. Please build and install AASDK first.")
-endif()
+# aasdk from the OpenHU fork (https://github.com/average-web-dev/aasdk, branch openhu).
+# Required version: any release with the same major version and at least this minor version.
+# find_package checks it here, the Depends of the .deb are derived from it below.
+set(OPENHU_AASDK_VERSION 1.0)
+find_package(aasdk ${OPENHU_AASDK_VERSION} CONFIG REQUIRED)
+message(STATUS "aasdk ${aasdk_VERSION}: ${aasdk_DIR}")
 
 find_package(Boost REQUIRED COMPONENTS system log_setup log OPTIONAL_COMPONENTS unit_test_framework)
 find_package(libusb-1.0 REQUIRED)
@@ -117,9 +117,7 @@ include_directories(${CMAKE_CURRENT_BINARY_DIR}
         ${OPENSSL_INCLUDE_DIR}
         ${RTAUDIO_INCLUDE_DIRS}
         ${include_directory}
-        ${PROTOBUF_INCLUDE_DIR}
-        ${AAP_PROTOBUF_INCLUDE_DIR}
-        ${AASDK_INCLUDE_DIR})
+        ${PROTOBUF_INCLUDE_DIR})
 
 link_directories(${CMAKE_LIBRARY_OUTPUT_DIRECTORY})
 
@@ -131,8 +129,6 @@ set(autoapp_include_directory ${include_directory}/f1x/openauto/autoapp)
 file(GLOB_RECURSE autoapp_source_files ${autoapp_sources_directory}/*.cpp ${autoapp_include_directory}/*.hpp ${common_include_directory}/*.hpp ${resources_directory}/*.qrc ${autoapp_sources_directory}/*.qrc)
 
 add_executable(autoapp ${autoapp_source_files})
-
-target_include_directories(autoapp PUBLIC ${AAP_PROTOBUF_INCLUDE_DIR} ${AASDK_INCLUDE_DIR})
 
 target_link_libraries(autoapp PUBLIC
         libusb
@@ -147,8 +143,7 @@ target_link_libraries(autoapp PUBLIC
         ${RTAUDIO_LIBRARIES}
         ${GPS_LIBRARIES}
         ${PROTOBUF_LIBRARIES}
-        ${AAP_PROTOBUF_LIB_DIR}
-        ${AASDK_LIB_DIR})
+        AASDK::aasdk)
 
 set(PROGRAM_VERSION_STRING "${OPENAUTO_BUILD_MAJOR_RELEASE}.${OPENAUTO_BUILD_MINOR_RELEASE}.${OPENAUTO_BUILD_PATCH_RELEASE}")
 
@@ -254,7 +249,9 @@ set(CPACK_DEBIAN_PACKAGE_SHLIBDEPS ON)
 # Wireless Android Auto and car radio: BlueZ for Bluetooth, NetworkManager for the hotspot, iw for the WiFi country
 # Plugins written in Python use the API client of openhu-plugins (python3-websockets)
 set(CPACK_DEBIAN_PACKAGE_RECOMMENDS "bluez, network-manager, iw, python3, python3-websockets")
-set(CPACK_DEBIAN_PACKAGE_DEPENDS "libqt5multimedia5, libqt5websockets5, pulseaudio-utils, libqt5multimedia5-plugins, qml-module-qtquick2, qml-module-qtquick-window2, qml-module-qtquick-layouts, qml-module-qtquick-controls2, qml-module-qtmultimedia, gstreamer1.0-plugins-base, gstreamer1.0-plugins-good, gstreamer1.0-libav, gstreamer1.0-plugins-bad, gstreamer1.0-plugins-ugly")
+string(REGEX MATCH "^[0-9]+" _aasdk_major "${OPENHU_AASDK_VERSION}")
+math(EXPR _aasdk_next_major "${_aasdk_major} + 1")
+set(CPACK_DEBIAN_PACKAGE_DEPENDS "libaasdk (>= ${OPENHU_AASDK_VERSION}), libaasdk (<< ${_aasdk_next_major}), libqt5multimedia5, libqt5websockets5, pulseaudio-utils, libqt5multimedia5-plugins, qml-module-qtquick2, qml-module-qtquick-window2, qml-module-qtquick-layouts, qml-module-qtquick-controls2, qml-module-qtmultimedia, gstreamer1.0-plugins-base, gstreamer1.0-plugins-good, gstreamer1.0-libav, gstreamer1.0-plugins-bad, gstreamer1.0-plugins-ugly")
 
 # Debian package control scripts
 set(CPACK_DEBIAN_PACKAGE_CONTROL_EXTRA

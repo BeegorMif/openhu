@@ -27,7 +27,7 @@ CLEAN_BUILD=false
 PACKAGE=false
 OUTPUT_DIR="/output"
 WITH_AASDK=false
-AASDK_BRANCH="openhu"
+AASDK_BRANCH=""
 AASDK_PATH=""
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SOURCE_DIR="${SCRIPT_DIR}"
@@ -61,6 +61,7 @@ while [[ $# -gt 0 ]]; do
             ;;
         --aasdk-branch)
             AASDK_BRANCH="$2"
+            WITH_AASDK=true
             shift 2
             ;;
         --aasdk-path)
@@ -79,16 +80,16 @@ while [[ $# -gt 0 ]]; do
             echo "  --clean        Clean build directory before building"
             echo "  --package      Create DEB packages after building"
             echo "  --output-dir   Directory to copy packages (default: /output)"
-            echo "  --with-aasdk   Clone AASDK branch and build/install it"
-            echo "  --aasdk-branch Branch to use for AASDK (default: openhu)"
-            echo "  --aasdk-path   Build/install AASDK from a local source tree instead of cloning"
+            echo "  --with-aasdk   Install the libaasdk packages first (newest release that fits OPENHU_AASDK_VERSION)"
+            echo "  --aasdk-branch Package and install AASDK from this branch instead of a release"
+            echo "  --aasdk-path   Package and install AASDK from a local source tree instead of a release"
             echo "  --help         Show this help message"
             echo ""
             echo "Examples:"
             echo "  $0 release --package"
             echo "  $0 debug --clean"
             echo "  $0 release --package --output-dir ./packages"
-            echo "  $0 debug --with-aasdk --aasdk-branch main"
+            echo "  $0 release --with-aasdk --package --output-dir ./packages"
             exit 0
             ;;
         *)
@@ -99,24 +100,35 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-# Handle AASDK cloning and building if requested
+# Install the libaasdk packages if requested: from a release, or packaged from a branch / source tree
+AASDK_DEBS="${SOURCE_DIR}/aasdk-debs"
 if [ "$WITH_AASDK" = true ]; then
     echo ""
-    if [ -n "$AASDK_PATH" ]; then
-        echo "Using local AASDK source from ${AASDK_PATH}..."
-        cd "${AASDK_PATH}"
+    rm -rf "${AASDK_DEBS}"
+    mkdir -p "${AASDK_DEBS}"
+    if [ -z "$AASDK_PATH" ] && [ -z "$AASDK_BRANCH" ]; then
+        echo "Downloading the AASDK release..."
+        echo "AASDK $(bash "${SOURCE_DIR}/scripts/fetch-aasdk.sh" "${AASDK_DEBS}")"
     else
-        echo "Cloning AASDK ${AASDK_BRANCH} branch..."
-        if [ -d "aasdk-build" ]; then
-            rm -rf "aasdk-build"
+        if [ -z "$AASDK_PATH" ]; then
+            echo "Cloning AASDK ${AASDK_BRANCH} branch..."
+            git clone --depth 1 --branch "${AASDK_BRANCH}" https://github.com/average-web-dev/aasdk.git "${AASDK_DEBS}/src"
+            AASDK_PATH="${AASDK_DEBS}/src"
         fi
-        git clone --branch "${AASDK_BRANCH}" https://github.com/average-web-dev/aasdk.git aasdk-build
-        cd aasdk-build
+        echo "Packaging AASDK from ${AASDK_PATH}..."
+        cd "${AASDK_PATH}"
+        # Always release: a debug build is packaged as libaasdk-dbg, which does not satisfy the Depends of OpenHU
+        BUILD_DIR="${AASDK_DEBS}/build" BUILD_TESTS=OFF \
+            CMAKE_EXTRA_ARGS="-DCPACK_DEBIAN_PACKAGE_RELEASE=$(bash scripts/distro_release.sh)" \
+            bash ./build.sh release package --skip-protobuf --skip-absl
+        cp "${AASDK_DEBS}"/build/packages/libaasdk*.deb "${AASDK_DEBS}/"
+        cd "${SOURCE_DIR}"
     fi
-    echo "Building and installing AASDK..."
-    BUILD_TESTS=OFF bash ./build.sh $BUILD_TYPE install --skip-protobuf --skip-absl
-    cd "${SOURCE_DIR}"
-    echo "AASDK build and install completed."
+    echo "Installing the AASDK packages..."
+    APT_GET="apt-get"
+    [ "$(id -u)" -ne 0 ] && APT_GET="sudo apt-get"
+    ${APT_GET} install -y "${AASDK_DEBS}"/libaasdk*.deb
+    echo "AASDK packages installed."
 fi
 
 # Determine build directory and CMake build type
@@ -204,6 +216,9 @@ if [ "$PACKAGE" = true ]; then
         echo "Copying packages to ${OUTPUT_DIR}..."
         mkdir -p "${OUTPUT_DIR}"
         find "${BUILD_DIR}" -name "*.deb" -exec cp -v {} "${OUTPUT_DIR}/" \;
+        if [ "$WITH_AASDK" = true ]; then
+            cp -v "${AASDK_DEBS}"/libaasdk*.deb "${OUTPUT_DIR}/"
+        fi
         echo ""
         echo "Packages in ${OUTPUT_DIR}:"
         ls -lh "${OUTPUT_DIR}"/*.deb 2>/dev/null || echo "No packages found"

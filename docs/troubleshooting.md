@@ -18,7 +18,9 @@ Check that the udev rule is installed (`/lib/udev/rules.d/99-openhu.rules`) when
 
 **Black picture, but Android Auto is connected.** Video is decoded with Qt Multimedia/GStreamer: the H.264 decoder
 comes from `gstreamer1.0-libav` (installed with the package). When building yourself, make sure only one aasdk is
-installed – an old `libaasdk.so` next to the new one in `/usr/local/lib` is picked up by `ldconfig`.
+installed: builds before the `libaasdk` packages put it into `/usr/local`, and the compiler prefers the old headers in
+`/usr/local/include`. Remove it with
+`sudo rm -r /usr/local/lib/libaasdk* /usr/local/lib/libaap_protobuf* /usr/local/lib/cmake/aasdk /usr/local/lib/cmake/aap_protobuf /usr/local/include/aasdk /usr/local/include/aap_protobuf`.
 
 **SSL errors right after a restart of OpenHU** (`SSL routines::unexpected message`). The phone was still in
 accessory mode from the previous run. OpenHU resets such a phone at startup; if it still happens, unplug it once.
