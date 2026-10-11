@@ -82,6 +82,10 @@ private:
     bool openDecoder(const std::string& name);
     void closeDecoder();
     void decode(AVPacket* packet);
+    // Hands all decoded frames to present(), true if there was one
+    bool receiveFrames();
+    // The decoder thread ends without stop(): no more input, video inactive, error in the shell
+    void failed(const QString& error);
     QVideoFrame toVideoFrame(const AVFrame* frame);
     void present(QVideoFrame frame);
     void logStats(bool force);
@@ -96,6 +100,9 @@ private:
     std::deque<QByteArray> queue_;
     size_t queuedBytes_ = 0;
     bool running_ = false;
+    // After an overflow everything up to the next IDR frame is dropped (P-frames without their references)
+    bool waitForKeyframe_ = false;
+    int droppedMessages_ = 0;
     std::thread thread_;
     std::string decoderName_;
 

@@ -118,6 +118,7 @@ void AaBridge::setVideoOutputActive(const void* output, bool active)
     if(active)
     {
         activeOutput_ = output;
+        this->setVideoError(QString());
         this->setVideoActive(true);
     }
     else if(activeOutput_ == output)
@@ -130,6 +131,20 @@ void AaBridge::setVideoOutputActive(const void* output, bool active)
 bool AaBridge::videoActive() const
 {
     return videoActive_;
+}
+
+QString AaBridge::videoError() const
+{
+    return videoError_;
+}
+
+void AaBridge::setVideoError(const QString& error)
+{
+    if(videoError_ != error)
+    {
+        videoError_ = error;
+        emit videoErrorChanged();
+    }
 }
 
 void AaBridge::setVideoActive(bool active)

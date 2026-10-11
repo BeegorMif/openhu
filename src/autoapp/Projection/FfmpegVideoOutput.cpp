@@ -47,6 +47,9 @@ namespace
 constexpr size_t cMaxQueuedBytes = 8 * 1024 * 1024;
 // A hardware decoder that has not produced a frame after this many messages is replaced by software.
 constexpr int cHardwareProbePackets = 60;
+// avcodec_send_packet() answering EAGAIN: frames are read and the packet is sent again, at most this often
+// (2 ms apart while no frame comes out) before it is dropped.
+constexpr int cMaxSendAttempts = 50;
 constexpr int64_t cStatsIntervalMs = 10000;
 // SPS/PPS are a few bytes; more without a picture is not a codec configuration
 constexpr qsizetype cMaxConfigBytes = 64 * 1024;
@@ -57,8 +60,8 @@ int64_t nowMs()
         std::chrono::steady_clock::now().time_since_epoch()).count();
 }
 
-// True if the access unit contains a coded picture (NAL types 1-5), false for SPS/PPS/SEI only.
-bool containsPicture(const QByteArray& data)
+// True if the access unit contains a NAL unit of a type in [first, last]
+bool containsNal(const QByteArray& data, int first, int last)
 {
     const auto* bytes = reinterpret_cast<const uint8_t*>(data.constData());
     for(qsizetype i = 0; i + 3 < data.size(); ++i)
@@ -66,7 +69,7 @@ bool containsPicture(const QByteArray& data)
         if(bytes[i] == 0 && bytes[i + 1] == 0 && bytes[i + 2] == 1)
         {
             const int type = bytes[i + 3] & 0x1f;
-            if(type >= 1 && type <= 5)
+            if(type >= first && type <= last)
             {
                 return true;
             }
@@ -74,6 +77,18 @@ bool containsPicture(const QByteArray& data)
         }
     }
     return false;
+}
+
+// True if the access unit contains a coded picture (NAL types 1-5), false for SPS/PPS/SEI only.
+bool containsPicture(const QByteArray& data)
+{
+    return containsNal(data, 1, 5);
+}
+
+// IDR picture: decodable without earlier frames
+bool containsKeyframe(const QByteArray& data)
+{
+    return containsNal(data, 5, 5);
 }
 
 // In the GUI thread, waiting for it when called from another thread.
@@ -125,7 +140,17 @@ bool FfmpegVideoOutput::init()
         {
             return true;
         }
+    }
+    // A decoder thread that ended by itself (no decoder) is still joinable
+    if(thread_.joinable())
+    {
+        thread_.join();
+    }
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
         running_ = true;
+        waitForKeyframe_ = false;
+        droppedMessages_ = 0;
         queue_.clear();
         queuedBytes_ = 0;
     }
@@ -146,14 +171,41 @@ void FfmpegVideoOutput::write(uint64_t, const aasdk::common::DataConstBuffer& bu
         return;
     }
 
+    QByteArray data(reinterpret_cast<const char*>(buffer.cdata), static_cast<qsizetype>(buffer.size));
     if(queuedBytes_ + buffer.size > cMaxQueuedBytes)
     {
-        OPENAUTO_LOG(warning) << "[FfmpegVideoOutput] decoder too slow, dropping " << queue_.size() << " queued messages";
-        queue_.clear();
+        // The pictures are dropped, the codec configuration (SPS/PPS, no picture) is kept: without it
+        // no later picture could be decoded.
+        const size_t before = queue_.size();
+        std::deque<QByteArray> kept;
         queuedBytes_ = 0;
+        for(auto& queued: queue_)
+        {
+            if(!containsPicture(queued))
+            {
+                queuedBytes_ += queued.size();
+                kept.push_back(std::move(queued));
+            }
+        }
+        queue_ = std::move(kept);
+        droppedMessages_ += static_cast<int>(before - queue_.size());
+        waitForKeyframe_ = true;
+        OPENAUTO_LOG(warning) << "[FfmpegVideoOutput] decoder too slow, dropped " << before - queue_.size()
+                              << " queued messages, waiting for the next IDR frame";
     }
-    queue_.emplace_back(reinterpret_cast<const char*>(buffer.cdata), static_cast<qsizetype>(buffer.size));
-    queuedBytes_ += buffer.size;
+    if(waitForKeyframe_ && containsPicture(data))
+    {
+        // P-frames after a drop refer to dropped frames: corrupted picture until the next IDR
+        if(!containsKeyframe(data))
+        {
+            ++droppedMessages_;
+            return;
+        }
+        waitForKeyframe_ = false;
+        OPENAUTO_LOG(info) << "[FfmpegVideoOutput] IDR frame after " << droppedMessages_ << " dropped messages";
+    }
+    queuedBytes_ += data.size();
+    queue_.push_back(std::move(data));
     wake_.notify_one();
 }
 
@@ -256,9 +308,7 @@ void FfmpegVideoOutput::decodeLoop()
     if(codec_ == nullptr)
     {
         OPENAUTO_LOG(error) << "[FfmpegVideoOutput] no H.264 decoder, Android Auto shows no picture";
-        std::lock_guard<std::mutex> lock(mutex_);
-        running_ = false;
-        queue_.clear();
+        this->failed("Kein H.264-Decoder verfügbar, Android Auto zeigt kein Bild");
         return;
     }
 
@@ -320,6 +370,8 @@ void FfmpegVideoOutput::decodeLoop()
             this->closeDecoder();
             if(!this->openDecoder("h264"))
             {
+                OPENAUTO_LOG(error) << "[FfmpegVideoOutput] no software decoder either, Android Auto shows no picture";
+                this->failed("Kein H.264-Decoder verfügbar, Android Auto zeigt kein Bild");
                 break;
             }
             for(auto& old: history)
@@ -343,12 +395,37 @@ void FfmpegVideoOutput::decodeLoop()
 void FfmpegVideoOutput::decode(AVPacket* packet)
 {
     const auto started = std::chrono::steady_clock::now();
-    const int sent = avcodec_send_packet(codec_, packet);
-    if(sent < 0 && sent != AVERROR(EAGAIN))
+    bool gotFrame = false;
+    int sent = avcodec_send_packet(codec_, packet);
+    // EAGAIN: the packet was not taken, the decoder wants its output read first (e.g. h264_v4l2m2m with a
+    // full queue). Dropping it would break the reference chain until the next IDR frame.
+    for(int attempt = 1; sent == AVERROR(EAGAIN) && attempt < cMaxSendAttempts; ++attempt)
+    {
+        if(this->receiveFrames())
+        {
+            gotFrame = true;
+        }
+        else
+        {
+            std::this_thread::sleep_for(std::chrono::milliseconds(2));
+        }
+        sent = avcodec_send_packet(codec_, packet);
+    }
+    if(sent < 0)
     {
         ++stats_.errors;
     }
 
+    if(this->receiveFrames())
+    {
+        gotFrame = true;
+    }
+    packetsWithoutFrame_ = gotFrame ? 0 : packetsWithoutFrame_ + 1;
+    stats_.decodeMs += std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - started).count();
+}
+
+bool FfmpegVideoOutput::receiveFrames()
+{
     bool gotFrame = false;
     while(avcodec_receive_frame(codec_, frame_) == 0)
     {
@@ -357,8 +434,22 @@ void FfmpegVideoOutput::decode(AVPacket* packet)
         this->present(this->toVideoFrame(frame_));
         av_frame_unref(frame_);
     }
-    packetsWithoutFrame_ = gotFrame ? 0 : packetsWithoutFrame_ + 1;
-    stats_.decodeMs += std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - started).count();
+    return gotFrame;
+}
+
+void FfmpegVideoOutput::failed(const QString& error)
+{
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        running_ = false;
+        queue_.clear();
+        queuedBytes_ = 0;
+    }
+    const void* self = this;
+    QMetaObject::invokeMethod(&shell::AaBridge::instance(), [self, error]() {
+        shell::AaBridge::instance().setVideoOutputActive(self, false);
+        shell::AaBridge::instance().setVideoError(error);
+    }, Qt::QueuedConnection);
 }
 
 QVideoFrame FfmpegVideoOutput::toVideoFrame(const AVFrame* frame)

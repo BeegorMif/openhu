@@ -50,6 +50,7 @@ class AaBridge: public QObject
     Q_OBJECT
     Q_PROPERTY(QVideoSink* videoSink READ videoSink WRITE setVideoSink NOTIFY videoSinkChanged)
     Q_PROPERTY(bool videoActive READ videoActive NOTIFY videoActiveChanged)
+    Q_PROPERTY(QString videoError READ videoError NOTIFY videoErrorChanged)
     Q_PROPERTY(bool surfaceVisible READ surfaceVisible WRITE setSurfaceVisible NOTIFY surfaceVisibleChanged)
     Q_PROPERTY(QSize videoSize READ videoSize NOTIFY geometryChanged)
     Q_PROPERTY(QRect contentRect READ contentRect NOTIFY geometryChanged)
@@ -68,6 +69,11 @@ public:
     // The video output of a session starts/stops showing. A late-stopped output of an earlier session
     // does not hide the current one. GUI thread.
     void setVideoOutputActive(const void* output, bool active);
+
+    // Why there is no picture although the phone is connected (no decoder), empty otherwise. Cleared when
+    // a video output becomes active. GUI thread.
+    QString videoError() const;
+    void setVideoError(const QString& error);
 
     bool surfaceVisible() const;
     void setSurfaceVisible(bool visible);
@@ -94,6 +100,7 @@ public:
 signals:
     void videoSinkChanged();
     void videoActiveChanged();
+    void videoErrorChanged();
     void surfaceVisibleChanged();
     void geometryChanged();
 
@@ -105,6 +112,7 @@ private:
     QPointer<QVideoSink> videoSink_;
     const void* activeOutput_ = nullptr;
     bool videoActive_ = false;
+    QString videoError_;
     bool surfaceVisible_ = false;
 
     mutable std::mutex mutex_;
