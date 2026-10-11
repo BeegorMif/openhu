@@ -137,7 +137,9 @@ Konfiguration `docker/config/openhu.ini` (Fallback `openauto.ini`), Plugin-Daten
   beim Programmstart 10–20 s (Hotplug-Enumeration aller USB-Geräte); das Handy gab nach 10 s ohne Daten auf.
   Jetzt eigener Worker-Aufruf → kabellos verbunden ca. 5 s nach dem Start.
 - Endet eine kabellose Sitzung oder kommt nach dem Handshake 30 s keine TCP-Verbindung, trennt OpenHU
-  Bluetooth und verbindet neu (das Handy versucht es sonst nicht noch einmal).
+  Bluetooth und verbindet neu (das Handy versucht es sonst nicht noch einmal). Ausnahme: AA am Handy beendet
+  (`ByeByeRequest` mit `USER_SELECTION`) – dann erst wieder, wenn das Handy selbst startet oder über
+  „Verbinden“ (trennt Bluetooth kurz, sonst startet das Handy AA nicht neu).
 - Hotspot wird bei Beenden, SIGTERM (`docker stop`, Entrypoint reicht es weiter) und Fenster-Schließen
   (`atexit`) heruntergefahren.
 

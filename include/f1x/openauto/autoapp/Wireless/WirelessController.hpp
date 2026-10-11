@@ -89,7 +89,7 @@ private:
     void onHeadsetConnection(const QString& device, int fd);
     void closeHeadset(const QString& device);
     void setPhase(const QString& phase, const QString& detail = QString());
-    void onProjectionState(bool active);
+    void onProjectionState(bool active, bool endedByUser);
     // wireless session ended or the phone got stuck: reconnect Bluetooth so it starts over
     void restartPhoneLink();
     QString ssid() const;
@@ -112,6 +112,8 @@ private:
     QTimer idleTimer_;
     bool projectionActive_ = false;
     bool usbProjection_ = false;
+    // Android Auto was ended on the phone: wait until the phone starts it again or a phone is connected by hand
+    bool endedByUser_ = false;
     QString phase_ = "idle";
     QString phaseDetail_;
     QString phaseDevice_;

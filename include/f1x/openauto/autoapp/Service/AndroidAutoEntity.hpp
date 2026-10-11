@@ -89,6 +89,8 @@ private:
     IAndroidAutoEntityEventHandler* eventHandler_;
     // Guard to avoid re-entrant quit handling and spurious error-triggered quits during shutdown
     std::atomic<bool> stopping_{false};
+    // the user ended Android Auto on the phone (ByeByeRequest USER_SELECTION): no automatic reconnect
+    std::atomic<bool> endedByUser_{false};
 };
 
 }

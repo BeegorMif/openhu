@@ -114,7 +114,7 @@ WirelessController::WirelessController(configuration::IConfiguration::Pointer co
     connect(&core::EventBus::instance(), &core::EventBus::event, this, [this](const QString& topic, const QVariantMap& data) {
         if(topic == "projection.state")
         {
-            this->onProjectionState(data.value("connected").toBool());
+            this->onProjectionState(data.value("connected").toBool(), data.value("endedByUser").toBool());
         }
         else if(topic == "projection.transport")
         {
@@ -284,7 +284,7 @@ void WirelessController::closeStaleHeadsets()
 
 void WirelessController::connectPhones()
 {
-    if(!running_ || projectionActive_ || handshake_ || bluetooth_.adapterPath().isEmpty()
+    if(!running_ || projectionActive_ || endedByUser_ || handshake_ || bluetooth_.adapterPath().isEmpty()
        || (hotspot_.state() != Hotspot::State::On && !this->hotspotOnDemand()))
     {
         return;
@@ -440,7 +440,7 @@ void WirelessController::startHandshake(const QString& device, int fd)
     }
 }
 
-void WirelessController::onProjectionState(bool active)
+void WirelessController::onProjectionState(bool active, bool endedByUser)
 {
     const bool wireless = phase_ == "handshake" || phase_ == "joining" || phase_ == "connected";
     projectionActive_ = active;
@@ -448,6 +448,7 @@ void WirelessController::onProjectionState(bool active)
     QTimer::singleShot(0, this, &WirelessController::updateIdle);
     if(active)
     {
+        endedByUser_ = false;
         connectTimer_.stop();
         stuckTimer_.stop();
         if(phase_ != "idle")
@@ -458,6 +459,17 @@ void WirelessController::onProjectionState(bool active)
     }
     if(!running_)
     {
+        return;
+    }
+    if(endedByUser)
+    {
+        // like in a car: ended on the phone means off until the phone starts it again
+        OPENAUTO_LOG(info) << "[WirelessController] Android Auto ended on the phone, not reconnecting";
+        endedByUser_ = true;
+        connectTimer_.stop();
+        stuckTimer_.stop();
+        handshake_.reset();
+        this->setPhase("idle");
         return;
     }
     if(wireless)
@@ -518,10 +530,21 @@ void WirelessController::pair()
 
 void WirelessController::connectDevice(const QString& address)
 {
+    const bool endedByUser = endedByUser_;
+    endedByUser_ = false;
     auto settings = configuration_->getWirelessSettings();
     settings.lastDevice = address.toStdString();
     configuration_->setWirelessSettings(settings);
     configuration_->save();
+
+    const QVariantMap device = bluetooth_.device(address);
+    if(endedByUser && device.value("connected").toBool())
+    {
+        // Bluetooth stayed connected: the phone only starts Android Auto again after it reconnects
+        bluez::callAsync(device.value("path").toString(), bluez::cDevice, "Disconnect");
+        QTimer::singleShot(4000, this, &WirelessController::connectPhones);
+        return;
+    }
     this->connectPhones();
 }
 

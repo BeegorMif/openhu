@@ -68,7 +68,8 @@ namespace f1x {
           stopping_.store(true, std::memory_order_relaxed);
           strand_.dispatch([this, self = this->shared_from_this()]() {
             OPENAUTO_LOG(info) << "[AndroidAutoEntity] stop()";
-            core::EventBus::instance().publish("projection.state", {{"connected", false}});
+            core::EventBus::instance().publish("projection.state",
+                                               {{"connected", false}, {"endedByUser", endedByUser_.load()}});
             // Data of the finished session is no longer valid
             core::EventBus::instance().publish("nav.status", {{"state", "unavailable"}});
             core::EventBus::instance().publish("media.status", {{"state", "stopped"}, {"source", "androidauto"}});
@@ -267,6 +268,7 @@ namespace f1x {
             const aap_protobuf::service::control::message::ByeByeRequest &request) {
           OPENAUTO_LOG(info) << "[AndroidAutoEntity] onByeByeRequest()";
           OPENAUTO_LOG(debug) << "[AndroidAutoEntity] Reason received: " << request.reason();
+          endedByUser_ = request.reason() == aap_protobuf::service::control::message::USER_SELECTION;
 
           aap_protobuf::service::control::message::ByeByeResponse response;
           auto promise = aasdk::channel::SendPromise::defer(strand_);
