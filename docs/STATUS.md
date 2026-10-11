@@ -71,6 +71,9 @@ Konfiguration `docker/config/openhu.ini` (Fallback `openauto.ini`), Plugin-Daten
 
 - Ohne `gstreamer1.0-x` (X-Video-Sinks, sonst nur Recommends von `gstreamer1.0-plugins-good`) dauert unter xcb
   jedes `QMediaPlayer` ~10 s (Wayland-Probe mit Timeout), der Verbindungsaufbau entsprechend länger.
+- aasdk-USBHub verwirft Hotplug-Ereignisse, solange kein Promise wartet. Nach Sitzungsende meldet sich das Handy
+  oft genau dann zurück (USB-Reset, AA am Handy beendet) oder bleibt im AOA-Modus ohne neues Ereignis; deshalb
+  setzt `App::onAndroidAutoQuit()` den Hub zurück, die neue Registrierung meldet alle angesteckten Geräte.
 - Status-Services müssen in `start()` `channel_->receive()` aufrufen, sonst beantwortet OpenHU die
   Kanalöffnung nicht und das Handy sendet kein Video (war die Ursache für das schwarze Bild).
 - Im Container liegt aasdk nur im Volume unter `/opt/aasdk` (`CPATH`/`LD_LIBRARY_PATH` im Image), nicht in

@@ -256,6 +256,11 @@ namespace f1x::openauto::autoapp {
       }
 
       if (!isStopped_) {
+        // The USB hub drops hotplug events while no promise is pending. Re-registering its hotplug callback
+        // (LIBUSB_HOTPLUG_ENUMERATE) reports the phones that are plugged in right now: one that came back during
+        // the session end (USB reset, AA ended on the phone) or stayed in accessory mode would otherwise only be
+        // found after replugging.
+        usbHub_->cancel();
         try {
           this->waitForDevice();
         } catch (...) {
