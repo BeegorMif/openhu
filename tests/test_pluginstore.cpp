@@ -92,6 +92,20 @@ public:
         this->writeIndex();
     }
 
+    void setField(const QString& id, const QString& key, const QVariant& value)
+    {
+        for(auto& entry: entries_)
+        {
+            QVariantMap map = entry.toMap();
+            if(map.value("id") == id)
+            {
+                map[key] = value;
+                entry = map;
+            }
+        }
+        this->writeIndex();
+    }
+
 private:
     void writeIndex() { writeJson(path_ + "/index.json", {{"plugins", entries_}}); }
 
@@ -352,6 +366,92 @@ private slots:
         QCOMPARE(store.removeSource(0), QString());
         QCOMPARE(store.sources().size(), 1);
         QVERIFY(package(store, "hello").isEmpty());
+    }
+
+    // The installed copy is for another plugin API, the index has the same version for this one (openhu#18)
+    void sameVersionForThisApiIsAnUpdate()
+    {
+        TestHome home;
+        Repository repo(home.path("repo"));
+        repo.add("cam", "1.0.0");
+        writeSources({"file " + repo.path()});
+
+        const QString dir = PluginManager::pluginsDir() + "/cam";
+        QDir().mkpath(dir);
+        writeJson(dir + "/manifest.json", {{"id", "cam"}, {"name", "cam"}, {"version", "1.0.0"}, {"api", 1}});
+        writeJson(PluginManager::baseDir() + "/installed.json",
+                  {{"cam", QVariantMap{{"version", "1.0.0"}, {"source", "file " + repo.path()}}}});
+
+        PluginManager manager(0);
+        manager.load();
+        PluginStore store(manager);
+        store.refresh();
+        QVERIFY(waitIdle(store));
+        QVERIFY(!manager.plugin("cam").value("compatible").toBool());
+        QVERIFY(package(store, "cam").value("updateAvailable").toBool());
+
+        store.updateAll();
+        QVERIFY(waitIdle(store));
+        QVERIFY2(manager.plugin("cam").value("compatible").toBool(), qPrintable(store.status()));
+        QVERIFY(!package(store, "cam").value("updateAvailable").toBool());
+    }
+
+    // A newer version for another plugin API is no update (openhu#18)
+    void newerVersionForOtherApiIsNoUpdate()
+    {
+        TestHome home;
+        Repository repo(home.path("repo"));
+        repo.add("old", "1.0.0");
+        writeSources({"file " + repo.path()});
+
+        PluginManager manager(0);
+        PluginStore store(manager);
+        store.refresh();
+        QVERIFY(waitIdle(store));
+        store.install("old");
+        QVERIFY(waitIdle(store));
+
+        repo.add("old", "1.1.0", {"all"}, QString(), true, 1);
+        store.refresh();
+        QVERIFY(waitIdle(store));
+        QVERIFY(!package(store, "old").value("updateAvailable").toBool());
+
+        store.updateAll();
+        QVERIFY(waitIdle(store));
+        QVERIFY2(!store.status().contains("andere OpenHU-Version"), qPrintable(store.status()));
+        QCOMPARE(manager.plugin("old").value("version").toString(), QString("1.0.0"));
+    }
+
+    // The index promises this plugin API, the archive's manifest says otherwise: the installed version stays
+    // (openhu#18)
+    void archiveManifestForOtherApi()
+    {
+        TestHome home;
+        Repository repo(home.path("repo"));
+        repo.add("cam", "1.0.0");
+        writeSources({"file " + repo.path()});
+
+        PluginManager manager(0);
+        PluginStore store(manager);
+        store.refresh();
+        QVERIFY(waitIdle(store));
+        store.install("cam");
+        QVERIFY(waitIdle(store));
+
+        repo.add("cam", "1.1.0", {"all"}, QString(), true, 1);  // manifest in the archive: api 1
+        repo.setField("cam", "api", PluginManager::cApiVersion);  // index entry: this API
+        store.refresh();
+        QVERIFY(waitIdle(store));
+        QVERIFY(package(store, "cam").value("updateAvailable").toBool());
+
+        store.install("cam");
+        QVERIFY(waitIdle(store));
+        QVERIFY2(store.status().contains("andere OpenHU-Version"), qPrintable(store.status()));
+        QCOMPARE(manager.plugin("cam").value("version").toString(), QString("1.0.0"));
+        QVERIFY(manager.plugin("cam").value("compatible").toBool());
+        QCOMPARE(readJson(PluginManager::baseDir() + "/installed.json").value("cam").toMap().value("version").toString(),
+                 QString("1.0.0"));
+        QVERIFY(!QDir(PluginManager::baseDir() + "/tmp/unpack-cam").exists());
     }
 };
 
