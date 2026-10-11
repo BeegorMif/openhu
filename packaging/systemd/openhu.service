@@ -22,6 +22,9 @@ After=network.target sound.target bluetooth.target NetworkManager.service
 [Service]
 Type=simple
 ExecStart=/usr/bin/autoapp
+# openhu.ini is read from the working directory
+StateDirectory=openhu
+WorkingDirectory=/var/lib/openhu
 Restart=on-failure
 RestartSec=5s
 User=root

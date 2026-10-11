@@ -21,6 +21,7 @@ Example: `websocat ws://127.0.0.1:5520` and then `{"type":"subscribe","topics":[
 |---|---|
 | `projection.state` | `connected` (bool) – Android Auto session running |
 | `projection.video` | `active` (bool) – projection video playing |
+| `projection.transport` | `transport` (`usb`, `wifi`) – how the current session is connected |
 | `nav.status` | `state`: `active`, `inactive`, `rerouting`, `unavailable` |
 | `nav.turn` | `road`, `maneuver` (e.g. `turn_normal_left`, `roundabout_enter`, `destination`), `side` (`left`/`right`/`unspecified`), `roundaboutExit`, `turnAngle`, `image` (data URL, if the phone sends one), `lanes` (`[{directions:[...], highlighted}]`), `cue` |
 | `nav.distance` | to the next maneuver: `meters`, `seconds`, `display` (as shown by the phone), `unit` (`meters`, `kilometers`, `miles`, …) |
@@ -36,7 +37,7 @@ Example: `websocat ws://127.0.0.1:5520` and then `{"type":"subscribe","topics":[
 | `projection.exit` | – one-shot: "exit" inside Android Auto, the shell shows its home page |
 | `plugins.state` | `plugins` – installed plugins after (re)loading |
 | `store.state` | `busy`, `status`, `error` – progress of store operations |
-| `wireless.state` | `enabled`, `running`, `hotspot` (`off`, `starting`, `on`, `error`), `hotspotMode` (`always`, `demand`), `hotspotError`, `wifiOff`, `interface`, `channel`, `ssid`, `bluetooth` (`off`, `on`, `error`), `bluetoothError`, `adapter`, `pairing`, `phase` (`idle`, `waiting`, `hotspot`, `handshake`, `joining`, `connected`, `error`), `phaseText`, `device` |
+| `wireless.state` | `enabled`, `running`, `hotspot` (`off`, `starting`, `on`, `error`), `hotspotMode` (`always`, `demand`), `hotspotError`, `wifiOff`, `interface`, `channel`, `ssid`, `bluetooth` (`off`, `on`, `error`), `bluetoothError`, `phase` (`idle`, `waiting`, `hotspot`, `handshake`, `joining`, `connected`, `error`), `phaseText`, `device` |
 | `bluetooth.pairing` | `active`, `device`, `passkey` – a device asks to pair (confirmed in the shell or with `bluetooth.confirm`) |
 | `bluetooth.state` | `available`, `error`, `adapter`, `pairing` (visible), `pairingDevice`, `pairingPasskey`, `pairingWith` (pairing started by OpenHU), `searching` |
 | `caraudio.state` | `enabled`, `device`, `name`, `paired`, `connected`, `sink`, `error`, `status` – sound to the Bluetooth car radio |

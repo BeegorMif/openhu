@@ -51,6 +51,65 @@ Enabled/disabled and dock state are kept in `~/.openhu/plugins.json`.
 Typical pattern: the process owns the state and publishes it (`radio.state`), the page shows it with
 `BusTopic` and sends commands as one-shot events (`api.emitEvent("radio.command", {cmd: "tune", value: 99.5})`).
 
+## Example
+
+A plugin that shows the speed from the CAN plugin and keeps the top speed – process, page, manifest:
+
+```
+plugins/org.example.speed/
+├── manifest.json   {"id": "org.example.speed", "name": "Speed", "version": "1.0.0", "api": 1, "arch": ["all"],
+│                    "ui": {"page": "qml/Main.qml", "dock": true},
+│                    "process": {"exec": "bin/speed.py"}, "shared": ["openhu.py"]}
+├── bin/speed.py
+└── qml/Main.qml
+```
+
+`bin/speed.py` – `openhu.py` (from `common/` of openhu-plugins) is copied to `lib/` by `shared`:
+
+```python
+import asyncio, os, sys
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "lib"))
+from openhu import OpenHU, setup_logging
+
+api = OpenHU()
+fastest = 0
+
+async def on_speed(topic, data):
+    global fastest
+    fastest = max(fastest, data.get("kmh", 0))
+    await api.publish("speed.state", kmh=data.get("kmh", 0), fastest=fastest)
+
+async def on_command(topic, data):
+    global fastest
+    if data.get("cmd") == "reset":
+        fastest = 0
+
+api.on("vehicle.speed", on_speed)
+api.on("speed.command", on_command)
+setup_logging()
+asyncio.run(api.run())
+```
+
+`qml/Main.qml`:
+
+```qml
+import QtQuick 2.15
+import QtQuick.Controls 2.15
+import OpenHU 1.0
+
+Rectangle {
+    color: Theme.background
+    BusTopic { id: speed; topic: "speed.state" }
+
+    Column {
+        anchors.centerIn: parent
+        Text { text: (speed.data.kmh || 0) + " km/h"; color: Theme.text; font.pixelSize: Theme.fontHuge }
+        Text { text: "max. " + (speed.data.fastest || 0); color: Theme.textDim; font.pixelSize: Theme.fontNormal }
+        Button { text: "Reset"; onClicked: api.emitEvent("speed.command", {cmd: "reset"}) }
+    }
+}
+```
+
 ## Repositories (store sources)
 
 `~/.openhu/sources.list`, one source per line, the first one wins on duplicate ids:

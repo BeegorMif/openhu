@@ -16,8 +16,8 @@
 # *  You should have received a copy of the GNU General Public License
 # *  along with openauto. If not, see <http://www.gnu.org/licenses/>.
 
-# Multi-stage build for OpenAuto with native compilation for each architecture
-# This Dockerfile builds OpenAuto natively on each target platform using QEMU emulation
+# Build image for OpenHU: builds aasdk (local tree or the OpenHU fork) and OpenHU, packages land in /output.
+# Native build per architecture (QEMU emulation for arm64 with docker buildx).
 
 # Allow selecting Debian base (bookworm or trixie). Default to trixie.
 ARG DEBIAN_VERSION=trixie
@@ -56,16 +56,11 @@ RUN apt-get update && apt-get install -y \
     protobuf-compiler \
     libusb-1.0-0-dev \
     libssl-dev \
-    libblkid-dev \
     libgps-dev \
-    libtag1-dev \
     librtaudio-dev \
     # Qt5 dependencies
     qtbase5-dev \
     qtmultimedia5-dev \
-    qttools5-dev \
-    qttools5-dev-tools \
-    qtconnectivity5-dev \
     qtdeclarative5-dev \
     qtquickcontrols2-5-dev \
     libqt5websockets5-dev \
@@ -74,14 +69,12 @@ RUN apt-get update && apt-get install -y \
     qml-module-qtquick-layouts \
     qml-module-qtquick-controls2 \
     qml-module-qtmultimedia \
-    libpulse-dev \
     # Packaging tools
     file \
     dpkg-dev \
     fakeroot \
     && rm -rf /var/lib/apt/lists/*
 
-# Add OpenCarDev APT repository for libaasdk
 ARG DEBIAN_VERSION
 
 # Set working directory
@@ -105,5 +98,5 @@ RUN if [ -f /aasdk/CMakeLists.txt ]; then AASDK_OPT="--aasdk-path /aasdk"; else 
     /src/build.sh ${BUILD_TYPE} ${AASDK_OPT} --package --output-dir /output
 
 # Default command
-CMD ["bash", "-c", "echo 'OpenAuto build container ready. Packages are in /output/'"]
+CMD ["bash", "-c", "echo 'OpenHU build container ready. Packages are in /output/'"]
 

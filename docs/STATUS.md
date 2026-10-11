@@ -1,6 +1,7 @@
 # OpenHU – Projektstand
 
-Stand: 10.10.2026. Lebendes Dokument: wird bei jedem Phasenabschluss aktualisiert.
+Stand: 11.10.2026. Lebendes Dokument: wird bei jedem Phasenabschluss aktualisiert.
+Benutzer-Doku: `README.md` und `docs/` (Installation, Konfiguration, API, Plugins, Fehlersuche).
 
 ## Ziel
 
@@ -17,8 +18,9 @@ Namespaces `f1x::openauto` und Binary `autoapp` bleiben, damit Upstream-Änderun
 | `aasdk-ref/` (GitHub-Fork `average-web-dev/aasdk`, Upstream `opencardev/aasdk` als Remote `upstream`) | `openhu` | aasdk + Navigation-State/Position, PhoneStatus |
 | `openhu-plugins/` (GitHub `average-web-dev/openhu-plugins`) | `main` | offizielle Plugins + Store-Index |
 
-Gepusht ist der Stand vor Phase 7; Phase 7 (`openhu`) und die neue aasdk-README sind nur lokal committet. Die CI (`.github/workflows/ci.yml`) baut mit dem aasdk-Fork (Branch
-`openhu`); die alten opencardev-Workflows (APT-Publish, Release) sind entfernt.
+Alle drei Repos sind gepusht (OpenHU bis Phase 6 + Doku, aasdk mit USB-Filter). Die CI
+(`.github/workflows/ci.yml`) baut mit dem aasdk-Fork (Branch `openhu`) und lädt das OpenHU-`.deb` (amd64) als
+Artefakt hoch; aasdk wird noch nicht mitpaketiert (→ arm64-Aufgabe).
 
 ## Phasen
 
@@ -34,7 +36,9 @@ Gepusht ist der Stand vor Phase 7; Phase 7 (`openhu`) und die neue aasdk-README 
 | 6a | Kabelloses Android Auto (BlueZ + NetworkManager-Hotspot, eingebaut) | erledigt, mit Fairphone 4 getestet |
 | 6 | Bluetooth-Audio an das Autoradio (A2DP, AVRCP-Tasten/Titel, Anrufe per Taste), eingebaut | erledigt, mit Galaxy Buds+ getestet |
 | – | aasdk-README modernisieren mit KI-Hinweis | erledigt (aasdk `c7b91ed`) |
-| – | arm64-Build für den Raspberry Pi | ganz am Schluss |
+| – | Doku: README neu (KI-Hinweis, Screenshots), Installation, Konfiguration, Fehlersuche, Plugin-Beispiel | erledigt |
+| – | Bluetooth-Panel beim Tippen auf das BT-Symbol (Radio, Trennen, Einstellungen) | später |
+| – | arm64-Build für den Raspberry Pi, aasdk als Paket, Test auf echtem Pi (eglfs) | ganz am Schluss |
 
 Plan im Detail: `~/.claude/plans/ich-h-tte-gene-folgenden-ethereal-lighthouse.md`.
 
@@ -71,8 +75,9 @@ Konfiguration `docker/config/openhu.ini` (Fallback `openauto.ini`), Plugin-Daten
   `ldconfig` die alte Bibliothek.
 - QML-Engine cached Plugin-Dateien: vor dem Austausch werden Seiten freigegeben und der Cache getrimmt;
   Icons bekommen den Änderungszeitpunkt als URL-Parameter.
-- Das Handy liefert über Android Auto keine Signalstärke (immer 0) und keinen Akkustand → Phase 6 (HFP).
-- Kabelloses Android Auto (`btservice`) läuft im Container nicht (eigener systemd-Dienst), ungetestet.
+- Das Handy liefert über Android Auto keine Signalstärke (immer 0) und keinen Akkustand.
+- systemd-Dienst: `openhu.ini` wird im Arbeitsverzeichnis gelesen → `WorkingDirectory=/var/lib/openhu`
+  (vorher landete die Datei unter `/`).
 - `vcan0`-Test des CAN-Plugins braucht `sudo` auf dem Host (siehe Plugin-README).
 
 ## Phase 6 – Ergebnis (Autoradio)

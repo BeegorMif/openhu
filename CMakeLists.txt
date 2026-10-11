@@ -251,9 +251,10 @@ set(CPACK_DEBIAN_PACKAGE_SHLIBDEPS ON)
 
 # Explicit dependencies for GStreamer video codec support and Qt Multimedia backend
 # These are required for H.264/H.265 video decoding from Android Auto via QtVideoOutput
-# Wireless Android Auto: BlueZ for Bluetooth, NetworkManager for the hotspot, iw for the WiFi country
-set(CPACK_DEBIAN_PACKAGE_RECOMMENDS "bluez, network-manager, iw")
-set(CPACK_DEBIAN_PACKAGE_DEPENDS "libqt5multimedia5, libqt5websockets5, pulseaudio-utils, libqt5multimedia5-plugins, qml-module-qtquick2, qml-module-qtquick-window2, qml-module-qtquick-layouts, qml-module-qtmultimedia, gstreamer1.0-plugins-base, gstreamer1.0-plugins-good, gstreamer1.0-libav, gstreamer1.0-plugins-bad, gstreamer1.0-plugins-ugly")
+# Wireless Android Auto and car radio: BlueZ for Bluetooth, NetworkManager for the hotspot, iw for the WiFi country
+# Plugins written in Python use the API client of openhu-plugins (python3-websockets)
+set(CPACK_DEBIAN_PACKAGE_RECOMMENDS "bluez, network-manager, iw, python3, python3-websockets")
+set(CPACK_DEBIAN_PACKAGE_DEPENDS "libqt5multimedia5, libqt5websockets5, pulseaudio-utils, libqt5multimedia5-plugins, qml-module-qtquick2, qml-module-qtquick-window2, qml-module-qtquick-layouts, qml-module-qtquick-controls2, qml-module-qtmultimedia, gstreamer1.0-plugins-base, gstreamer1.0-plugins-good, gstreamer1.0-libav, gstreamer1.0-plugins-bad, gstreamer1.0-plugins-ugly")
 
 # Debian package control scripts
 set(CPACK_DEBIAN_PACKAGE_CONTROL_EXTRA

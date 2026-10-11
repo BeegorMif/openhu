@@ -1,0 +1,125 @@
+# Installation
+
+> [!NOTE]
+> OpenHU is developed and tested in a container on x86_64 (Debian 13 "trixie" image). Running it directly on a
+> Raspberry Pi is the goal, but **not tested yet**, and there are no ready-made arm64 packages (planned). The
+> steps below for bare metal follow from how the container works; please report what does not fit.
+
+- [Requirements](#requirements)
+- [Development in a container](#development-in-a-container) – the tested way
+- [Bare metal (Raspberry Pi, Debian, Ubuntu)](#bare-metal-raspberry-pi-debian-ubuntu)
+- [Wireless Android Auto](#wireless-android-auto)
+- [Bluetooth car radio](#bluetooth-car-radio)
+
+## Requirements
+
+| | |
+|---|---|
+| Computer | Raspberry Pi 4/5 (arm64) or an x86_64 PC |
+| OS | Debian 13 "trixie" based; Raspberry Pi OS / Debian 12 should work (Qt 5.15), untested |
+| Display | any screen Qt can drive (KMS/eglfs without desktop, or X11/Wayland), touch recommended |
+| Audio | PulseAudio or PipeWire with `pipewire-pulse` (volume control uses `pactl`) |
+| Phone | Android with Android Auto; wireless needs Android 11+ and 5 GHz WiFi in most phones |
+| Wireless AA | Bluetooth adapter (BlueZ), WiFi card with access point mode managed by NetworkManager |
+| Car radio | Bluetooth radio with A2DP (and ideally AVRCP for buttons/title) |
+
+## Development in a container
+
+The container builds OpenHU and runs it in a window on your desktop (Xephyr), with USB, sound, cameras and the
+host's Bluetooth/NetworkManager. Expected layout:
+
+```
+workspace/
+├── openhu/          this repository (any folder name)
+├── aasdk-ref/       aasdk, branch openhu of https://github.com/average-web-dev/aasdk
+└── openhu-plugins/  optional, store source "file /opt/openhu-plugins" for local plugin development
+```
+
+```bash
+docker/dev.sh image          # build image (first time and after dependency changes)
+docker/dev.sh build          # incremental build -> docker/output/*.deb -> image openhu:run
+docker/dev.sh build --aasdk  # also rebuild aasdk after changes in ../aasdk-ref
+docker/run.sh                # OpenHU in a window (OPENHU_RESOLUTION=1920x1080 docker/run.sh for another size)
+docker/dev.sh reconnect      # USB reset of the phone while running
+```
+
+`run.sh` needs an X11 display (`DISPLAY`), the PulseAudio/PipeWire socket of your user and runs the container
+`--privileged` with the host network: USB hotplug, the hotspot and Bluetooth (D-Bus; Docker's AppArmor profile
+blocks D-Bus otherwise) need it. Settings are stored in `docker/config/openhu.ini`, plugins, key map and logs in
+`docker/data/`.
+
+## Bare metal (Raspberry Pi, Debian, Ubuntu)
+
+### Build and install
+
+aasdk is built from the OpenHU fork and installed to `/usr/local` (no package yet), OpenHU becomes a `.deb`.
+
+```bash
+sudo apt install build-essential cmake ninja-build pkg-config git ca-certificates \
+    libboost-system-dev libboost-log-dev libprotobuf-dev protobuf-compiler libusb-1.0-0-dev libssl-dev \
+    libgps-dev librtaudio-dev qtbase5-dev qtmultimedia5-dev qtdeclarative5-dev qtquickcontrols2-5-dev \
+    libqt5websockets5-dev qml-module-qtquick2 qml-module-qtquick-window2 qml-module-qtquick-layouts \
+    qml-module-qtquick-controls2 qml-module-qtmultimedia dpkg-dev fakeroot file
+
+git clone https://github.com/average-web-dev/openhu.git
+cd openhu
+sudo ./build.sh release --with-aasdk --package --output-dir ./packages   # root: aasdk installs to /usr/local
+sudo apt install ./packages/openhu_*.deb
+```
+
+The package pulls in the runtime libraries (Qt, GStreamer for H.264, `pactl`) and recommends `bluez`,
+`network-manager`, `iw` (wireless Android Auto, car radio) and `python3-websockets` (Python plugins).
+It installs a udev rule for phones (`/lib/udev/rules.d/99-openhu.rules`).
+
+### Start
+
+**As a service without desktop** (KMS/eglfs, starts with the system):
+
+```bash
+sudo systemctl enable --now openhu
+journalctl -u openhu -f
+```
+
+The service runs as root, keeps `openhu.ini` in `/var/lib/openhu` and its data in `/root/.openhu`. It uses the
+audio server of user 1000 (`XDG_RUNTIME_DIR=/run/user/1000`); adjust the `Environment=` lines with
+`sudo systemctl edit openhu` for another user or display setup.
+
+**On a desktop** (X11/Wayland session): run it as your user from a folder for its configuration, e.g. from an
+autostart entry:
+
+```bash
+mkdir -p ~/.config/openhu && cd ~/.config/openhu && autoapp
+```
+
+Phones need to be accessible for that user (the udev rule allows it).
+
+## Wireless Android Auto
+
+Switch it on under **Einstellungen → Kabellos**, then pair the phone once: **Koppeln** (OpenHU is visible for
+2 minutes, confirm the code on both sides) or simply plug the phone in once with the cable – OpenHU pairs it over
+Android Auto by itself. Afterwards the phone connects without cable whenever it is in range.
+
+What has to be in place:
+
+- **BlueZ** (`bluetoothd`) running, Bluetooth not blocked (`rfkill list`)
+- **NetworkManager** manages the WiFi card (`nmcli device` shows it), the card supports access point mode
+  (`iw list` → "Supported interface modes: AP"). WiFi switched off is shown on the settings page with a button
+  to switch it on.
+- **Country** set correctly (Einstellungen → Kabellos → Land): without it 5 GHz access points are not allowed.
+  If 5 GHz does not work at all, use band "Auto" or "2,4 GHz" – many phones need 5 GHz for Android Auto, though.
+- OpenHU creates the NetworkManager connection `openhu-hotspot` (IPv4 shared, DHCP for the phone) and only
+  activates it while wireless Android Auto is on ("Bei Bedarf": only while a phone needs it).
+
+With the phone on the cable USB wins by default ("Vorrang bei Kabel"); unplugged it switches to wireless.
+
+## Bluetooth car radio
+
+Under **Einstellungen → Audio → Autoradio (Bluetooth)**: put the radio into pairing mode, **Suchen**, then
+**Verwenden** next to it. OpenHU pairs and connects it and makes it the audio output; it reconnects whenever the
+radio is switched on. The radio's buttons control Android Auto, while a call rings play/pause answers it.
+
+<img src="images/settings-audio.png" alt="Audio settings with the car radio section" width="640">
+
+What has to be in place: PipeWire (`pipewire-pulse`, `wireplumber`, Bluetooth support, Debian:
+`libspa-0.2-bluetooth`) or PulseAudio with `pulseaudio-module-bluetooth`, so the radio appears as an output
+(`pactl list short sinks` shows `bluez_output…`).
