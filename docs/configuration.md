@@ -92,5 +92,5 @@ the container).
 | Key | Default | |
 |---|---|---|
 | `Port` | `5520` | WebSocket API, see [api.md](api.md) |
-| `Listen` | `127.0.0.1` | `0.0.0.0` = reachable from the network (the API has no login: trusted networks only) |
-| `AllowHotspot` | `false` | accept API clients from the wireless hotspot network |
+| `Listen` | `127.0.0.1` | `0.0.0.0` = reachable from the network over IPv4, `::` = IPv4 and IPv6 (the API has no login: trusted networks only) |
+| `AllowHotspot` | `false` | accept API clients from the wireless hotspot network (IPv4 subnet and every address of the hotspot interface, IPv6 included) |

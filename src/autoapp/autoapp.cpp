@@ -22,6 +22,7 @@
 #include <sys/socket.h>
 #include <unistd.h>
 #include <QGuiApplication>
+#include <QNetworkInterface>
 #include <QQmlApplicationEngine>
 #include <QQmlContext>
 #include <QQuickWindow>
@@ -39,6 +40,7 @@
 #include <f1x/openauto/autoapp/Service/AndroidAutoEntityFactory.hpp>
 #include <f1x/openauto/autoapp/Service/ServiceFactory.hpp>
 #include <f1x/openauto/autoapp/Api/ApiServer.hpp>
+#include <f1x/openauto/autoapp/Api/ClientFilter.hpp>
 #include <f1x/openauto/autoapp/Api/CoreMethods.hpp>
 #include <f1x/openauto/autoapp/Audio/VolumeController.hpp>
 #include <f1x/openauto/autoapp/Core/EventBus.hpp>
@@ -154,15 +156,8 @@ int main(int argc, char* argv[])
     // WebSocket API for external tools and plugins (docs/api.md)
     autoapp::api::ApiServer apiServer;
     autoapp::api::registerCoreMethods(apiServer, volumeController, shellController, actionDispatcher);
-    apiServer.listen(QHostAddress(QString::fromStdString(configuration->getApiListenAddress())), configuration->getApiPort());
-    // the wireless hotspot is for the phone; API devices there only when allowed
-    apiServer.setClientFilter([configuration](const QHostAddress& peer) {
-        bool ok = false;
-        const QHostAddress ipv4(peer.toIPv4Address(&ok));
-        const auto hotspot = QHostAddress::parseSubnet(QString::fromStdString(configuration->getWirelessSettings().address));
-        return !ok || !configuration->getWirelessProjectionEnabled() || !ipv4.isInSubnet(hotspot)
-               || configuration->getApiAllowHotspot();
-    });
+    apiServer.listen(autoapp::api::listenAddress(QString::fromStdString(configuration->getApiListenAddress())),
+                     configuration->getApiPort());
 
     // Plugins (~/.openhu/plugins) and the store (~/.openhu/sources.list), docs/plugins.md
     autoapp::plugins::PluginManager pluginManager(configuration->getApiPort());
@@ -177,6 +172,19 @@ int main(int argc, char* argv[])
     // Sound to a Bluetooth car radio, its buttons control Android Auto
     autoapp::bt::CarAudio carAudio(configuration, bluetoothManager, actionDispatcher, volumeController);
     autoapp::wireless::registerWirelessMethods(apiServer, wirelessController, bluetoothManager, carAudio);
+
+    // the wireless hotspot is for the phone; API devices there only when allowed
+    apiServer.setClientFilter([configuration, &wirelessController](const QHostAddress& peer) {
+        autoapp::api::HotspotNetwork hotspot;
+        hotspot.subnet = QString::fromStdString(configuration->getWirelessSettings().address);
+        hotspot.interfaceName = wirelessController.hotspotInterface();
+        if(!hotspot.interfaceName.isEmpty())
+        {
+            hotspot.addresses = QNetworkInterface::interfaceFromName(hotspot.interfaceName).addressEntries();
+        }
+        const bool blockHotspot = configuration->getWirelessProjectionEnabled() && !configuration->getApiAllowHotspot();
+        return autoapp::api::clientAllowed(peer, blockHotspot, hotspot);
+    });
 
     // QML shell: Android Auto inside the main window next to the rest of the UI
     QQmlApplicationEngine engine;

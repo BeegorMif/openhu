@@ -1,7 +1,7 @@
 # OpenHU API
 
 WebSocket + JSON, default `ws://127.0.0.1:5520` (`openhu.ini`: `[Api] Port=5520`, `Listen=127.0.0.1`;
-`Listen=0.0.0.0` for access from the network).
+`Listen=0.0.0.0` for access from the network, `Listen=::` for IPv4 and IPv6).
 
 ## Messages
 

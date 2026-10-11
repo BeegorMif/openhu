@@ -567,6 +567,11 @@ void WirelessController::setPhase(const QString& phase, const QString& detail)
     this->publish();
 }
 
+QString WirelessController::hotspotInterface() const
+{
+    return hotspot_.interface();
+}
+
 QVariantMap WirelessController::state() const
 {
     QString phaseText;

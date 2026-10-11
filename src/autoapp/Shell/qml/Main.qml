@@ -29,13 +29,35 @@ Window {
         updatePluginPages()
     }
 
-    // Plugin pages and overlays, rebuilt only when a page itself changes. plugins.plugins also changes for the
-    // dock, running state, ...: rebuilding then would e.g. take the camera away from a camera page while it is shown.
-    property var pluginPages: []
+    // Plugin pages and overlays, one row per plugin. Only the rows of plugins whose page changed are touched:
+    // plugins.plugins also changes for the dock, running state, other plugins, ... and recreating a page would
+    // e.g. take the camera away from a camera page while it is shown.
+    ListModel { id: pluginPages }
     function updatePluginPages() {
-        var pages = plugins.plugins.map(p => ({ id: p.id, name: p.name, version: p.version, page: p.page, overlay: p.overlay, enabled: p.enabled }))
-        if (JSON.stringify(pages) !== JSON.stringify(pluginPages))
-            pluginPages = pages
+        var pages = plugins.plugins.map(p => ({ pluginId: p.id, name: p.name, version: p.version, page: p.page,
+                                                overlay: p.overlay, pluginEnabled: p.enabled }))
+        for (var i = pluginPages.count - 1; i >= 0; --i) {
+            var row = pluginPages.get(i)
+            if (!pages.some(p => p.pluginId === row.pluginId))
+                pluginPages.remove(i)
+        }
+        for (var j = 0; j < pages.length; ++j) {
+            var index = -1
+            for (var k = 0; k < pluginPages.count; ++k) {
+                if (pluginPages.get(k).pluginId === pages[j].pluginId) {
+                    index = k
+                    break
+                }
+            }
+            if (index < 0) {
+                pluginPages.append(pages[j])
+                continue
+            }
+            for (var key in pages[j]) {
+                if (pluginPages.get(index)[key] !== pages[j][key])
+                    pluginPages.setProperty(index, key, pages[j][key])
+            }
+        }
     }
     Connections {
         target: plugins
@@ -124,21 +146,25 @@ Window {
 
                 // Plugin pages, loaded when first shown and kept alive afterwards
                 Repeater {
-                    model: root.pluginPages
+                    model: pluginPages
 
                     Loader {
                         id: pluginPage
+                        required property string pluginId
+                        required property string name
+                        required property string page
+                        required property bool pluginEnabled
                         anchors.fill: parent
-                        visible: root.page === "plugin:" + modelData.id
+                        visible: root.page === "plugin:" + pluginId
                         property bool used: false
                         onVisibleChanged: if (visible) used = true
-                        active: modelData.enabled && modelData.page !== "" && (visible || used)
-                        source: modelData.page
+                        active: pluginEnabled && page !== "" && (visible || used)
+                        source: page
 
                         Text {
                             anchors.centerIn: parent
                             visible: pluginPage.status === Loader.Error
-                            text: modelData.name + ": Seite kann nicht geladen werden (Log: data/logs)"
+                            text: pluginPage.name + ": Seite kann nicht geladen werden (Log: data/logs)"
                             color: Theme.textDim
                             font.pixelSize: Theme.fontNormal
                         }
@@ -150,19 +176,22 @@ Window {
 
     // Plugin overlays (e.g. reverse camera) above the whole shell, shown via plugins.setOverlayVisible / ui.overlay.show
     Repeater {
-        model: root.pluginPages
+        model: pluginPages
 
         Loader {
+            id: pluginOverlay
+            required property string pluginId
+            required property string overlay
             anchors.fill: parent
-            property bool shown: plugins.overlayVisible(modelData.id)
-            active: shown && modelData.overlay !== ""
-            source: modelData.overlay
+            property bool shown: plugins.overlayVisible(pluginId)
+            active: shown && overlay !== ""
+            source: overlay
 
             Connections {
                 target: plugins
                 function onOverlayChanged(id, visible) {
-                    if (id === modelData.id)
-                        shown = visible
+                    if (id === pluginOverlay.pluginId)
+                        pluginOverlay.shown = visible
                 }
             }
         }

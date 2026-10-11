@@ -184,8 +184,10 @@ QVariantList PluginStore::packages() const
             package["compatible"] = compatible(package);
             package["installed"] = isInstalled;
             package["installedVersion"] = isInstalled ? manager_.plugin(id).value("version").toString() : installedVersion;
-            package["updateAvailable"] = isInstalled && compareVersions(package["installedVersion"].toString(),
-                                                                         package.value("version").toString()) < 0;
+            // Newer, or the same version for this plugin API while the installed copy is for another one
+            const bool newer = compareVersions(package["installedVersion"].toString(), package.value("version").toString()) < 0;
+            const bool installedCompatible = isInstalled && manager_.plugin(id).value("compatible", true).toBool();
+            package["updateAvailable"] = isInstalled && package["compatible"].toBool() && (newer || !installedCompatible);
             result.append(package);
         }
     }
@@ -259,7 +261,7 @@ void PluginStore::updateAll()
     for(const auto& entry: this->packages())
     {
         const QVariantMap package = entry.toMap();
-        if(package.value("updateAvailable").toBool())
+        if(package.value("updateAvailable").toBool() && package.value("compatible").toBool())
         {
             this->install(package.value("id").toString());
         }
@@ -591,6 +593,18 @@ void PluginStore::installPackage(const QString& id, std::function<void()> done)
         if(staging.isEmpty())
         {
             this->setStatus(id + ": " + error, true);
+            done();
+            return;
+        }
+        // PluginManager loads by the manifest in the archive, not by the index: check that one before the
+        // installed version is replaced
+        const QVariantMap manifest = readJsonFile(staging + "/manifest.json");
+        if(!PluginManager::compatible(manifest) || !archCompatible(manifest))
+        {
+            QDir(PluginManager::baseDir() + "/tmp/unpack-" + id).removeRecursively();
+            this->setStatus(QString("%1: Archiv ist für eine andere OpenHU-Version (Plugin-API %2, OpenHU %3), "
+                                    "installierte Version bleibt")
+                                .arg(id).arg(manifest.value("api", 1).toInt()).arg(PluginManager::cApiVersion), true);
             done();
             return;
         }

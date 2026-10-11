@@ -1,0 +1,471 @@
+// FfmpegVideoOutput with a misbehaving decoder (openhu#16). The FFmpeg calls are interposed: this executable
+// defines them and reaches the real ones with dlsym(RTLD_NEXT), so a decoder that answers EAGAIN, a slow decoder
+// or a missing decoder can be simulated. Separate from test_video, whose decoder must stay untouched.
+#include <QVideoSink>
+#include <QtTest>
+#include <atomic>
+#include <condition_variable>
+#include <dlfcn.h>
+#include <mutex>
+#include <f1x/openauto/autoapp/Configuration/Configuration.hpp>
+#include <f1x/openauto/autoapp/Projection/FfmpegVideoOutput.hpp>
+#include <f1x/openauto/autoapp/Shell/AaBridge.hpp>
+#include "TestHome.hpp"
+
+extern "C" {
+#include <libavcodec/avcodec.h>
+#include <libavutil/opt.h>
+}
+
+using f1x::openauto::autoapp::configuration::Configuration;
+using f1x::openauto::autoapp::projection::FfmpegVideoOutput;
+using f1x::openauto::autoapp::shell::AaBridge;
+
+namespace hook
+{
+std::atomic<int> sendCalls{0};
+std::atomic<int> eagainAt{-1};        // send call index that answers EAGAIN once
+std::atomic<int> framesOut{0};
+std::atomic<int> corruptFrames{0};
+std::atomic<bool> noFrames{false};     // receive_frame never returns a frame ("hardware shows no picture")
+std::atomic<bool> noH264{false};       // avcodec_find_decoder_by_name("h264") fails
+std::atomic<bool> noDecoderAtAll{false};
+std::atomic<bool> recordSlices{false};
+std::atomic<int> nonIdrBeforeIdr{0};  // P slices sent after recordSlices was set, before the next IDR
+std::atomic<bool> idrSeen{false};
+std::mutex lastMutex;
+std::vector<uint8_t> lastLuma;  // luma of the last decoded frame
+std::mutex gateMutex;
+std::condition_variable gateCv;
+bool openGate = true;
+bool sendGate = true;
+
+void waitGate(bool& gate)
+{
+    std::unique_lock<std::mutex> lock(gateMutex);
+    gateCv.wait(lock, [&gate]() { return gate; });
+}
+void setGate(bool& gate, bool open)
+{
+    {
+        std::lock_guard<std::mutex> lock(gateMutex);
+        gate = open;
+    }
+    gateCv.notify_all();
+}
+void reset()
+{
+    sendCalls = 0; eagainAt = -1; framesOut = 0; corruptFrames = 0; noFrames = false; noH264 = false;
+    noDecoderAtAll = false; recordSlices = false; nonIdrBeforeIdr = 0; idrSeen = false;
+    setGate(openGate, true);
+    setGate(sendGate, true);
+}
+
+template<typename T>
+T real(const char* name)
+{
+    return reinterpret_cast<T>(dlsym(RTLD_NEXT, name));
+}
+
+void inspect(const AVPacket* packet)
+{
+    if(packet == nullptr || !recordSlices || idrSeen)
+    {
+        return;
+    }
+    for(int i = 0; i + 3 < packet->size; ++i)
+    {
+        if(packet->data[i] == 0 && packet->data[i + 1] == 0 && packet->data[i + 2] == 1)
+        {
+            const int type = packet->data[i + 3] & 0x1f;
+            if(type == 5) { idrSeen = true; return; }
+            if(type == 1) { ++nonIdrBeforeIdr; return; }
+        }
+    }
+}
+}
+
+extern "C" {
+
+int avcodec_send_packet(AVCodecContext* context, const AVPacket* packet)
+{
+    static auto realSend = hook::real<int (*)(AVCodecContext*, const AVPacket*)>("avcodec_send_packet");
+    if(context->codec != nullptr && av_codec_is_decoder(context->codec))
+    {
+        hook::waitGate(hook::sendGate);
+        const int index = hook::sendCalls++;
+        if(index == hook::eagainAt)
+        {
+            return AVERROR(EAGAIN);  // not accepted, like a full v4l2m2m queue
+        }
+        hook::inspect(packet);
+    }
+    return realSend(context, packet);
+}
+
+int avcodec_receive_frame(AVCodecContext* context, AVFrame* frame)
+{
+    static auto realReceive = hook::real<int (*)(AVCodecContext*, AVFrame*)>("avcodec_receive_frame");
+    const int result = realReceive(context, frame);
+    if(result == 0 && hook::noFrames)
+    {
+        av_frame_unref(frame);
+        return AVERROR(EAGAIN);
+    }
+    if(result == 0)
+    {
+        ++hook::framesOut;
+        {
+            std::lock_guard<std::mutex> lock(hook::lastMutex);
+            hook::lastLuma.clear();
+            for(int y = 0; y < frame->height; ++y)
+            {
+                hook::lastLuma.insert(hook::lastLuma.end(), frame->data[0] + y * frame->linesize[0],
+                                      frame->data[0] + y * frame->linesize[0] + frame->width);
+            }
+        }
+        if((frame->flags & AV_FRAME_FLAG_CORRUPT) || frame->decode_error_flags != 0)
+        {
+            ++hook::corruptFrames;
+        }
+    }
+    return result;
+}
+
+const AVCodec* avcodec_find_decoder_by_name(const char* name)
+{
+    static auto realFind = hook::real<const AVCodec* (*)(const char*)>("avcodec_find_decoder_by_name");
+    if(hook::noDecoderAtAll || (hook::noH264 && std::string(name) == "h264"))
+    {
+        return nullptr;
+    }
+    if(std::string(name) == "fakehw")
+    {
+        return realFind("h264");  // opens, but counts as a hardware decoder (name != "h264")
+    }
+    return realFind(name);
+}
+
+int avcodec_open2(AVCodecContext* context, const AVCodec* codec, AVDictionary** options)
+{
+    static auto realOpen = hook::real<int (*)(AVCodecContext*, const AVCodec*, AVDictionary**)>("avcodec_open2");
+    if(codec != nullptr && av_codec_is_decoder(codec))
+    {
+        hook::waitGate(hook::openGate);
+    }
+    return realOpen(context, codec, options);
+}
+}
+
+namespace
+{
+constexpr int cWidth = 320;
+constexpr int cHeight = 240;
+
+// Access units: 'frames' pictures, first one an IDR with SPS/PPS; luma changes per frame so every frame differs
+QList<QByteArray> encode(int frames, int luma)
+{
+    QList<QByteArray> packets;
+    const AVCodec* codec = avcodec_find_encoder_by_name("libx264");
+    if(codec == nullptr)
+    {
+        return packets;
+    }
+    AVCodecContext* context = avcodec_alloc_context3(codec);
+    context->width = cWidth;
+    context->height = cHeight;
+    context->pix_fmt = AV_PIX_FMT_YUV420P;
+    context->time_base = {1, 30};
+    context->framerate = {30, 1};
+    context->gop_size = 600;
+    context->max_b_frames = 0;
+    av_opt_set(context->priv_data, "preset", "ultrafast", 0);
+    av_opt_set(context->priv_data, "tune", "zerolatency", 0);
+    avcodec_open2(context, codec, nullptr);
+    AVFrame* frame = av_frame_alloc();
+    frame->format = context->pix_fmt;
+    frame->width = cWidth;
+    frame->height = cHeight;
+    av_frame_get_buffer(frame, 0);
+    AVPacket* packet = av_packet_alloc();
+    auto drain = [&]() {
+        while(avcodec_receive_packet(context, packet) == 0)
+        {
+            packets.append(QByteArray(reinterpret_cast<const char*>(packet->data), packet->size));
+            av_packet_unref(packet);
+        }
+    };
+    for(int i = 0; i < frames; ++i)
+    {
+        av_frame_make_writable(frame);
+        for(int y = 0; y < cHeight; ++y)
+        {
+            for(int x = 0; x < cWidth; ++x)
+            {
+                frame->data[0][y * frame->linesize[0] + x] = uint8_t(luma + ((x / 16 + y / 16 + i) % 4) * 20);
+            }
+        }
+        for(int plane = 1; plane < 3; ++plane)
+        {
+            for(int y = 0; y < cHeight / 2; ++y)
+            {
+                memset(frame->data[plane] + y * frame->linesize[plane], 128, cWidth / 2);
+            }
+        }
+        frame->pts = i;
+        avcodec_send_frame(context, frame);
+        drain();
+    }
+    avcodec_send_frame(context, nullptr);
+    drain();
+    av_packet_free(&packet);
+    av_frame_free(&frame);
+    avcodec_free_context(&context);
+    return packets;
+}
+
+// SPS/PPS/SEI as a message of their own, like the phone sends them
+QList<QByteArray> splitCodecConfig(QList<QByteArray> packets)
+{
+    const QByteArray first = packets.first();
+    for(int i = 0; i + 4 < first.size(); ++i)
+    {
+        if(first[i] == 0 && first[i + 1] == 0 && first[i + 2] == 1 && (first[i + 3] & 0x1f) == 5)
+        {
+            const int start = i > 0 && first[i - 1] == 0 ? i - 1 : i;
+            packets.replace(0, first.mid(start));
+            packets.prepend(first.left(start));
+            break;
+        }
+    }
+    return packets;
+}
+
+// Luma of the last frame when all packets are decoded without loss
+std::vector<uint8_t> referenceLastLuma(const QList<QByteArray>& packets)
+{
+    AVCodecContext* context = avcodec_alloc_context3(avcodec_find_decoder(AV_CODEC_ID_H264));
+    avcodec_open2(context, context->codec, nullptr);
+    AVPacket* packet = av_packet_alloc();
+    AVFrame* frame = av_frame_alloc();
+    for(QByteArray data: packets)
+    {
+        packet->data = reinterpret_cast<uint8_t*>(data.data());
+        packet->size = data.size();
+        avcodec_send_packet(context, packet);
+        while(avcodec_receive_frame(context, frame) == 0) { av_frame_unref(frame); }
+    }
+    std::vector<uint8_t> result;
+    {
+        std::lock_guard<std::mutex> lock(hook::lastMutex);
+        result = hook::lastLuma;
+    }
+    av_frame_free(&frame);
+    av_packet_free(&packet);
+    avcodec_free_context(&context);
+    return result;
+}
+
+double meanAbsDiff(const std::vector<uint8_t>& a, const std::vector<uint8_t>& b)
+{
+    if(a.size() != b.size() || a.empty()) { return -1; }
+    double sum = 0;
+    for(size_t i = 0; i < a.size(); ++i) { sum += std::abs(int(a[i]) - int(b[i])); }
+    return sum / a.size();
+}
+
+void write(FfmpegVideoOutput& output, const QByteArray& data)
+{
+    output.write(0, aasdk::common::DataConstBuffer(reinterpret_cast<const uint8_t*>(data.constData()), data.size()));
+}
+}
+
+class TestVideoDecoder: public QObject
+{
+    Q_OBJECT
+
+private slots:
+    void initTestCase()
+    {
+        if(encode(1, 100).isEmpty())
+        {
+            QSKIP("FFmpeg has no libx264 encoder to create the test stream");
+        }
+    }
+
+    void init() { hook::reset(); }
+
+    // EAGAIN from avcodec_send_packet: the packet is sent again, every picture is decoded
+    void eagainSendsThePacketAgain()
+    {
+        TestHome home;
+        auto configuration = std::make_shared<Configuration>();
+        configuration->setVideoDecoder("software");
+        QVideoSink sink;
+        FfmpegVideoOutput output(configuration, &sink);
+        QVERIFY(output.init());
+        QTRY_COMPARE(output.decoderName(), std::string("h264"));
+
+        const auto packets = splitCodecConfig(encode(10, 40));
+        QCOMPARE(packets.size(), 11);
+        hook::eagainAt = 4;  // the 5th picture
+        for(const auto& packet: packets)
+        {
+            write(output, packet);
+        }
+        QTRY_COMPARE(hook::framesOut.load(), 10);
+        QCOMPARE(hook::sendCalls.load(), 11);
+        output.stop();
+    }
+
+    // Overflow before the decoder has read SPS/PPS: they are kept, the next IDR frame shows a picture
+    void overflowKeepsCodecConfig()
+    {
+        TestHome home;
+        auto configuration = std::make_shared<Configuration>();
+        configuration->setVideoDecoder("software");
+        QVideoSink sink;
+        FfmpegVideoOutput output(configuration, &sink);
+
+        hook::setGate(hook::openGate, false);  // slow decoder start (e.g. a hardware decoder opening)
+        QVERIFY(output.init());
+        for(const auto& packet: splitCodecConfig(encode(5, 40)))
+        {
+            write(output, packet);  // SPS/PPS, IDR, P...
+        }
+        const QByteArray filler = QByteArray("\x00\x00\x01\x41", 4) + QByteArray(1024 * 1024, char(0x55));
+        for(int i = 0; i < 9; ++i)
+        {
+            write(output, filler);  // more than 8 MB queued: the pictures are dropped
+        }
+        hook::setGate(hook::openGate, true);
+        QTest::qWait(300);
+        QCOMPARE(hook::framesOut.load(), 0);
+
+        // next IDR from the phone, without SPS/PPS (sent once per session)
+        auto next = splitCodecConfig(encode(5, 120));
+        next.removeFirst();
+        for(const auto& packet: next)
+        {
+            write(output, packet);
+        }
+        QTRY_COMPARE(hook::framesOut.load(), 5);
+        output.stop();
+    }
+
+    // Overflow in the middle of the stream: nothing reaches the decoder until the next IDR frame, which is
+    // then decoded exactly like a lossless stream
+    void overflowWaitsForTheNextIdr()
+    {
+        TestHome home;
+        auto configuration = std::make_shared<Configuration>();
+        configuration->setVideoDecoder("software");
+        QVideoSink sink;
+        FfmpegVideoOutput output(configuration, &sink);
+        QVERIFY(output.init());
+        QTRY_COMPARE(output.decoderName(), std::string("h264"));
+
+        const auto packets = splitCodecConfig(encode(30, 40));
+        for(int i = 0; i < 6; ++i)
+        {
+            write(output, packets[i]);  // SPS/PPS, IDR, 4 P
+        }
+        QTRY_COMPARE(hook::framesOut.load(), 5);
+
+        hook::setGate(hook::sendGate, false);  // decoder busy
+        write(output, packets[6]);             // taken by the decoder thread, blocks in send
+        QTest::qWait(100);
+        for(int i = 7; i < 12; ++i)
+        {
+            write(output, packets[i]);
+        }
+        const QByteArray filler = QByteArray("\x00\x00\x01\x41", 4) + QByteArray(1024 * 1024, char(0x55));
+        for(int i = 0; i < 9; ++i)
+        {
+            write(output, filler);  // more than 8 MB queued: dropped
+        }
+        hook::recordSlices = true;
+        hook::setGate(hook::sendGate, true);
+        for(int i = 12; i < packets.size(); ++i)
+        {
+            write(output, packets[i]);  // P-frames whose references were dropped
+        }
+        QTest::qWait(500);
+        // only packets[6], taken by the decoder before the overflow
+        QCOMPARE(hook::nonIdrBeforeIdr.load(), 1);
+        QCOMPARE(hook::framesOut.load(), 6);  // the 5 before and packets[6], already in the decoder
+
+        auto next = splitCodecConfig(encode(5, 120));
+        const QList<QByteArray> withoutConfig = next.mid(1);
+        for(const auto& packet: withoutConfig)
+        {
+            write(output, packet);
+        }
+        QTRY_COMPARE(hook::framesOut.load(), 11);
+        QVERIFY(hook::idrSeen.load());
+        std::vector<uint8_t> shown;
+        {
+            std::lock_guard<std::mutex> lock(hook::lastMutex);
+            shown = hook::lastLuma;
+        }
+        output.stop();
+        QCOMPARE(meanAbsDiff(shown, referenceLastLuma(next)), 0.0);
+    }
+
+    // Hardware decoder without a picture, no software decoder: the video is not left marked active
+    void noSoftwareFallbackDeactivatesVideo()
+    {
+        TestHome home;
+        auto configuration = std::make_shared<Configuration>();
+        configuration->setVideoDecoder("fakehw");
+        QVideoSink sink;
+        FfmpegVideoOutput output(configuration, &sink);
+        hook::noFrames = true;
+        hook::noH264 = true;
+        QVERIFY(output.init());
+        QTRY_COMPARE(output.decoderName(), std::string("fakehw"));
+        QTRY_VERIFY(AaBridge::instance().videoActive());
+
+        for(const auto& packet: splitCodecConfig(encode(70, 40)))
+        {
+            write(output, packet);
+        }
+        QTRY_VERIFY(!AaBridge::instance().videoActive());
+        QVERIFY(!AaBridge::instance().videoError().isEmpty());
+
+        // a new setup of the video channel starts a new decoder thread
+        hook::noFrames = false;
+        hook::noH264 = false;
+        QVERIFY(output.init());
+        QTRY_VERIFY(AaBridge::instance().videoActive());
+        QVERIFY(AaBridge::instance().videoError().isEmpty());
+        output.stop();
+    }
+
+    // No decoder at all, then a second setup of the video channel: no std::terminate
+    void noDecoderThenInitAgain()
+    {
+        TestHome home;
+        auto configuration = std::make_shared<Configuration>();
+        configuration->setVideoDecoder("software");
+        QVideoSink sink;
+        FfmpegVideoOutput output(configuration, &sink);
+        hook::noDecoderAtAll = true;
+        QVERIFY(output.init());
+        QTRY_VERIFY(!AaBridge::instance().videoError().isEmpty());
+        QTRY_VERIFY(!AaBridge::instance().videoActive());
+
+        hook::noDecoderAtAll = false;
+        QVERIFY(output.init());
+        QTRY_COMPARE(output.decoderName(), std::string("h264"));
+        for(const auto& packet: splitCodecConfig(encode(3, 40)))
+        {
+            write(output, packet);
+        }
+        QTRY_COMPARE(hook::framesOut.load(), 3);
+        output.stop();
+    }
+};
+
+QTEST_MAIN(TestVideoDecoder)
+#include "test_video_decoder.moc"
