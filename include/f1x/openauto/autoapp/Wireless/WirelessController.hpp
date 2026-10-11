@@ -62,6 +62,8 @@ public:
     ~WirelessController() override;
 
     QVariantMap state() const;
+    // Network interface of the running hotspot, empty while there is none
+    QString hotspotInterface() const;
 
     // Starts or stops everything according to the configuration (also after settings changes)
     Q_INVOKABLE void apply();

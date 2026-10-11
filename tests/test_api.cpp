@@ -4,12 +4,14 @@
 #include <QWebSocket>
 #include <QtTest>
 #include <f1x/openauto/autoapp/Api/ApiServer.hpp>
+#include <f1x/openauto/autoapp/Api/ClientFilter.hpp>
 #include <f1x/openauto/autoapp/Api/CoreMethods.hpp>
 #include <f1x/openauto/autoapp/Core/EventBus.hpp>
 #include "TestHome.hpp"
 
 using f1x::openauto::autoapp::api::ApiError;
 using f1x::openauto::autoapp::api::ApiServer;
+using f1x::openauto::autoapp::api::HotspotNetwork;
 using f1x::openauto::autoapp::audio::VolumeController;
 using f1x::openauto::autoapp::core::EventBus;
 using f1x::openauto::autoapp::input::ActionDispatcher;
@@ -193,6 +195,71 @@ private slots:
         QSignalSpy closed(&client.socket(), &QWebSocket::disconnected);
         QVERIFY(closed.wait(5000) || closed.count() > 0);
         QCOMPARE(client.socket().closeCode(), QWebSocketProtocol::CloseCodePolicyViolated);
+    }
+
+    // openhu#17: the hotspot is recognised by its IPv4 subnet and by every address of its interface
+    void hotspotFilter_data()
+    {
+        QTest::addColumn<QString>("peer");
+        QTest::addColumn<bool>("blockHotspot");
+        QTest::addColumn<bool>("hotspotUp");
+        QTest::addColumn<bool>("allowed");
+        QTest::newRow("loopback v4") << "127.0.0.1" << true << true << true;
+        QTest::newRow("loopback v6") << "::1" << true << true << true;
+        QTest::newRow("loopback v4-mapped") << "::ffff:127.0.0.1" << true << true << true;
+        QTest::newRow("hotspot v4") << "10.42.0.5" << true << true << false;
+        QTest::newRow("hotspot v4-mapped (dual stack)") << "::ffff:10.42.0.5" << true << true << false;
+        QTest::newRow("hotspot v4, hotspot down") << "10.42.0.5" << true << false << false;
+        QTest::newRow("hotspot v6 ULA") << "fd42::5" << true << true << false;
+        QTest::newRow("hotspot link-local") << "fe80::1234%wlan0" << true << true << false;
+        QTest::newRow("link-local other interface") << "fe80::1234%eth0" << true << true << true;
+        QTest::newRow("LAN v4") << "192.168.1.20" << true << true << true;
+        QTest::newRow("LAN v6") << "2001:db8::20" << true << true << true;
+        QTest::newRow("v6 while the hotspot interface is unknown") << "2001:db8::20" << true << false << false;
+        QTest::newRow("hotspot allowed v4") << "10.42.0.5" << false << true << true;
+        QTest::newRow("hotspot allowed v6") << "fd42::5" << false << true << true;
+    }
+
+    void hotspotFilter()
+    {
+        QFETCH(QString, peer);
+        QFETCH(bool, blockHotspot);
+        QFETCH(bool, hotspotUp);
+        QFETCH(bool, allowed);
+
+        HotspotNetwork hotspot;
+        hotspot.subnet = "10.42.0.1/24";
+        if(hotspotUp)
+        {
+            hotspot.interfaceName = "wlan0";
+            QNetworkAddressEntry ipv4;
+            ipv4.setIp(QHostAddress("10.42.0.1"));
+            ipv4.setPrefixLength(24);
+            QNetworkAddressEntry ula;
+            ula.setIp(QHostAddress("fd42::1"));
+            ula.setPrefixLength(64);
+            QNetworkAddressEntry linkLocal;
+            linkLocal.setIp(QHostAddress("fe80::1"));
+            linkLocal.setPrefixLength(64);
+            hotspot.addresses = {ipv4, ula, linkLocal};
+        }
+        QCOMPARE(f1x::openauto::autoapp::api::clientAllowed(QHostAddress(peer), blockHotspot, hotspot), allowed);
+    }
+
+    // "::" listens on IPv4 and IPv6, a QHostAddress("::") alone would be IPv6 only
+    void listenAddress()
+    {
+        using f1x::openauto::autoapp::api::listenAddress;
+        QCOMPARE(listenAddress("::"), QHostAddress(QHostAddress::Any));
+        QCOMPARE(listenAddress("0.0.0.0"), QHostAddress(QHostAddress::AnyIPv4));
+        QCOMPARE(listenAddress("127.0.0.1"), QHostAddress(QHostAddress::LocalHost));
+
+        const quint16 port = freePort();
+        ApiServer server;
+        QVERIFY(server.listen(listenAddress("::"), port));
+        QTcpSocket ipv4;
+        ipv4.connectToHost(QHostAddress::LocalHost, port);
+        QVERIFY2(ipv4.waitForConnected(3000), "\"::\" does not accept IPv4");
     }
 };
 
