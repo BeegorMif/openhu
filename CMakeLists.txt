@@ -98,7 +98,7 @@ endif ()
 # aasdk from the OpenHU fork (https://github.com/average-web-dev/aasdk, branch openhu).
 # Required version: any release with the same major version and at least this minor version.
 # find_package checks it here, the Depends of the .deb are derived from it below.
-set(OPENHU_AASDK_VERSION 1.0)
+set(OPENHU_AASDK_VERSION 1.1)
 find_package(aasdk ${OPENHU_AASDK_VERSION} CONFIG REQUIRED)
 message(STATUS "aasdk ${aasdk_VERSION}: ${aasdk_DIR}")
 
