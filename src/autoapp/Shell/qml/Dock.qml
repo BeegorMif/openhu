@@ -9,6 +9,9 @@ Rectangle {
     property string currentPage
     signal pageSelected(string name)
 
+    BusTopic { id: projection; topic: "projection.state" }
+    BusTopic { id: transport; topic: "projection.transport" }
+
     Column {
         anchors.top: parent.top
         anchors.topMargin: Theme.spacing
@@ -22,7 +25,9 @@ Rectangle {
             onClicked: dock.pageSelected("home")
         }
         DockButton {
-            icon: "qrc:/aausb-hot.png"
+            // connection type while connected, otherwise only the logo
+            icon: projection.data.connected !== true ? "qrc:/aa-hot.png"
+                  : transport.data.transport === "wifi" ? "qrc:/aawifi-hot.png" : "qrc:/aausb-hot.png"
             label: "Auto"
             active: dock.currentPage === "aa"
             badge: aaBridge.videoActive

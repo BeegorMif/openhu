@@ -1,4 +1,5 @@
 import QtQuick 2.15
+import QtQuick.Controls 2.15
 import OpenHU 1.0
 import QtQuick.Layouts 1.15
 import "."
@@ -102,7 +103,7 @@ Item {
                     spacing: Theme.spacing
 
                     Image {
-                        source: "qrc:/aausb-hot.png"
+                        source: "qrc:/aa-hot.png"
                         Layout.preferredWidth: Theme.fontHuge * 0.7
                         Layout.preferredHeight: Layout.preferredWidth
                         fillMode: Image.PreserveAspectFit
@@ -137,6 +138,26 @@ Item {
                         }
                         color: Theme.text
                         font.pixelSize: Theme.fontSmall
+                    }
+                    // Ended on the phone: OpenHU waits, connect the last phone again or another paired one
+                    Flow {
+                        Layout.fillWidth: true
+                        visible: wireless.state.running === true && wireless.state.endedByUser === true
+                        spacing: Theme.spacing / 2
+                        Repeater {
+                            model: {
+                                const last = wireless.state.lastDevice || ""
+                                const phones = bluetooth.devices.filter(d => d.icon === "phone")
+                                return phones.filter(d => d.address.toUpperCase() === last)
+                                             .concat(phones.filter(d => d.address.toUpperCase() !== last))
+                            }
+                            Button {
+                                readonly property bool last: modelData.address.toUpperCase() === wireless.state.lastDevice
+                                text: (last ? "Wieder verbinden: " : "Verbinden: ") + modelData.name
+                                highlighted: last
+                                onClicked: wireless.connectDevice(modelData.address)
+                            }
+                        }
                     }
                     Item { Layout.fillHeight: true }
                 }

@@ -51,7 +51,7 @@ Rectangle {
 
         Image {
             anchors.horizontalCenter: parent.horizontalCenter
-            source: "qrc:/aausb-hot.png"
+            source: "qrc:/aa-hot.png"
             width: Theme.fontHuge
             height: width
             fillMode: Image.PreserveAspectFit

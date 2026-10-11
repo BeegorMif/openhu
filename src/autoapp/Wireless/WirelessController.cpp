@@ -448,7 +448,11 @@ void WirelessController::onProjectionState(bool active, bool endedByUser)
     QTimer::singleShot(0, this, &WirelessController::updateIdle);
     if(active)
     {
-        endedByUser_ = false;
+        if(endedByUser_)
+        {
+            endedByUser_ = false;
+            this->publish();
+        }
         connectTimer_.stop();
         stuckTimer_.stop();
         if(phase_ != "idle")
@@ -543,9 +547,11 @@ void WirelessController::connectDevice(const QString& address)
         // Bluetooth stayed connected: the phone only starts Android Auto again after it reconnects
         bluez::callAsync(device.value("path").toString(), bluez::cDevice, "Disconnect");
         QTimer::singleShot(4000, this, &WirelessController::connectPhones);
+        this->setPhase("waiting");
         return;
     }
     this->connectPhones();
+    this->publish();
 }
 
 void WirelessController::enableWifi()
@@ -570,6 +576,7 @@ QVariantMap WirelessController::state() const
     else if(phase_ == "joining") phaseText = "Telefon verbindet sich mit dem WLAN …";
     else if(phase_ == "connected") phaseText = "Android Auto läuft kabellos";
     else if(phase_ == "error") phaseText = "Telefon meldet: " + phaseDetail_;
+    else if(endedByUser_) phaseText = "Am Telefon getrennt";
 
     return {
         {"enabled", configuration_->getWirelessProjectionEnabled()},
@@ -586,6 +593,8 @@ QVariantMap WirelessController::state() const
         {"phase", phase_},
         {"phaseText", phaseText},
         {"device", phaseDevice_},
+        {"endedByUser", endedByUser_},
+        {"lastDevice", QString::fromStdString(configuration_->getWirelessSettings().lastDevice).toUpper()},
     };
 }
 

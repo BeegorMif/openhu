@@ -1,6 +1,8 @@
 <RCC>
     <qresource prefix="/">
         <file>aausb-hot.png</file>
+        <file>aawifi-hot.png</file>
+        <file>aa-hot.png</file>
         <file>settings-hot.png</file>
         <file>volume-hot.png</file>
         <file>mp3-hot.png</file>
