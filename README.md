@@ -79,11 +79,10 @@ Development and testing run in a container that shows OpenHU in a window on your
 git clone https://github.com/average-web-dev/openhu.git
 git clone -b openhu https://github.com/average-web-dev/aasdk.git aasdk-ref   # next to it
 cd openhu
-docker/dev.sh image   # first build of aasdk and OpenHU (takes a while)
-docker/run.sh
+docker/dev.sh run     # first run builds the image, aasdk and OpenHU (takes a while)
 ```
 
-After code changes `docker/dev.sh build` rebuilds incrementally.
+After code changes `docker/dev.sh run` again: it rebuilds only what changed and starts right away.
 
 Plug in your phone (or set up wireless under *Einstellungen → Kabellos*). Bare-metal installation on a Raspberry Pi
 or a Debian/Ubuntu system, and what wireless Android Auto and the car radio need: [docs/installation.md](docs/installation.md).

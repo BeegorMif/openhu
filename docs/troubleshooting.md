@@ -5,7 +5,7 @@
 | | |
 |---|---|
 | Service | `journalctl -u openhu -f` |
-| Container | output of `docker/run.sh` (or `docker logs openhu`) |
+| Container | output of `docker/dev.sh run` (or `docker logs openhu`) |
 | Plugins | `~/.openhu/logs/<id>.log` (container: `docker/data/logs/`) |
 | Live data | `websocat ws://127.0.0.1:5520`, then `{"type":"subscribe","topics":["*"]}` ([api.md](api.md)) |
 | Crashes | `coredumpctl list autoapp` (also catches crashes inside the container) |

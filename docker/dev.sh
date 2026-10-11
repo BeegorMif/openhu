@@ -1,91 +1,156 @@
 #!/usr/bin/env bash
 # Entwicklungs-Workflow für OpenHU im Container.
 #
-#   ./dev.sh build            inkrementell bauen (nur geänderte Dateien) -> output/*.deb -> openhu:run neu
-#   ./dev.sh build --aasdk    zusätzlich aasdk neu bauen (../aasdk-ref bzw. $AASDK_DIR, nach aasdk-Änderungen)
-#   ./dev.sh image            Build-Image openhu:build komplett neu bauen (nach Dockerfile-/Abhängigkeitsänderungen)
-#   ./dev.sh shell            Shell in der Build-Umgebung (Quellen eingehängt)
-#   ./dev.sh reconnect        Handy per USB-Reset neu verbinden (laufendes ./run.sh)
+#   ./dev.sh run [args]   inkrementell bauen (aasdk + OpenHU) und OpenHU im Fenster starten
+#   ./dev.sh build        nur bauen
+#   ./dev.sh package      bauen und .deb nach output/ legen
+#   ./dev.sh shell        Shell in der Entwicklungsumgebung (Quellen eingehängt)
+#   ./dev.sh reconnect    Handy per USB-Reset neu verbinden (laufendes OpenHU)
+#   ./dev.sh image        Image openhu:dev mit aktuellen Debian-Paketen neu bauen (nach Dockerfile-Änderungen automatisch)
+#   ./dev.sh clean        Build-Volumes und ccache löschen (nächster Build startet von vorn)
 #
-# Danach wie gewohnt: ./run.sh
+# Ohne Bauen starten: ./dev.sh run --no-build, Auflösung: OPENHU_RESOLUTION=800x480 ./dev.sh run
 set -euo pipefail
 
 DOCKER_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO="$(dirname "$DOCKER_DIR")"
 # aasdk source (default: next to this repository)
 AASDK_DIR="${AASDK_DIR:-$(dirname "$REPO")/aasdk-ref}"
-BUILD_IMAGE="openhu:build"
-RUN_IMAGE="openhu:run"
+IMAGE="openhu:dev"
 
-# Build-Verzeichnisse liegen in Docker-Volumes, damit inkrementelle Builds schnell sind
-# und keine root-Dateien im Quellbaum landen.
-dev_container() {
-  docker run --rm ${DEV_TTY:-} \
-    -v "$REPO:/src" \
-    -v "$AASDK_DIR:/aasdk" \
-    -v "$DOCKER_DIR/output:/output" \
-    -v openhu-build:/build/openhu \
-    -v openhu-aasdk-build:/build/aasdk \
-    -w /src \
-    "$BUILD_IMAGE" "$@"
+# Builds, installed aasdk and ccache live in Docker volumes: incremental builds stay fast
+# and no root-owned files end up in the source tree.
+VOLUMES=(openhu-build openhu-aasdk-build openhu-aasdk openhu-ccache)
+BUILD_MOUNTS=(
+  -v openhu-build:/build/openhu
+  -v openhu-aasdk-build:/build/aasdk
+  -v openhu-aasdk:/opt/aasdk
+  -v openhu-ccache:/ccache
+)
+
+# Rebuilds the image when the Dockerfile or the entrypoint changed (otherwise a no-op),
+# extra arguments force a build with them (cmd image)
+ensure_image() {
+  local hash
+  hash="$(cat "$REPO/Dockerfile" "$DOCKER_DIR/entrypoint.sh" | sha256sum | cut -c1-16)"
+  if [[ $# -gt 0 || "$(docker image inspect -f '{{index .Config.Labels "openhu.hash"}}' "$IMAGE" 2>/dev/null)" != "$hash" ]]; then
+    docker build --target dev --label openhu.hash="$hash" -t "$IMAGE" "$@" "$REPO"
+  fi
 }
 
-build_run_image() {
-  docker build -f "$DOCKER_DIR/Dockerfile.run" -t "$RUN_IMAGE" "$DOCKER_DIR"
+dev_container() {
+  local tty=()
+  [ -t 0 ] && [ -t 1 ] && tty=(-it)
+  docker run --rm "${tty[@]}" \
+    -v "$REPO:/src" \
+    -v "$AASDK_DIR:/aasdk" \
+    "${BUILD_MOUNTS[@]}" \
+    -w /src \
+    "$IMAGE" "$@"
 }
 
 cmd_build() {
-  local with_aasdk=false
-  [[ "${1:-}" == "--aasdk" ]] && with_aasdk=true
-
-  mkdir -p "$DOCKER_DIR/output"
-  rm -f "$DOCKER_DIR"/output/*.deb
-
-  dev_container bash -euo pipefail -c "
-    if $with_aasdk; then
-      echo '=== aasdk ==='
-      cd /aasdk
-      if [ -f /build/aasdk/build.ninja ]; then
-        cmake --build /build/aasdk
-      else
-        BUILD_DIR=/build/aasdk BUILD_TESTS=OFF bash ./build.sh release --skip-protobuf --skip-absl
-      fi
-      rm -rf /output/aasdk-root
-      DESTDIR=/output/aasdk-root cmake --install /build/aasdk >/dev/null
-      cd /src
+  ensure_image
+  dev_container bash -euo pipefail -c '
+    echo "=== aasdk ==="
+    if [ -f /build/aasdk/build.ninja ]; then
+      cmake --build /build/aasdk
+    else
+      cd /aasdk && BUILD_DIR=/build/aasdk BUILD_TESTS=OFF bash ./build.sh release --skip-protobuf --skip-absl
     fi
-    # aasdk from the last --aasdk build instead of the one in the image
-    if [ -d /output/aasdk-root ]; then
-      # remove the image's aasdk first, ldconfig would otherwise keep linking the old library
-      rm -f /usr/local/lib/libaasdk.so* /usr/local/lib/libaap_protobuf.so*
-      cp -a /output/aasdk-root/. /
-      ldconfig
+    cmake --install /build/aasdk --prefix /opt/aasdk >/dev/null
+
+    echo "=== openhu ==="
+    # configure only once (Ninja reruns CMake itself), a build directory from another generator is discarded
+    if [ ! -f /build/openhu/build.ninja ]; then
+      find /build/openhu -mindepth 1 -delete
+      cmake -S /src -B /build/openhu -DCMAKE_BUILD_TYPE=Release \
+            -DCPACK_DEBIAN_PACKAGE_RELEASE="$(bash /src/scripts/distro_release.sh)" \
+            -DCPACK_PROJECT_CONFIG_FILE=/src/cmake_modules/CPackProjectConfig.cmake >/dev/null
     fi
-
-    echo '=== openhu ==='
-    cmake -S /src -B /build/openhu -DCMAKE_BUILD_TYPE=Release \
-          -DCPACK_PROJECT_CONFIG_FILE=/src/cmake_modules/CPackProjectConfig.cmake >/dev/null
-    cmake --build /build/openhu -j\$(nproc)
-    touch /tmp/cpack-stamp
-    cd /build/openhu && cpack -G DEB >/dev/null
-    find /build/openhu -maxdepth 1 -name '*.deb' -newer /tmp/cpack-stamp -exec cp -v {} /output/ \;
-    chown -R $(id -u):$(id -g) /output
-  "
-
-  build_run_image
+    cmake --build /build/openhu
+  '
 }
 
-cmd_image() {
-  docker build -t "$BUILD_IMAGE" --build-context aasdk="$AASDK_DIR" "$REPO"
-  rm -rf "$DOCKER_DIR/output/aasdk-root"
+cmd_package() {
+  cmd_build
   mkdir -p "$DOCKER_DIR/output"
-  docker run --rm -v "$DOCKER_DIR/output:/host-output" "$BUILD_IMAGE" \
-    bash -c "rm -f /host-output/*.deb && cp -v /output/*.deb /host-output/ && chown -R $(id -u):$(id -g) /host-output"
-  build_run_image
+  rm -f "$DOCKER_DIR"/output/*.deb
+  BUILD_MOUNTS+=(-v "$DOCKER_DIR/output:/output")
+  dev_container bash -euo pipefail -c "
+    cd /build/openhu
+    rm -f ./*.deb
+    cpack -G DEB >/dev/null
+    cp -v ./*.deb /output/
+    chown $(id -u):$(id -g) /output/*.deb
+  "
+}
+
+cmd_run() {
+  if [[ "${1:-}" == "--no-build" ]]; then
+    shift
+    ensure_image
+  else
+    cmd_build
+  fi
+  cd "$DOCKER_DIR"
+
+  # root in the container may use the X server (XWayland)
+  xhost +SI:localuser:root >/dev/null
+
+  local pulse_sock="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/pulse/native"
+  local host_display="${DISPLAY:-:0}"
+  local host_xsock="/tmp/.X11-unix/X${host_display#:}"
+
+  # Plugins, store sources, cache and logs survive restarts.
+  # The container writes as root, afterwards the files belong to the own user again.
+  mkdir -p config data
+  trap 'docker run --rm -v "$DOCKER_DIR/data:/data" "$IMAGE" chown -R "$(id -u):$(id -g)" /data' EXIT
+
+  # Local plugin repository (store source "file /opt/openhu-plugins") for plugin development,
+  # default: next to this repository
+  local plugin_repo_dir="${PLUGIN_REPO_DIR:-$(dirname "$REPO")/openhu-plugins}"
+  local extra=()
+  [ -t 0 ] && [ -t 1 ] && extra+=(-it)
+  [ -d "$plugin_repo_dir" ] && extra+=(-v "$plugin_repo_dir:/opt/openhu-plugins:ro")
+
+  # Pass cameras through (reverse camera plugin), if present
+  local dev
+  for dev in /dev/video*; do
+    [ -e "$dev" ] && extra+=(--device "$dev")
+  done
+
+  # --network host: needed for udev hotplug events (phone switches to AOA mode).
+  #                 The OpenHU API (port 5520) and CAN interfaces (vcan0/can0) are reachable directly as well.
+  # Only the host X socket is mounted, so Xephyr's own socket stays inside the container.
+  # /run/dbus: BlueZ and NetworkManager of the host (wireless Android Auto).
+  # OpenHU and aasdk come read-only from the build volumes.
+  docker run --rm --privileged \
+    --name openhu \
+    --network host \
+    -e DISPLAY="$host_display" \
+    -e OPENHU_RESOLUTION="${OPENHU_RESOLUTION:-1280x720}" \
+    -e QT_QPA_PLATFORM=xcb \
+    -v /etc/localtime:/etc/localtime:ro \
+    -v "$host_xsock:$host_xsock" \
+    -e PULSE_SERVER=unix:/run/pulse/native \
+    -v "$pulse_sock:/run/pulse/native" \
+    -v /dev/bus/usb:/dev/bus/usb \
+    -v /run/udev:/run/udev:ro \
+    -v /run/dbus/system_bus_socket:/run/dbus/system_bus_socket \
+    --device /dev/snd \
+    --device /dev/dri \
+    "${extra[@]}" \
+    -v openhu-build:/build/openhu:ro \
+    -v openhu-aasdk:/opt/aasdk:ro \
+    -v "$DOCKER_DIR/config:/config" \
+    -v "$DOCKER_DIR/data:/root/.openhu" \
+    "$IMAGE" openhu-entrypoint "$@"
 }
 
 cmd_shell() {
-  DEV_TTY=-it dev_container bash
+  ensure_image
+  dev_container bash
 }
 
 cmd_reconnect() {
@@ -98,10 +163,18 @@ async def main():
 asyncio.run(main())'
 }
 
+cmd_clean() {
+  docker volume rm -f "${VOLUMES[@]}" >/dev/null
+  echo "Volumes removed: ${VOLUMES[*]}"
+}
+
 case "${1:-}" in
-  build) shift; cmd_build "$@" ;;
-  image) cmd_image ;;
+  run) shift; cmd_run "$@" ;;
+  build) cmd_build ;;
+  package) cmd_package ;;
   shell) cmd_shell ;;
   reconnect) cmd_reconnect ;;
-  *) sed -n '2,11p' "$0"; exit 1 ;;
+  image) ensure_image --pull --no-cache ;;
+  clean) cmd_clean ;;
+  *) sed -n '2,12p' "$0"; exit 1 ;;
 esac

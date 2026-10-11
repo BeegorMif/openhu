@@ -22,7 +22,7 @@ set -e
 # Usage: ./build.sh [release|debug] [--clean] [--package] [--output-dir DIR]
 
 # Default values
-NOPI_FLAG=""
+BUILD_TYPE="release"
 CLEAN_BUILD=false
 PACKAGE=false
 OUTPUT_DIR="/output"
@@ -31,14 +31,6 @@ AASDK_BRANCH="openhu"
 AASDK_PATH=""
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SOURCE_DIR="${SCRIPT_DIR}"
-
-# Auto-detect build type based on git branch
-CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "unknown")
-if [ "$CURRENT_BRANCH" = "main" ] || [ "$CURRENT_BRANCH" = "master" ]; then
-    BUILD_TYPE="release"
-else
-    BUILD_TYPE="debug"
-fi
 
 # Parse arguments
 while [[ $# -gt 0 ]]; do
@@ -122,9 +114,7 @@ if [ "$WITH_AASDK" = true ]; then
         cd aasdk-build
     fi
     echo "Building and installing AASDK..."
-    chmod +x build.sh
-    export TARGET_ARCH="$TARGET_ARCH"
-    ./build.sh $BUILD_TYPE install --skip-protobuf --skip-absl
+    BUILD_TESTS=OFF bash ./build.sh $BUILD_TYPE install --skip-protobuf --skip-absl
     cd "${SOURCE_DIR}"
     echo "AASDK build and install completed."
 fi
@@ -154,65 +144,11 @@ if [ "$CLEAN_BUILD" = true ]; then
     rm -rf "${BUILD_DIR}"
 fi
 
-# Create build directory
+# Create build directory, a build directory from another generator (Makefiles) is discarded
+if [ -f "${BUILD_DIR}/CMakeCache.txt" ] && [ ! -f "${BUILD_DIR}/build.ninja" ]; then
+    rm -rf "${BUILD_DIR}"
+fi
 mkdir -p "${BUILD_DIR}"
-
-# Detect architecture
-TARGET_ARCH=$(dpkg-architecture -qDEB_HOST_ARCH 2>/dev/null || echo "amd64")
-echo "Target architecture: ${TARGET_ARCH}"
-
-find_cross_compiler() {
-    local prefix="$1"
-    local compiler=""
-    
-    # First try the base name (might be a symlink to latest)
-    if command -v "${prefix}gcc" &> /dev/null && [ -x "$(command -v "${prefix}gcc")" ]; then
-        compiler="$(command -v "${prefix}gcc")"
-    else
-        # Find all versioned compilers and pick the latest that actually exists and is executable
-        local candidates=()
-        for candidate in $(ls /usr/bin/${prefix}gcc-* 2>/dev/null | sort -V); do
-            if [ -x "$candidate" ]; then
-                candidates+=("$candidate")
-            fi
-        done
-        if [ ${#candidates[@]} -gt 0 ]; then
-            compiler="${candidates[-1]}"
-        fi
-    fi
-    
-    if [ -n "$compiler" ] && [ -x "$compiler" ]; then
-        echo "$compiler"
-        return 0
-    else
-        return 1
-    fi
-}
-
-setup_cross_compilation() {
-    if [ "$TARGET_ARCH" != "amd64" ]; then
-        echo "Setting up cross-compilation for ${TARGET_ARCH}..."
-        
-        case $TARGET_ARCH in
-            arm64)
-                local c_compiler=$(find_cross_compiler "aarch64-linux-gnu-")
-                if [ $? -eq 0 ]; then
-                    CMAKE_ARGS+=(-DCMAKE_C_COMPILER="$c_compiler")
-                    CMAKE_ARGS+=(-DCMAKE_CXX_COMPILER="${c_compiler/gcc/g++}")
-                fi
-                ;;
-            armhf)
-                local c_compiler=$(find_cross_compiler "arm-linux-gnueabihf-")
-                if [ $? -eq 0 ]; then
-                    CMAKE_ARGS+=(-DCMAKE_C_COMPILER="$c_compiler")
-                    CMAKE_ARGS+=(-DCMAKE_CXX_COMPILER="${c_compiler/gcc/g++}")
-                fi
-                ;;
-        esac
-    fi
-}
-
-setup_cross_compilation
 
 # Compute distro-specific release suffix
 if [ -f "${SOURCE_DIR}/scripts/distro_release.sh" ]; then
@@ -229,15 +165,12 @@ echo "Configuring with CMake..."
 CMAKE_ARGS=(
     -S "${SOURCE_DIR}"
     -B "${BUILD_DIR}"
+    -G Ninja
     -DCMAKE_BUILD_TYPE="${CMAKE_BUILD_TYPE}"
 )
 
 if [ -n "$CMAKE_CXX_FLAGS" ]; then
     CMAKE_ARGS+=(-DCMAKE_CXX_FLAGS="${CMAKE_CXX_FLAGS}")
-fi
-
-if [ -n "$NOPI_FLAG" ]; then
-    CMAKE_ARGS+=("${NOPI_FLAG}")
 fi
 
 if [ -n "$DISTRO_DEB_RELEASE" ]; then
@@ -252,8 +185,7 @@ env DISTRO_DEB_RELEASE="${DISTRO_DEB_RELEASE}" cmake "${CMAKE_ARGS[@]}"
 # Build
 echo ""
 echo "Building..."
-NUM_CORES=$(nproc 2>/dev/null || echo 4)
-cmake --build "${BUILD_DIR}" -j"${NUM_CORES}"
+cmake --build "${BUILD_DIR}"
 
 echo ""
 echo "✓ Build completed successfully"

@@ -40,5 +40,6 @@ test_*/
 *.log
 *.bak
 
-# Container workflow (scripts and runtime data, not needed in the build image)
-docker/
+# Container workflow: only the entrypoint goes into the dev image
+docker/*
+!docker/entrypoint.sh

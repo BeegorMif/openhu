@@ -36,14 +36,21 @@ workspace/
 ```
 
 ```bash
-docker/dev.sh image          # build image (first time and after dependency changes)
-docker/dev.sh build          # incremental build -> docker/output/*.deb -> image openhu:run
-docker/dev.sh build --aasdk  # also rebuild aasdk after changes in ../aasdk-ref
-docker/run.sh                # OpenHU in a window (OPENHU_RESOLUTION=1920x1080 docker/run.sh for another size)
+docker/dev.sh run            # build incrementally (aasdk + OpenHU), then OpenHU in a window
+docker/dev.sh run --no-build # start without building (OPENHU_RESOLUTION=1920x1080 for another size)
+docker/dev.sh build          # only build
+docker/dev.sh package        # .deb -> docker/output/
+docker/dev.sh shell          # shell in the build environment
 docker/dev.sh reconnect      # USB reset of the phone while running
+docker/dev.sh image          # rebuild the image with current Debian packages
+docker/dev.sh clean          # delete build volumes and ccache, the next build starts from scratch
 ```
 
-`run.sh` needs an X11 display (`DISPLAY`), the PulseAudio/PipeWire socket of your user and runs the container
+The image `openhu:dev` only holds the dependencies and is rebuilt automatically after changes to the `Dockerfile`.
+aasdk (`../aasdk-ref`, other path with `AASDK_DIR=...`) and OpenHU are built in Docker volumes with Ninja and ccache,
+OpenHU runs straight from its build directory. `docker/run.sh` is short for `docker/dev.sh run`.
+
+`run` needs an X11 display (`DISPLAY`), the PulseAudio/PipeWire socket of your user and runs the container
 `--privileged` with the host network: USB hotplug, the hotspot and Bluetooth (D-Bus; Docker's AppArmor profile
 blocks D-Bus otherwise) need it. Settings are stored in `docker/config/openhu.ini`, plugins, key map and logs in
 `docker/data/`.

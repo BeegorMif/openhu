@@ -58,10 +58,10 @@ Plan im Detail: `~/.claude/plans/ich-h-tte-gene-folgenden-ethereal-lighthouse.md
 ## Entwicklung
 
 ```
-openauto/docker/dev.sh image      # Build-Image (erstes Mal / neue Abhängigkeiten)
-openauto/docker/dev.sh build      # inkrementell, --aasdk nach aasdk-Änderungen
-openauto/docker/run.sh            # Start im Xephyr-Fenster
+openauto/docker/dev.sh run        # inkrementell bauen (aasdk + OpenHU) und im Xephyr-Fenster starten
+openauto/docker/dev.sh package    # .deb nach docker/output/
 openauto/docker/dev.sh reconnect  # Handy per USB-Reset neu verbinden
+openauto/docker/dev.sh clean      # Build-Volumes und ccache löschen
 ```
 
 Konfiguration `docker/config/openhu.ini` (Fallback `openauto.ini`), Plugin-Daten `docker/data/`, Plugin-Repo als Store-Quelle
@@ -69,10 +69,12 @@ Konfiguration `docker/config/openhu.ini` (Fallback `openauto.ini`), Plugin-Daten
 
 ## Bekannte Punkte / Erkenntnisse
 
+- Ohne `gstreamer1.0-x` (X-Video-Sinks, sonst nur Recommends von `gstreamer1.0-plugins-good`) dauert unter xcb
+  jedes `QMediaPlayer` ~10 s (Wayland-Probe mit Timeout), der Verbindungsaufbau entsprechend länger.
 - Status-Services müssen in `start()` `channel_->receive()` aufrufen, sonst beantwortet OpenHU die
   Kanalöffnung nicht und das Handy sendet kein Video (war die Ursache für das schwarze Bild).
-- Im Image darf nur eine aasdk liegen (`dev.sh`/`Dockerfile.run` entfernen die alte), sonst bindet
-  `ldconfig` die alte Bibliothek.
+- Im Container liegt aasdk nur im Volume unter `/opt/aasdk` (`CPATH`/`LD_LIBRARY_PATH` im Image), nicht in
+  `/usr/local`, sonst bindet `ldconfig` womöglich eine alte Bibliothek.
 - QML-Engine cached Plugin-Dateien: vor dem Austausch werden Seiten freigegeben und der Cache getrimmt;
   Icons bekommen den Änderungszeitpunkt als URL-Parameter.
 - Das Handy liefert über Android Auto keine Signalstärke (immer 0) und keinen Akkustand.
