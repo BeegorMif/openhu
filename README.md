@@ -95,6 +95,7 @@ or a Debian/Ubuntu system, and what wireless Android Auto and the car radio need
 | [Configuration](docs/configuration.md) | every setting of `openhu.ini`, data files |
 | [API](docs/api.md) | topics, methods and actions of the WebSocket API |
 | [Plugins](docs/plugins.md) | manifest, QML module, store repositories |
+| [Translations](docs/translations.md) | languages of the shell, adding a language or strings, plugin translations |
 | [Troubleshooting](docs/troubleshooting.md) | USB, wireless, car radio, logs |
 | [Project status](docs/STATUS.md) | phases, decisions, what is tested |
 

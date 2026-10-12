@@ -29,18 +29,18 @@ accessory mode from the previous run. OpenHU resets such a phone at startup; if 
 
 ## Wireless Android Auto
 
-The state is shown under **Einstellungen → Kabellos** and in the topic `wireless.state`.
+The state is shown under **Settings → Wireless** and in the topic `wireless.state`.
 
 | Message / symptom | Cause, fix |
 |---|---|
-| "WLAN ist ausgeschaltet." | WiFi radio off or blocked: button "WLAN einschalten" (`nmcli radio wifi on`), `rfkill list` |
-| "Kein WLAN-Gerät gefunden." / "NetworkManager (nmcli) fehlt." | NetworkManager does not manage the card (`nmcli device`) or is not installed |
-| "Hotspot startet nicht …" | card without access point mode on that band, or the country does not allow it: set the country, try band "Auto" or "2,4 GHz", a fixed channel 36–48 |
-| "Bluetooth-Dienst (bluetoothd) nicht erreichbar." | BlueZ not running; in the container: `/run/dbus/system_bus_socket` not mounted or not `--privileged` (AppArmor blocks D-Bus) |
-| Phone stays at "Wird mit Android Auto verbunden" | the phone does not get the WiFi data: check that OpenHU's Bluetooth profile is registered (log `[WirelessController] Bluetooth ready`); `btmon` shows whether the phone opens the RFCOMM channel |
-| "Telefon meldet: STATUS_WIFI_NETWORK_UNAVAILABLE" | the phone does not see the hotspot: band (phones often want 5 GHz), country, distance |
-| Phone says "Verbindung kann nicht hergestellt werden" when pairing | remove the pairing on both sides and pair again; on desktops with PipeWire OpenHU uses its hands-free profile (log `phone link via hands-free (system)`) |
-| Wireless on although the phone is on the cable | "Vorrang bei Kabel" is "WLAN"; with "USB" the cable wins |
+| "WiFi is switched off." | WiFi radio off or blocked: button "Switch WiFi on" (`nmcli radio wifi on`), `rfkill list` |
+| "No WiFi device found." / "NetworkManager (nmcli) is missing." | NetworkManager does not manage the card (`nmcli device`) or is not installed |
+| "The hotspot does not start …" | card without access point mode on that band, or the country does not allow it: set the country, try band "Auto" or "2.4 GHz", a fixed channel 36–48 |
+| "Bluetooth service (bluetoothd) not reachable." | BlueZ not running; in the container: `/run/dbus/system_bus_socket` not mounted or not `--privileged` (AppArmor blocks D-Bus) |
+| Phone stays at "Connecting to Android Auto" | the phone does not get the WiFi data: check that OpenHU's Bluetooth profile is registered (log `[WirelessController] Bluetooth ready`); `btmon` shows whether the phone opens the RFCOMM channel |
+| "The phone reports: STATUS_WIFI_NETWORK_UNAVAILABLE" | the phone does not see the hotspot: band (phones often want 5 GHz), country, distance |
+| The phone cannot connect when pairing | remove the pairing on both sides and pair again; on desktops with PipeWire OpenHU uses its hands-free profile (log `phone link via hands-free (system)`) |
+| Wireless on although the phone is on the cable | "Priority with cable" is "WiFi"; with "USB" the cable wins |
 
 Useful tools: `nmcli connection show --active`, `journalctl -u NetworkManager` (DHCP of the phone),
 `tcpdump -i <wifi> port 5000` (Android Auto connection), `btmon` (Bluetooth).

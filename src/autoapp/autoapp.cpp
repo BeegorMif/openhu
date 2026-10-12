@@ -57,6 +57,7 @@
 #include <f1x/openauto/autoapp/Shell/AaSurface.hpp>
 #include <f1x/openauto/autoapp/Shell/SettingsController.hpp>
 #include <f1x/openauto/autoapp/Shell/ShellController.hpp>
+#include <f1x/openauto/autoapp/Shell/Translations.hpp>
 #include <f1x/openauto/autoapp/System/SystemController.hpp>
 #include <f1x/openauto/autoapp/System/SystemMethods.hpp>
 #include <f1x/openauto/autoapp/Bluetooth/BluetoothManager.hpp>
@@ -154,6 +155,11 @@ int main(int argc, char* argv[])
     auto configuration = std::make_shared<autoapp::configuration::Configuration>();
     autoapp::shell::AaBridge::instance().configure(configuration);
 
+    // before anything produces text: the language of the shell and of the plugins (General.Language)
+    autoapp::shell::Translations translations;
+    translations.setPluginsDir(autoapp::plugins::PluginManager::pluginsDir());
+    translations.setLanguage(QString::fromStdString(configuration->getLanguage()));
+
     autoapp::shell::SettingsController settingsController(configuration, argc, argv);
     settingsController.applyCursor();
 
@@ -212,6 +218,12 @@ int main(int argc, char* argv[])
 
     // QML shell: Android Auto inside the main window next to the rest of the UI
     QQmlApplicationEngine engine;
+    translations.setEngine(&engine);
+    QObject::connect(&settingsController, &autoapp::shell::SettingsController::languageChanged,
+                     &translations, &autoapp::shell::Translations::setLanguage);
+    // a plugin installed or updated may bring a translation
+    QObject::connect(&pluginManager, &autoapp::plugins::PluginManager::pluginsChanged,
+                     &translations, &autoapp::shell::Translations::reload);
 
     // QML module for the shell and plugin pages: import OpenHU 1.0
     qmlRegisterType<autoapp::shell::AaSurface>("OpenHU", 1, 0, "AaSurface");

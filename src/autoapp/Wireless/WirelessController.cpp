@@ -235,7 +235,7 @@ void WirelessController::startBluetooth()
                                                {"RequireAuthorization", false}});
     if(!error.isEmpty())
     {
-        bluetoothError_ = "Android-Auto-Profil: " + error;
+        bluetoothError_ = tr("Android Auto profile: %1").arg(error);
         return;
     }
     // The phone starts wireless Android Auto once a "car" is connected. With hands-free from PipeWire the phone
@@ -575,13 +575,13 @@ QString WirelessController::hotspotInterface() const
 QVariantMap WirelessController::state() const
 {
     QString phaseText;
-    if(phase_ == "waiting") phaseText = "Warte auf das Telefon …";
-    else if(phase_ == "hotspot") phaseText = "Telefon meldet sich, WLAN-Hotspot startet …";
-    else if(phase_ == "handshake") phaseText = "Telefon verbunden, übergebe WLAN-Zugang …";
-    else if(phase_ == "joining") phaseText = "Telefon verbindet sich mit dem WLAN …";
-    else if(phase_ == "connected") phaseText = "Android Auto läuft kabellos";
-    else if(phase_ == "error") phaseText = "Telefon meldet: " + phaseDetail_;
-    else if(endedByUser_) phaseText = "Am Telefon getrennt";
+    if(phase_ == "waiting") phaseText = tr("Waiting for the phone …");
+    else if(phase_ == "hotspot") phaseText = tr("Phone shows up, WiFi hotspot is starting …");
+    else if(phase_ == "handshake") phaseText = tr("Phone connected, handing over the WiFi access …");
+    else if(phase_ == "joining") phaseText = tr("Phone is connecting to the WiFi …");
+    else if(phase_ == "connected") phaseText = tr("Android Auto runs wirelessly");
+    else if(phase_ == "error") phaseText = tr("The phone reports: %1").arg(phaseDetail_);
+    else if(endedByUser_) phaseText = tr("Disconnected on the phone");
 
     return {
         {"enabled", configuration_->getWirelessProjectionEnabled()},

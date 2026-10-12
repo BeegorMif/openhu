@@ -20,7 +20,7 @@ Rectangle {
 
         DockButton {
             icon: "qrc:/home-hot.png"
-            label: "Start"
+            label: qsTr("Home")
             active: dock.currentPage === "home"
             onClicked: dock.pageSelected("home")
         }
@@ -28,7 +28,7 @@ Rectangle {
             // connection type while connected, otherwise only the logo
             icon: projection.data.connected !== true ? "qrc:/aa-hot.png"
                   : transport.data.transport === "wifi" ? "qrc:/aawifi-hot.png" : "qrc:/aausb-hot.png"
-            label: "Auto"
+            label: qsTr("Auto")
             active: dock.currentPage === "aa"
             badge: aaBridge.videoActive
             onClicked: dock.pageSelected("aa")
@@ -56,7 +56,7 @@ Rectangle {
 
         DockButton {
             icon: "qrc:/settings-hot.png"
-            label: "Einstellungen"
+            label: qsTr("Settings")
             active: dock.currentPage === "settings"
             onClicked: dock.pageSelected("settings")
         }

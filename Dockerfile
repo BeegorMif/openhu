@@ -69,6 +69,8 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
         qml6-module-qtquick-layouts \
         qml6-module-qtquick-controls \
         qml6-module-qtmultimedia \
+        # lrelease for the translations (translations/*.ts), lupdate for tests/translations.sh
+        qt6-l10n-tools \
         # on-screen keyboard (Keyboard.qml): QML module and the input method plugin
         qml6-module-qtquick-virtualkeyboard \
         qt6-virtualkeyboard-plugin \
@@ -159,9 +161,11 @@ COPY assets assets
 COPY packaging packaging
 COPY scripts scripts
 COPY tests tests
-# qmllint of the shell QML, build, unit tests, package
+COPY translations translations
+# qmllint of the shell QML, translations complete, build, unit tests, package
 RUN --mount=type=cache,target=/ccache \
     bash tests/qmllint.sh \
+    && bash tests/translations.sh \
     && cmake -S /src -B /tmp/build -DCMAKE_BUILD_TYPE=Release \
         -DCPACK_DEBIAN_PACKAGE_RELEASE="$(bash scripts/distro_release.sh)" \
         -DCPACK_PROJECT_CONFIG_FILE=/src/cmake_modules/CPackProjectConfig.cmake \

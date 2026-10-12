@@ -251,7 +251,7 @@ void CarAudio::findSink()
     if(++sinkAttempts_ >= 20)
     {
         sinkTimer_.stop();
-        error_ = "Verbunden, aber keine Audioausgabe gefunden (A2DP in PipeWire/PulseAudio aktiv?).";
+        error_ = tr("Connected, but no audio output found (A2DP active in PipeWire/PulseAudio?).");
         OPENAUTO_LOG(warning) << "[CarAudio] no sink for the radio";
         this->publish();
     }
@@ -311,7 +311,7 @@ void CarAudio::updatePlayer()
     {
         const QString caller = call_.value("name").toString().isEmpty() ? call_.value("number").toString()
                                                                         : call_.value("name").toString();
-        player_.update("Playing", (callState_ == "incoming" ? "Anruf: " : "Gespräch: ") + caller,
+        player_.update("Playing", (callState_ == "incoming" ? tr("Call: %1") : tr("Talking: %1")).arg(caller),
                        call_.value("number").toString(), QString(), 0, call_.value("duration").toDouble());
         return;
     }
@@ -328,12 +328,12 @@ QVariantMap CarAudio::state() const
     const QString address = QString::fromStdString(settings.device);
     const QVariantMap device = bluetooth_.device(address);
     QString status;
-    if(!settings.enabled || address.isEmpty()) status = "Aus";
+    if(!settings.enabled || address.isEmpty()) status = tr("Off");
     else if(!error_.isEmpty()) status = error_;
-    else if(connected_ && !sink_.isEmpty()) status = "Ton läuft über " + device.value("name", address).toString();
-    else if(connected_) status = "Verbunden, Audioausgabe wird eingerichtet …";
-    else if(device.isEmpty()) status = "Wird gekoppelt …";
-    else status = "Warte auf " + device.value("name", address).toString() + " (Radio an?)";
+    else if(connected_ && !sink_.isEmpty()) status = tr("Sound plays through %1").arg(device.value("name", address).toString());
+    else if(connected_) status = tr("Connected, setting up the audio output …");
+    else if(device.isEmpty()) status = tr("Pairing …");
+    else status = tr("Waiting for %1 (radio on?)").arg(device.value("name", address).toString());
 
     return {
         {"enabled", settings.enabled},

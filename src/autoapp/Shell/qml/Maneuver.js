@@ -27,17 +27,17 @@ function symbol(maneuver) {
     return "↑"
 }
 
-// "350 m" / "1,2 km" from nav.distance or nav.destination
+// "350 m" / "1.2 km" (decimal point of the language) from nav.distance or nav.destination
 function distance(data) {
     if (!data)
         return ""
     if (data.display) {
         var unit = { meters: "m", kilometers: "km", kilometers_p1: "km", miles: "mi", miles_p1: "mi", feet: "ft", yards: "yd" }[data.unit] || ""
-        return data.display.replace(".", ",") + (unit ? " " + unit : "")
+        return data.display.replace(".", Qt.locale().decimalPoint) + (unit ? " " + unit : "")
     }
     if (data.meters === undefined)
         return ""
-    return data.meters >= 1000 ? (data.meters / 1000).toFixed(1).replace(".", ",") + " km" : data.meters + " m"
+    return data.meters >= 1000 ? (data.meters / 1000).toFixed(1).replace(".", Qt.locale().decimalPoint) + " km" : data.meters + " m"
 }
 
 function duration(seconds) {

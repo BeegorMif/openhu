@@ -44,6 +44,8 @@ public:
     bool showCursor() const override;
     void setOnScreenKeyboard(bool value) override;
     bool onScreenKeyboard() const override;
+    std::string getLanguage() const override;
+    void setLanguage(const std::string& value) override;
     std::string getNameSuffix() const override;
     void setNameSuffix(const std::string& value) override;
     std::string getVehicleId() const override;
@@ -99,6 +101,7 @@ private:
     bool showCursor_;
     bool onScreenKeyboard_;
     std::string nameSuffix_;
+    std::string language_;
     bool videoResolutionAuto_;
     std::string videoDecoder_;
     uint16_t apiPort_;

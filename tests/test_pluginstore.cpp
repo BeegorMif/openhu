@@ -255,7 +255,7 @@ private slots:
 
         store.install("tampered");
         QVERIFY(waitIdle(store));
-        QVERIFY2(store.status().contains("Prüfsumme"), qPrintable(store.status()));
+        QVERIFY2(store.status().contains("checksum"), qPrintable(store.status()));
 
         store.install("wrongid");
         QVERIFY(waitIdle(store));
@@ -263,11 +263,11 @@ private slots:
 
         store.install("foreign");
         QVERIFY(waitIdle(store));
-        QVERIFY2(store.status().contains("nicht für"), qPrintable(store.status()));
+        QVERIFY2(store.status().contains("not available for"), qPrintable(store.status()));
 
         store.install("missing");
         QVERIFY(waitIdle(store));
-        QVERIFY2(store.status().contains("keiner Quelle"), qPrintable(store.status()));
+        QVERIFY2(store.status().contains("not offered by any source"), qPrintable(store.status()));
 
         // path tricks in the id never reach the file system
         store.remove("../repo");
@@ -293,7 +293,7 @@ private slots:
 
         store.install("legacy");
         QVERIFY(waitIdle(store));
-        QVERIFY2(store.status().contains("andere OpenHU-Version"), qPrintable(store.status()));
+        QVERIFY2(store.status().contains("another OpenHU version"), qPrintable(store.status()));
         QVERIFY(!QDir(PluginManager::pluginsDir() + "/legacy").exists());
 
         // copied by hand (or installed before an OpenHU update): listed, but its QML is not loaded
@@ -418,7 +418,7 @@ private slots:
 
         store.updateAll();
         QVERIFY(waitIdle(store));
-        QVERIFY2(!store.status().contains("andere OpenHU-Version"), qPrintable(store.status()));
+        QVERIFY2(!store.status().contains("another OpenHU version"), qPrintable(store.status()));
         QCOMPARE(manager.plugin("old").value("version").toString(), QString("1.0.0"));
     }
 
@@ -446,7 +446,7 @@ private slots:
 
         store.install("cam");
         QVERIFY(waitIdle(store));
-        QVERIFY2(store.status().contains("andere OpenHU-Version"), qPrintable(store.status()));
+        QVERIFY2(store.status().contains("another OpenHU version"), qPrintable(store.status()));
         QCOMPARE(manager.plugin("cam").value("version").toString(), QString("1.0.0"));
         QVERIFY(manager.plugin("cam").value("compatible").toBool());
         QCOMPARE(readJson(PluginManager::baseDir() + "/installed.json").value("cam").toMap().value("version").toString(),

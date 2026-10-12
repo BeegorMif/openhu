@@ -46,7 +46,7 @@ Rectangle {
         }
         Text {
             anchors.verticalCenter: parent.verticalCenter
-            text: volume.muted ? "Stumm" : volume.volume + " %"
+            text: volume.muted ? qsTr("Muted") : volume.volume + " %"
             color: Theme.textDim
             font.pixelSize: Theme.fontSmall
         }

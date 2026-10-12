@@ -45,7 +45,8 @@ Item {
                 font.weight: Font.Light
             }
             Text {
-                text: home.now.toLocaleDateString(Qt.locale("de_DE"), "dddd, d. MMMM")
+                // the format is part of the translation ("dddd, d. MMMM" in German)
+                text: home.now.toLocaleDateString(Qt.locale(settings.values["general.language"]), qsTr("dddd, MMMM d"))
                 color: Theme.textDim
                 font.pixelSize: Theme.fontLarge
             }
@@ -116,7 +117,7 @@ Item {
                     Text {
                         Layout.fillWidth: true
                         wrapMode: Text.WordWrap
-                        text: "Telefon per USB anschließen oder kabellos verbinden."
+                        text: qsTr("Connect the phone by USB or wirelessly.")
                         color: Theme.textDim
                         font.pixelSize: Theme.fontNormal
                     }
@@ -127,14 +128,14 @@ Item {
                         text: {
                             const state = wireless.state
                             if (bluetooth.state.pairing)
-                                return "Sichtbar als „" + bluetooth.state.adapter + "“: am Telefon unter Bluetooth koppeln."
+                                return qsTr("Visible as “%1”: pair under Bluetooth on the phone.").arg(bluetooth.state.adapter)
                             if (!state.running)
                                 return ""
                             if (state.bluetooth === "error")
                                 return state.bluetoothError
                             if (state.hotspot === "error")
                                 return state.hotspotError
-                            return state.phaseText || "Kabellos bereit"
+                            return state.phaseText || qsTr("Wireless ready")
                         }
                         color: Theme.text
                         font.pixelSize: Theme.fontSmall
@@ -153,7 +154,7 @@ Item {
                             }
                             Button {
                                 readonly property bool last: modelData.address.toUpperCase() === wireless.state.lastDevice
-                                text: (last ? "Wieder verbinden: " : "Verbinden: ") + modelData.name
+                                text: (last ? qsTr("Connect again: %1") : qsTr("Connect: %1")).arg(modelData.name)
                                 highlighted: last
                                 onClicked: wireless.connectDevice(modelData.address)
                             }

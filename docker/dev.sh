@@ -1,22 +1,25 @@
 #!/usr/bin/env bash
-# Entwicklungs-Workflow für OpenHU im Container.
+# Development workflow for OpenHU in the container.
 #
-#   ./dev.sh run [args]   inkrementell bauen (aasdk + OpenHU) und OpenHU im Fenster starten
-#   ./dev.sh build        nur bauen
-#   ./dev.sh test         bauen, Unit-Tests (ctest), qmllint und Shell headless starten (wie die CI)
-#   ./dev.sh package      bauen und .deb nach output/ legen
-#   ./dev.sh shell        Shell in der Entwicklungsumgebung (Quellen eingehängt)
-#   ./dev.sh reconnect    Handy per USB-Reset neu verbinden (laufendes OpenHU)
-#   ./dev.sh image        Image openhu:dev mit aktuellen Debian-Paketen neu bauen (nach Dockerfile-Änderungen automatisch)
-#   ./dev.sh clean        Build-Volumes und ccache löschen (nächster Build startet von vorn)
+#   ./dev.sh run [args]   build incrementally (aasdk + OpenHU) and start OpenHU in a window
+#   ./dev.sh build        build only
+#   ./dev.sh test         build, unit tests (ctest), qmllint, translations and the shell headless (like the CI)
+#   ./dev.sh package      build and put the .deb into output/
+#   ./dev.sh shell        shell in the development environment (sources mounted)
+#   ./dev.sh reconnect    reconnect the phone by USB reset (running OpenHU)
+#   ./dev.sh image        rebuild the image openhu:dev with current Debian packages (automatic after Dockerfile changes)
+#   ./dev.sh clean        delete the build volumes and ccache (the next build starts from scratch)
 #
-# Ohne Bauen starten: ./dev.sh run --no-build, Auflösung: OPENHU_RESOLUTION=800x480 ./dev.sh run
+# Start without building: ./dev.sh run --no-build, resolution: OPENHU_RESOLUTION=800x480 ./dev.sh run
 set -euo pipefail
 
 DOCKER_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO="$(dirname "$DOCKER_DIR")"
-# aasdk source (default: next to this repository)
-AASDK_DIR="${AASDK_DIR:-$(dirname "$REPO")/aasdk-ref}"
+# aasdk source (default: aasdk-ref or aasdk next to this repository; a missing one would become an empty folder)
+if [ -z "${AASDK_DIR:-}" ]; then
+  AASDK_DIR="$(dirname "$REPO")/aasdk-ref"
+  [ -f "$AASDK_DIR/CMakeLists.txt" ] || AASDK_DIR="$(dirname "$REPO")/aasdk"
+fi
 IMAGE="openhu:dev"
 
 # Builds, installed aasdk and ccache live in Docker volumes: incremental builds stay fast
@@ -79,6 +82,8 @@ cmd_test() {
   dev_container bash -euo pipefail -c '
     echo "=== qmllint ==="
     bash tests/qmllint.sh
+    echo "=== translations ==="
+    bash tests/translations.sh
     echo "=== ctest ==="
     ctest --test-dir /build/openhu --output-on-failure
     echo "=== shell ==="

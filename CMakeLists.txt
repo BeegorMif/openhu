@@ -158,6 +158,23 @@ target_link_libraries(openhu_core PUBLIC
 add_executable(autoapp ${autoapp_main_file} ${autoapp_resource_files})
 target_link_libraries(autoapp PRIVATE openhu_core)
 
+# Translations of the shell (strings in the code are English, docs/translations.md): translations/openhu_<language>.ts
+# compiled by lrelease (qt6-l10n-tools) into the resources as :/i18n/openhu_<language>.qm
+find_program(OPENHU_LRELEASE NAMES lrelease lrelease-qt6
+             HINTS "${QT6_INSTALL_PREFIX}/${QT6_INSTALL_BINS}" /usr/lib/qt6/bin REQUIRED)
+file(GLOB openhu_ts_files ${CMAKE_CURRENT_SOURCE_DIR}/translations/openhu_*.ts)
+set(openhu_qm_files)
+foreach(ts_file ${openhu_ts_files})
+    get_filename_component(ts_name ${ts_file} NAME_WE)
+    set(qm_file ${CMAKE_CURRENT_BINARY_DIR}/i18n/${ts_name}.qm)
+    add_custom_command(OUTPUT ${qm_file}
+                       COMMAND ${OPENHU_LRELEASE} -silent ${ts_file} -qm ${qm_file}
+                       DEPENDS ${ts_file} VERBATIM)
+    list(APPEND openhu_qm_files ${qm_file})
+endforeach()
+qt_add_resources(autoapp openhu_translations PREFIX /i18n BASE ${CMAKE_CURRENT_BINARY_DIR}/i18n FILES ${openhu_qm_files})
+add_custom_target(openhu_qm DEPENDS ${openhu_qm_files})
+
 option(OPENHU_TESTS "Build the unit tests (ctest)" ON)
 if(OPENHU_TESTS)
     enable_testing()
