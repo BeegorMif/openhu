@@ -134,6 +134,8 @@ QVariantMap SettingsController::info() const
 {
     return {
         {"version", QStringLiteral(OPENHU_VERSION)},
+        // language of the shell (the on-screen keyboard follows it); German only until #35 adds the switcher
+        {"language", QStringLiteral("de")},
         {"git", QStringLiteral(OPENHU_GIT)},
         {"qt", QString::fromLatin1(qVersion())},
         {"dataDir", plugins::PluginManager::baseDir()},

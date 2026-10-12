@@ -10,6 +10,14 @@ InputPanel {
 
     // Settings -> Allgemein -> Bildschirmtastatur (off with a real keyboard)
     property bool allowed: true
+    // language of OpenHU (settings.info.language): the layout follows it, no language key on the keyboard
+    property string language: "de"
+    onLanguageChanged: applyLanguage()
+    function applyLanguage() {
+        const locale = language === "en" ? "en_US" : "de_DE"
+        VirtualKeyboardSettings.activeLocales = [locale]
+        VirtualKeyboardSettings.locale = locale
+    }
     readonly property bool shown: active && allowed
     // what the shell above has to leave free (read by Main.qml)
     readonly property real occupied: shown ? height : 0
@@ -26,8 +34,5 @@ InputPanel {
         NumberAnimation { duration: 150; easing.type: Easing.OutQuad }
     }
 
-    Component.onCompleted: {
-        VirtualKeyboardSettings.activeLocales = ["de_DE", "en_US"]
-        VirtualKeyboardSettings.locale = "de_DE"
-    }
+    Component.onCompleted: applyLanguage()
 }

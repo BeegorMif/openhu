@@ -264,7 +264,10 @@ Window {
         active: onScreenKeyboardAvailable
         source: "Keyboard.qml"
         // qmllint disable missing-property
-        onLoaded: item.allowed = Qt.binding(() => settings.values["general.onScreenKeyboard"] !== false)
+        onLoaded: {
+            item.allowed = Qt.binding(() => settings.values["general.onScreenKeyboard"] !== false)
+            item.language = Qt.binding(() => settings.info.language || "de")
+        }
         // qmllint enable missing-property
     }
 
