@@ -245,6 +245,19 @@ Window {
         anchors.fill: parent
     }
 
+    // Tap outside the focused text field (and the keyboard above this): the field loses focus, the keyboard
+    // closes. The tap still reaches what is below (a button, another field, which then takes the focus).
+    MouseArea {
+        anchors.fill: parent
+        enabled: root.keyboardHeight > 0
+        onPressed: mouse => {
+            const field = root.activeFocusItem
+            if (field && !field.contains(field.mapFromItem(null, mouse.x, mouse.y)))
+                field.focus = false
+            mouse.accepted = false
+        }
+    }
+
     // no size: a Loader with a size stretches the panel to it (Keyboard.qml sizes itself by the window)
     Loader {
         id: keyboard
