@@ -15,7 +15,9 @@
 *  along with openauto. If not, see <http://www.gnu.org/licenses/>.
 */
 
+#include <algorithm>
 #include <unistd.h>
+#include <QDateTime>
 #include <QDBusConnection>
 #include <QRandomGenerator>
 #include <QSocketNotifier>
@@ -48,10 +50,11 @@ QString generatePassword()
 }
 
 WirelessController::WirelessController(configuration::IConfiguration::Pointer configuration,
-                                       bt::BluetoothManager& bluetooth, QObject* parent)
+                                       bt::BluetoothManager& bluetooth, WifiClient& wifi, QObject* parent)
     : QObject(parent)
     , configuration_(std::move(configuration))
     , bluetooth_(bluetooth)
+    , wifi_(wifi)
     , handshakeProfile_("/org/openhu/androidauto")
     , headsetProfile_("/org/openhu/headset")
 {
@@ -81,6 +84,37 @@ WirelessController::WirelessController(configuration::IConfiguration::Pointer co
     connect(&idleTimer_, &QTimer::timeout, this, [this]() {
         OPENAUTO_LOG(info) << "[WirelessController] hotspot not used, switching it off";
         hotspot_.stop();
+    });
+    searchTimer_.setSingleShot(true);
+    searchTimer_.setInterval(5 * 60000);
+    connect(&searchTimer_, &QTimer::timeout, this, [this]() {
+        if(roomFor_ != "search")
+        {
+            return;
+        }
+        if(wifi_.connected())
+        {
+            roomFor_ = "client";  // joined a network meanwhile: the hotspot stays off while it lasts
+            this->publish();
+            return;
+        }
+        this->endRoom();
+    });
+    // an adapter plugged in or removed: wireless Android Auto starts or stops with it
+    connect(&wifi_, &WifiClient::devicesChanged, this, &WirelessController::apply);
+    connect(&bluetooth_, &bt::BluetoothManager::presenceChanged, this, &WirelessController::apply);
+    connect(&wifi_, &WifiClient::clientChanged, this, [this](bool connected) {
+        if(connected && roomFor_ == "search")
+        {
+            roomFor_ = "client";
+            searchTimer_.stop();
+            this->publish();
+        }
+        else if(!connected && roomFor_ == "client")
+        {
+            OPENAUTO_LOG(info) << "[WirelessController] left the WiFi network, hotspot back";
+            this->endRoom();
+        }
     });
     connect(&handshakeProfile_, &BluezProfile::connected, this, &WirelessController::onHandshakeConnection);
     connect(&headsetProfile_, &BluezProfile::connected, this, &WirelessController::onHeadsetConnection);
@@ -141,9 +175,33 @@ QString WirelessController::ssid() const
 
 void WirelessController::apply()
 {
+    const auto client = configuration_->getWirelessSettings();
+    wifi_.configure(client.client, QString::fromStdString(client.clientInterface));
+    if(!client.client)
+    {
+        roomFor_.clear();
+        searchTimer_.stop();
+    }
     if(!configuration_->getWirelessProjectionEnabled())
     {
         this->stop();
+        this->publish();  // wifiAvailable/bluetoothAvailable also while off
+        return;
+    }
+    // without the hardware: off without errors (the settings hide it), back when it is plugged in
+    if(!wifi_.ready())
+    {
+        return;  // devicesChanged follows
+    }
+    if(!this->wifiPresent() || !bluetooth_.present())
+    {
+        if(running_)
+        {
+            OPENAUTO_LOG(info) << "[WirelessController] no " << (this->wifiPresent() ? "Bluetooth adapter" : "WiFi card")
+                               << ", wireless Android Auto off";
+        }
+        this->stop();
+        this->publish();
         return;
     }
 
@@ -158,9 +216,13 @@ void WirelessController::apply()
     OPENAUTO_LOG(info) << "[WirelessController] starting";
     running_ = true;
     this->startBluetooth();
-    if(!this->hotspotOnDemand())
+    if(!this->hotspotOnDemand() && roomFor_.isEmpty())
     {
         hotspot_.start(settings, this->ssid());
+    }
+    else if(!roomFor_.isEmpty())
+    {
+        hotspot_.stop();
     }
     else if(!(projectionActive_ && !usbProjection_))
     {
@@ -202,6 +264,8 @@ void WirelessController::stop()
     running_ = false;
     connectTimer_.stop();
     idleTimer_.stop();
+    searchTimer_.stop();
+    roomFor_.clear();
     bluetooth_.setPairing(false);
     handshake_.reset();
     if(pendingFd_ >= 0)
@@ -285,7 +349,7 @@ void WirelessController::closeStaleHeadsets()
 void WirelessController::connectPhones()
 {
     if(!running_ || projectionActive_ || endedByUser_ || handshake_ || bluetooth_.adapterPath().isEmpty()
-       || (hotspot_.state() != Hotspot::State::On && !this->hotspotOnDemand()))
+       || (hotspot_.state() != Hotspot::State::On && !this->hotspotOnDemand() && roomFor_.isEmpty()))
     {
         return;
     }
@@ -376,6 +440,12 @@ void WirelessController::onHandshakeConnection(const QString& device, int fd)
         OPENAUTO_LOG(info) << "[WirelessController] phone is on the cable, wireless setup skipped";
         ::close(fd);
         return;
+    }
+    if(!roomFor_.isEmpty())
+    {
+        OPENAUTO_LOG(info) << "[WirelessController] a phone asks for wireless Android Auto: hotspot instead of WiFi";
+        roomFor_.clear();
+        searchTimer_.stop();
     }
     if(hotspot_.state() != Hotspot::State::On)
     {
@@ -560,6 +630,132 @@ void WirelessController::enableWifi()
     this->apply();
 }
 
+bool WirelessController::wifiPresent() const
+{
+    return !wifi_.ready() || !wifi_.devices().isEmpty();
+}
+
+bool WirelessController::sharedCard() const
+{
+    const auto settings = configuration_->getWirelessSettings();
+    const QStringList devices = wifi_.devices();
+    QString hotspotCard = hotspot_.interface();
+    if(hotspotCard.isEmpty())
+    {
+        hotspotCard = settings.interface.empty() ? devices.value(0) : QString::fromStdString(settings.interface);
+    }
+    const QString clientCard = QString::fromStdString(settings.clientInterface);
+    // without a choice NetworkManager takes a free card for the client
+    return clientCard.isEmpty() ? devices.size() < 2 : clientCard == hotspotCard;
+}
+
+QString WirelessController::makeRoom(const QString& reason)
+{
+    if(!running_ || !this->sharedCard())
+    {
+        return {};
+    }
+    if((projectionActive_ && !usbProjection_) || handshake_ || pendingFd_ >= 0)
+    {
+        return tr("Not while Android Auto runs wirelessly");
+    }
+    if(hotspot_.state() == Hotspot::State::Off && roomFor_.isEmpty() && this->hotspotOnDemand())
+    {
+        return {};  // the card is free until a phone asks
+    }
+    if(roomFor_ != reason)
+    {
+        OPENAUTO_LOG(info) << "[WirelessController] hotspot off for the WiFi " << (reason == "search" ? "search" : "client");
+    }
+    roomFor_ = reason;
+    if(reason == "search")
+    {
+        searchTimer_.start();
+    }
+    else
+    {
+        searchTimer_.stop();
+    }
+    idleTimer_.stop();
+    hotspot_.stop();
+    this->publish();
+    return {};
+}
+
+void WirelessController::endRoom()
+{
+    roomFor_.clear();
+    searchTimer_.stop();
+    if(running_)
+    {
+        this->apply();
+    }
+    else
+    {
+        this->publish();
+    }
+}
+
+void WirelessController::whenCardFree(bool hotspotWasUp, std::function<void()> next)
+{
+    // NetworkManager needs a moment to turn the access point back into a client
+    QTimer::singleShot(hotspotWasUp ? 3000 : 0, this, std::move(next));
+}
+
+QString WirelessController::searchNetworks()
+{
+    if(!wifi_.enabled())
+    {
+        return tr("Connecting to WiFi networks is switched off");
+    }
+    const bool hotspotWasUp = hotspot_.state() != Hotspot::State::Off;
+    // in a network already: the card can search as it is
+    if(!wifi_.connected())
+    {
+        const QString error = this->makeRoom("search");
+        if(!error.isEmpty())
+        {
+            return error;
+        }
+    }
+    this->whenCardFree(hotspotWasUp && hotspot_.state() == Hotspot::State::Off, [this]() { wifi_.scan(); });
+    return {};
+}
+
+QString WirelessController::addNetwork(const QString& ssid, const QString& password, bool hidden)
+{
+    return wifi_.add(ssid, password, hidden, [this](const QString& uuid) {
+        const QString error = this->connectNetwork(uuid);
+        if(!error.isEmpty())
+        {
+            emit wifi_.error(error);
+        }
+    });
+}
+
+QString WirelessController::connectNetwork(const QString& uuid)
+{
+    if(!wifi_.enabled())
+    {
+        return tr("Connecting to WiFi networks is switched off");
+    }
+    const bool hotspotWasUp = hotspot_.state() != Hotspot::State::Off;
+    const QString error = this->makeRoom("client");
+    if(!error.isEmpty())
+    {
+        return error;
+    }
+    this->whenCardFree(hotspotWasUp && hotspot_.state() == Hotspot::State::Off, [this, uuid]() {
+        wifi_.connectTo(uuid, [this](bool joined) {
+            if(!joined && roomFor_ == "client" && !wifi_.connected())
+            {
+                this->endRoom();
+            }
+        });
+    });
+    return {};
+}
+
 void WirelessController::setPhase(const QString& phase, const QString& detail)
 {
     phase_ = phase;
@@ -585,10 +781,19 @@ QVariantMap WirelessController::state() const
 
     return {
         {"enabled", configuration_->getWirelessProjectionEnabled()},
+        // the hardware wireless Android Auto needs; the settings show only what is there
+        {"wifiAvailable", this->wifiPresent()},
+        {"wifiInterface", hotspot_.interface().isEmpty() ? wifi_.devices().value(0) : hotspot_.interface()},
+        {"bluetoothAvailable", bluetooth_.present()},
         {"running", running_},
         {"hotspot", hotspot_.stateName()},
         {"hotspotMode", this->hotspotOnDemand() ? "demand" : "always"},
         {"hotspotError", hotspot_.error()},
+        // the hotspot leaves the card to known WiFi networks: "search" (until searchUntil, ms since 1970) or
+        // "client" (while connected), "" not
+        {"hotspotRoom", roomFor_},
+        {"searchUntil", searchTimer_.isActive()
+                            ? QDateTime::currentMSecsSinceEpoch() + searchTimer_.remainingTime() : qint64(0)},
         {"wifiOff", hotspot_.radioOff()},
         {"interface", hotspot_.interface()},
         {"channel", hotspot_.channel()},

@@ -194,10 +194,12 @@ int main(int argc, char* argv[])
 
     // Wireless Android Auto: Bluetooth (BlueZ) + WiFi hotspot (NetworkManager)
     autoapp::bt::BluetoothManager bluetoothManager(configuration);
-    autoapp::wireless::WirelessController wirelessController(configuration, bluetoothManager);
+    // Known WiFi networks while the hotspot does not need the card (online updates, remote management)
+    autoapp::wireless::WifiClient wifiClient;
+    autoapp::wireless::WirelessController wirelessController(configuration, bluetoothManager, wifiClient);
     // Sound to a Bluetooth car radio, its buttons control Android Auto
     autoapp::bt::CarAudio carAudio(configuration, bluetoothManager, actionDispatcher, volumeController);
-    autoapp::wireless::registerWirelessMethods(apiServer, wirelessController, bluetoothManager, carAudio);
+    autoapp::wireless::registerWirelessMethods(apiServer, wirelessController, wifiClient, bluetoothManager, carAudio);
 
     // OpenHU OS: system update and ssh (Settings -> System)
     autoapp::system::SystemController systemController(shellController.osVersion());
@@ -240,6 +242,7 @@ int main(int argc, char* argv[])
     engine.rootContext()->setContextProperty("store", &pluginStore);
     engine.rootContext()->setContextProperty("api", &qmlApi);
     engine.rootContext()->setContextProperty("wireless", &wirelessController);
+    engine.rootContext()->setContextProperty("wifi", &wifiClient);
     engine.rootContext()->setContextProperty("bluetooth", &bluetoothManager);
     engine.rootContext()->setContextProperty("carAudio", &carAudio);
     engine.rootContext()->setContextProperty("system", &systemController);
@@ -273,6 +276,9 @@ int main(int argc, char* argv[])
                      &wirelessController, &autoapp::wireless::WirelessController::apply);
     QObject::connect(&settingsController, &autoapp::shell::SettingsController::carAudioChanged,
                      &carAudio, &autoapp::bt::CarAudio::apply);
+    // a Bluetooth adapter plugged in later: the car radio connects then
+    QObject::connect(&bluetoothManager, &autoapp::bt::BluetoothManager::presenceChanged, &carAudio,
+                     &autoapp::bt::CarAudio::apply);
     // selecting or forgetting a radio switches car audio on/off
     QObject::connect(&carAudio, &autoapp::bt::CarAudio::changed, &settingsController,
                      &autoapp::shell::SettingsController::refresh);

@@ -20,6 +20,7 @@
 #include <QCursor>
 #include <QDir>
 #include <QHostAddress>
+#include <QRegularExpression>
 #include <QGuiApplication>
 #include <f1x/openauto/autoapp/Shell/SettingsController.hpp>
 #include <f1x/openauto/autoapp/Plugins/PluginManager.hpp>
@@ -108,6 +109,9 @@ QVariantMap SettingsController::values() const
         {"wireless.country", QString::fromStdString(wireless.country)},
         {"wireless.priority", wireless.priority == "wifi" ? "wifi" : "usb"},
         {"wireless.hotspot", wireless.hotspot == "demand" ? "demand" : "always"},
+        {"wireless.interface", QString::fromStdString(wireless.interface)},
+        {"wireless.client", wireless.client},
+        {"wireless.clientInterface", QString::fromStdString(wireless.clientInterface)},
         {"wireless.channel", wireless.channel},
         {"wireless.address", QString::fromStdString(wireless.address)},
         {"wireless.dhcpRange", QString::fromStdString(wireless.dhcpRange)},
@@ -337,6 +341,20 @@ QString SettingsController::set(const QString& key, const QVariant& value)
         else if(key == "wireless.priority")
         {
             wireless.priority = text == "wifi" ? "wifi" : "usb";
+        }
+        else if(key == "wireless.client")
+        {
+            wireless.client = value.toBool();
+        }
+        else if(key == "wireless.interface" || key == "wireless.clientInterface")
+        {
+            // empty: automatic; otherwise a network device name like wlan0 or wlx00c0ca123456
+            static const QRegularExpression name("^[A-Za-z0-9_.-]{1,15}$");
+            if(!text.isEmpty() && !name.match(text).hasMatch())
+            {
+                return tr("Not a WiFi card: %1").arg(text);
+            }
+            (key == "wireless.interface" ? wireless.interface : wireless.clientInterface) = text.toStdString();
         }
         else if(key == "wireless.country")
         {

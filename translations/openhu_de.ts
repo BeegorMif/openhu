@@ -444,6 +444,18 @@
         <translation>Kabelloses Android Auto</translation>
     </message>
     <message>
+        <source>No WiFi adapter found.</source>
+        <translation>Kein WLAN-Adapter gefunden.</translation>
+    </message>
+    <message>
+        <source>No Bluetooth adapter found.</source>
+        <translation>Kein Bluetooth-Adapter gefunden.</translation>
+    </message>
+    <message>
+        <source>Wireless Android Auto needs both.</source>
+        <translation>Kabelloses Android Auto braucht beides.</translation>
+    </message>
+    <message>
         <source>The phone is paired once via Bluetooth and then connects automatically through the WiFi hotspot of OpenHU.</source>
         <translation>Das Telefon wird einmal per Bluetooth gekoppelt und verbindet sich danach automatisch über den WLAN-Hotspot von OpenHU.</translation>
     </message>
@@ -704,6 +716,18 @@
         <translation>Beenden</translation>
     </message>
     <message>
+        <source>Hardware</source>
+        <translation>Hardware</translation>
+    </message>
+    <message>
+        <source>No WiFi card found: wireless Android Auto and WiFi networks are not available.</source>
+        <translation>Keine WLAN-Karte erkannt: kabelloses Android Auto und WLANs stehen nicht zur Verfügung.</translation>
+    </message>
+    <message>
+        <source>No Bluetooth adapter found: wireless Android Auto, the car radio and phone calls via Bluetooth are not available.</source>
+        <translation>Kein Bluetooth-Adapter erkannt: kabelloses Android Auto, das Autoradio und Telefonate über Bluetooth stehen nicht zur Verfügung.</translation>
+    </message>
+    <message>
         <source>Based on OpenAuto (f1x.studio, OpenCarDev) and aasdk. License: GPL-3.0.</source>
         <translation>Basiert auf OpenAuto (f1x.studio, OpenCarDev) und aasdk. Lizenz: GPL-3.0.</translation>
     </message>
@@ -957,6 +981,10 @@
         <translation>Die laufende Version ist unverändert.</translation>
     </message>
     <message>
+        <source>The WiFi card runs the hotspot: connect to a WiFi network under Network &amp; API.</source>
+        <translation>Die WLAN-Karte betreibt den Hotspot: unter Netzwerk &amp; API mit einem WLAN verbinden.</translation>
+    </message>
+    <message>
         <source>About 500 MB download.</source>
         <translation>Etwa 500 MB Download.</translation>
     </message>
@@ -1091,6 +1119,157 @@
     <message>
         <source>Really power off?</source>
         <translation>Wirklich ausschalten?</translation>
+    </message>
+</context>
+<context>
+    <name>WifiNetworks</name>
+    <message>
+        <source>internet</source>
+        <translation>Internet</translation>
+    </message>
+    <message>
+        <source>no internet</source>
+        <translation>kein Internet</translation>
+    </message>
+    <message>
+        <source>Joins a known network in range by itself whenever the hotspot does not need the WiFi card.</source>
+        <translation>Verbindet sich von selbst mit einem bekannten Netz in Reichweite, sobald der Hotspot die WLAN-Karte nicht braucht.</translation>
+    </message>
+    <message>
+        <source>Connected to “%1”</source>
+        <translation>Verbunden mit „%1“</translation>
+    </message>
+    <message>
+        <source>Not connected</source>
+        <translation>Nicht verbunden</translation>
+    </message>
+    <message>
+        <source>Automatic</source>
+        <translation>Automatisch</translation>
+    </message>
+    <message>
+        <source>the hotspot is off while connected</source>
+        <translation>der Hotspot ist aus, solange die Verbindung steht</translation>
+    </message>
+    <message>
+        <source>The hotspot is off for the search until %1.</source>
+        <translation>Der Hotspot ist für die Suche bis %1 aus.</translation>
+    </message>
+    <message>
+        <source>The WiFi card runs the hotspot for wireless Android Auto. Search or connect to use a WiFi network; the hotspot comes back when it is lost.</source>
+        <translation>Die WLAN-Karte betreibt den Hotspot für kabelloses Android Auto. Suchen oder Verbinden nutzt ein WLAN; reißt es ab, kommt der Hotspot zurück.</translation>
+    </message>
+    <message>
+        <source>WiFi networks</source>
+        <translation>WLANs</translation>
+    </message>
+    <message>
+        <source>Connect to WiFi networks</source>
+        <translation>Mit WLANs verbinden</translation>
+    </message>
+    <message>
+        <source>No WiFi adapter found.</source>
+        <translation>Kein WLAN-Adapter gefunden.</translation>
+    </message>
+    <message>
+        <source>OpenHU goes online through saved WiFi networks (home, workshop, a phone&apos;s hotspot) for updates, remote access and plugins, whenever the hotspot does not need the WiFi card.</source>
+        <translation>OpenHU geht über gespeicherte WLANs (Zuhause, Werkstatt, Hotspot eines Telefons) ins Internet – für Updates, Fernzugriff und Plugins –, wenn der Hotspot die WLAN-Karte nicht braucht.</translation>
+    </message>
+    <message>
+        <source>WiFi card for the hotspot</source>
+        <translation>WLAN-Karte für den Hotspot</translation>
+    </message>
+    <message>
+        <source>Automatic: the first one.</source>
+        <translation>Automatisch: die erste.</translation>
+    </message>
+    <message>
+        <source>WiFi card for WiFi networks</source>
+        <translation>WLAN-Karte für WLANs</translation>
+    </message>
+    <message>
+        <source>Automatic: whichever is free. A card of its own keeps the hotspot running meanwhile.</source>
+        <translation>Automatisch: eine freie. Mit einer eigenen Karte läuft der Hotspot währenddessen weiter.</translation>
+    </message>
+    <message>
+        <source>connected</source>
+        <translation>verbunden</translation>
+    </message>
+    <message>
+        <source>not connected yet</source>
+        <translation>noch nie verbunden</translation>
+    </message>
+    <message>
+        <source>open network</source>
+        <translation>offenes Netz</translation>
+    </message>
+    <message>
+        <source>hidden</source>
+        <translation>versteckt</translation>
+    </message>
+    <message>
+        <source>Connect</source>
+        <translation>Verbinden</translation>
+    </message>
+    <message>
+        <source>Up</source>
+        <translation>Hoch</translation>
+    </message>
+    <message>
+        <source>Remove</source>
+        <translation>Entfernen</translation>
+    </message>
+    <message>
+        <source>Searching …</source>
+        <translation>Suche läuft …</translation>
+    </message>
+    <message>
+        <source>Add a network</source>
+        <translation>Netz hinzufügen</translation>
+    </message>
+    <message>
+        <source>Search for networks in range, or add a hidden one by its name.</source>
+        <translation>Nach Netzen in Reichweite suchen oder ein verstecktes über seinen Namen hinzufügen.</translation>
+    </message>
+    <message>
+        <source>Search</source>
+        <translation>Suchen</translation>
+    </message>
+    <message>
+        <source>Hidden network</source>
+        <translation>Verstecktes Netz</translation>
+    </message>
+    <message>
+        <source>Add</source>
+        <translation>Hinzufügen</translation>
+    </message>
+    <message>
+        <source>Add “%1”</source>
+        <translation>„%1“ hinzufügen</translation>
+    </message>
+    <message>
+        <source>WPA password (8 to 63 characters).</source>
+        <translation>WPA-Passwort (8 bis 63 Zeichen).</translation>
+    </message>
+    <message>
+        <source>Open network, no password.</source>
+        <translation>Offenes Netz, ohne Passwort.</translation>
+    </message>
+    <message>
+        <source>Name (SSID)</source>
+        <translation>Name (SSID)</translation>
+    </message>
+    <message>
+        <source>Password</source>
+        <translation>Passwort</translation>
+    </message>
+    <message>
+        <source>Save</source>
+        <translation>Speichern</translation>
+    </message>
+    <message>
+        <source>Cancel</source>
+        <translation>Abbrechen</translation>
     </message>
 </context>
 <context>
@@ -1426,6 +1605,10 @@
         <translation>Bereich im Hotspot-Netz, z. B. 10.42.0.10-10.42.0.254</translation>
     </message>
     <message>
+        <source>Not a WiFi card: %1</source>
+        <translation>Keine WLAN-Karte: %1</translation>
+    </message>
+    <message>
         <source>Country code with 2 letters, e.g. DE</source>
         <translation>Ländercode mit 2 Buchstaben, z. B. DE</translation>
     </message>
@@ -1526,10 +1709,65 @@
     </message>
 </context>
 <context>
+    <name>f1x::openauto::autoapp::wireless::WifiClient</name>
+    <message>
+        <source>No WiFi card</source>
+        <translation>Keine WLAN-Karte</translation>
+    </message>
+    <message>
+        <source>Connecting to WiFi networks is switched off</source>
+        <translation>Mit WLANs verbinden ist ausgeschaltet</translation>
+    </message>
+    <message>
+        <source>The name has 1 to 32 characters</source>
+        <translation>Der Name hat 1 bis 32 Zeichen</translation>
+    </message>
+    <message>
+        <source>The password has 8 to 63 characters</source>
+        <translation>Das Passwort hat 8 bis 63 Zeichen</translation>
+    </message>
+    <message>
+        <source>Please wait a moment</source>
+        <translation>Bitte einen Moment warten</translation>
+    </message>
+    <message>
+        <source>%1 could not be saved: %2</source>
+        <translation>%1 konnte nicht gespeichert werden: %2</translation>
+    </message>
+    <message>
+        <source>%1 saved.</source>
+        <translation>%1 gespeichert.</translation>
+    </message>
+    <message>
+        <source>Connecting to %1 …</source>
+        <translation>Verbinde mit %1 …</translation>
+    </message>
+    <message>
+        <source>Could not connect to %1 (not in range?).</source>
+        <translation>Keine Verbindung mit %1 (nicht in Reichweite?).</translation>
+    </message>
+    <message>
+        <source>Connected to %1.</source>
+        <translation>Verbunden mit %1.</translation>
+    </message>
+    <message>
+        <source>Could not connect to %1: wrong password?</source>
+        <translation>Keine Verbindung mit %1: falsches Passwort?</translation>
+    </message>
+</context>
+<context>
     <name>f1x::openauto::autoapp::wireless::WirelessController</name>
     <message>
         <source>Android Auto profile: %1</source>
         <translation>Android-Auto-Profil: %1</translation>
+    </message>
+    <message>
+        <source>Not while Android Auto runs wirelessly</source>
+        <translation>Nicht während Android Auto kabellos läuft</translation>
+    </message>
+    <message>
+        <source>Connecting to WiFi networks is switched off</source>
+        <translation>Mit WLANs verbinden ist ausgeschaltet</translation>
     </message>
     <message>
         <source>Waiting for the phone …</source>

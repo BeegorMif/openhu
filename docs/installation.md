@@ -129,6 +129,28 @@ What has to be in place:
 
 With the phone on the cable USB wins by default ("Priority with cable"); unplugged it switches to wireless.
 
+## WiFi networks
+
+Under **Settings → Network & API → WiFi networks** OpenHU saves WiFi networks it goes online through (home WiFi in
+the garage, a workshop, a phone's tethering): for online updates of OpenHU OS, remote management (ssh, the API) and
+plugins. They are NetworkManager profiles named `openhu-wifi-<name>`; only these are listed and changed, so in the
+container the host's own networks stay untouched. **Connect to WiFi networks** switches all of it off.
+
+A new network is connected once by hand (**Connect**, or right after adding it); from then on NetworkManager joins it
+by itself whenever it is in range and the card is free. Networks that never worked are not tried.
+
+With one WiFi card the hotspot for wireless Android Auto has priority:
+- **On demand**: the card is free until a paired phone asks over Bluetooth; then the hotspot starts and the WiFi
+  network is left, after the wireless session (and 2 minutes) it comes back by itself.
+- **Always on**: the hotspot has the card. **Search** turns it off for 5 minutes, **Connect** for as long as the
+  connection lasts (driving off, the hotspot is back at once). A phone that asks for wireless Android Auto always gets
+  the hotspot. Neither works during a wireless Android Auto session.
+
+With a second WiFi card (a USB stick) both run at once: by default the hotspot takes the first card and WiFi
+networks a free one, or choose the cards in the settings. A Raspberry Pi's own chip could do access point and client
+together only on one shared channel (the hotspot would have to follow the home WiFi, often onto 2.4 GHz), so OpenHU
+does not use that.
+
 ## Bluetooth car radio
 
 Under **Settings → Audio → Car radio (Bluetooth)**: put the radio into pairing mode, **Search**, then

@@ -146,10 +146,14 @@ Flickable {
         case "error": return page.updateInfo.error || ""
         case "cancelled": return qsTr("The running version is unchanged.")
         }
+        // without a network the hotspot may have the WiFi card: WiFi networks only after Search or Connect
+        const hotspotOnCard = !!wifi.state.available && !!wifi.state.hotspotDevice && !(wifi.state.client || {}).ssid
         if (page.updateInfo.checked && page.updateInfo.checkError)
             return page.updateInfo.checkError
+                   + (hotspotOnCard ? " " + qsTr("The WiFi card runs the hotspot: connect to a WiFi network under Network & API.") : "")
         if (page.updateInfo.checked && page.updateInfo.available)
-            return qsTr("About 500 MB download.") + (page.updateInfo.blocked ? " " + qsTr("Not while Android Auto is connected.") : "")
+            return qsTr("About 500 MB download.")
+                   + (page.updateInfo.blocked ? " " + qsTr("Not while Android Auto is connected.") : "")
         return qsTr("Online from GitHub releases (needs an internet connection).")
     }
 

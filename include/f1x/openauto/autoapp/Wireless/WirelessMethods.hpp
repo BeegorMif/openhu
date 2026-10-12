@@ -21,6 +21,7 @@
 #include <f1x/openauto/autoapp/Api/ApiServer.hpp>
 #include <f1x/openauto/autoapp/Bluetooth/BluetoothManager.hpp>
 #include <f1x/openauto/autoapp/Bluetooth/CarAudio.hpp>
+#include <f1x/openauto/autoapp/Wireless/WifiClient.hpp>
 #include <f1x/openauto/autoapp/Wireless/WirelessController.hpp>
 
 namespace f1x
@@ -32,9 +33,9 @@ namespace autoapp
 namespace wireless
 {
 
-// wireless.*, bluetooth.*, caraudio.* (see docs/api.md)
-void registerWirelessMethods(api::ApiServer& server, WirelessController& wireless, bt::BluetoothManager& bluetooth,
-                             bt::CarAudio& carAudio);
+// wireless.*, wifi.*, bluetooth.*, caraudio.* (see docs/api.md)
+void registerWirelessMethods(api::ApiServer& server, WirelessController& wireless, WifiClient& wifi,
+                             bt::BluetoothManager& bluetooth, bt::CarAudio& carAudio);
 
 }
 }

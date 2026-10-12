@@ -68,13 +68,23 @@ BluetoothManager::BluetoothManager(configuration::IConfiguration::Pointer config
     refreshTimer_.setInterval(300);
     connect(&refreshTimer_, &QTimer::timeout, this, &BluetoothManager::refresh);
 
+    presenceTimer_.setSingleShot(true);
+    presenceTimer_.setInterval(300);
+    connect(&presenceTimer_, &QTimer::timeout, this, &BluetoothManager::checkPresence);
+
     auto bus = QDBusConnection::systemBus();
     for(const char* name: {"InterfacesAdded", "InterfacesRemoved"})
     {
         bus.connect(bluez::cService, "/", "org.freedesktop.DBus.ObjectManager", name, this, SLOT(onBluezSignal()));
+        bus.connect(bluez::cService, "/", "org.freedesktop.DBus.ObjectManager", name, this, SLOT(onBluezObjects()));
     }
+    // bluetoothd started or stopped
+    bus.connect("org.freedesktop.DBus", "/org/freedesktop/DBus", "org.freedesktop.DBus", "NameOwnerChanged",
+                QStringList{bluez::cService}, QString(), this, SLOT(onBluezObjects()));
     bus.connect(bluez::cService, QString(), "org.freedesktop.DBus.Properties", "PropertiesChanged", this,
                 SLOT(onBluezSignal()));
+
+    this->checkPresence();
 
     // pairing over the USB cable (Android Auto Bluetooth channel)
     connect(&core::EventBus::instance(), &core::EventBus::event, this, [this](const QString& topic, const QVariantMap& data) {
@@ -159,6 +169,36 @@ QStringList BluetoothManager::adapterUuids() const
 QString BluetoothManager::error() const
 {
     return error_;
+}
+
+void BluetoothManager::onBluezObjects()
+{
+    presenceTimer_.start();
+}
+
+void BluetoothManager::checkPresence()
+{
+    bool present = false;
+    const BluezObjects objects = bluez::managedObjects();
+    for(auto it = objects.cbegin(); it != objects.cend() && !present; ++it)
+    {
+        present = it.value().contains(bluez::cAdapter);
+    }
+    // the adapter in use is gone (USB dongle pulled): found again by ensureAdapter
+    if(!adapterPath_.isEmpty() && !objects.contains(QDBusObjectPath(adapterPath_)))
+    {
+        OPENAUTO_LOG(info) << "[BluetoothManager] adapter " << adapterPath_.toStdString() << " removed";
+        adapterPath_.clear();
+        error_ = tr("No Bluetooth adapter found.");
+    }
+    if(present == present_)
+    {
+        return;
+    }
+    present_ = present;
+    OPENAUTO_LOG(info) << "[BluetoothManager] " << (present ? "adapter present" : "no adapter");
+    this->publish();
+    emit presenceChanged(present);
 }
 
 void BluetoothManager::onBluezSignal()
@@ -480,7 +520,8 @@ void BluetoothManager::removeDevice(const QString& address)
 QVariantMap BluetoothManager::state() const
 {
     return {
-        {"available", !adapterPath_.isEmpty()},
+        // an adapter is there (the settings show Bluetooth only then)
+        {"available", present_},
         {"error", error_},
         {"adapter", adapterName_},
         {"pairing", pairing_},

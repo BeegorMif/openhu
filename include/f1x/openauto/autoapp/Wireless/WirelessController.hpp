@@ -26,6 +26,7 @@
 #include <f1x/openauto/autoapp/Configuration/IConfiguration.hpp>
 #include <f1x/openauto/autoapp/Wireless/Bluez.hpp>
 #include <f1x/openauto/autoapp/Wireless/Hotspot.hpp>
+#include <f1x/openauto/autoapp/Wireless/WifiClient.hpp>
 #include <f1x/openauto/autoapp/Wireless/WifiHandshake.hpp>
 
 class QSocketNotifier;
@@ -58,7 +59,7 @@ class WirelessController: public QObject
 
 public:
     WirelessController(configuration::IConfiguration::Pointer configuration, bt::BluetoothManager& bluetooth,
-                       QObject* parent = nullptr);
+                       WifiClient& wifi, QObject* parent = nullptr);
     ~WirelessController() override;
 
     QVariantMap state() const;
@@ -74,6 +75,13 @@ public:
     // use this phone for wireless Android Auto and connect it
     Q_INVOKABLE void connectDevice(const QString& address);
     Q_INVOKABLE void enableWifi();
+    // Known WiFi networks (WifiClient). When the hotspot and the client share the only card, the "Always on"
+    // hotspot makes room: for a search 5 minutes, for a network joined (by hand or by itself) as long as that
+    // connection lasts. Never during wireless Android Auto; a phone that asks for it gets the hotspot back.
+    // Empty when started, otherwise why not.
+    Q_INVOKABLE QString searchNetworks();
+    Q_INVOKABLE QString addNetwork(const QString& ssid, const QString& password, bool hidden = false);
+    Q_INVOKABLE QString connectNetwork(const QString& uuid);
 
 signals:
     void changed();
@@ -96,9 +104,20 @@ private:
     void restartPhoneLink();
     QString ssid() const;
     void publish();
+    // the hotspot and the WiFi client would need the same card
+    bool sharedCard() const;
+    // wireless Android Auto needs a WiFi card and a Bluetooth adapter (until the cards are known: assumed there)
+    bool wifiPresent() const;
+    // the hotspot leaves the card to the client ("search" or "client"); empty when the card is free
+    QString makeRoom(const QString& reason);
+    // the hotspot back (the client left, the search is over, a phone asks)
+    void endRoom();
+    // after the hotspot left the card: the client may use it
+    void whenCardFree(bool hotspotWasUp, std::function<void()> next);
 
     configuration::IConfiguration::Pointer configuration_;
     bt::BluetoothManager& bluetooth_;
+    WifiClient& wifi_;
     bool running_ = false;
     QString bluetoothError_;
     Hotspot hotspot_;
@@ -112,6 +131,9 @@ private:
     QString pendingDevice_;
     int pendingFd_ = -1;
     QTimer idleTimer_;
+    // the hotspot makes room for the client: "search" (searchTimer_) or "client" (until it leaves), "" not
+    QString roomFor_;
+    QTimer searchTimer_;
     bool projectionActive_ = false;
     bool usbProjection_ = false;
     // Android Auto was ended on the phone: wait until the phone starts it again or a phone is connected by hand

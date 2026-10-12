@@ -22,6 +22,7 @@ openhu_test(test_shellcontroller)
 openhu_test(test_systemcontroller)
 openhu_test(test_video_decoder)
 openhu_test(test_translations)
+openhu_test(test_wificlient)
 # the qm files of the shell (top level CMakeLists.txt) and a plugin translation
 set(test_plugin_qm ${CMAKE_CURRENT_BINARY_DIR}/plugin_de.qm)
 add_custom_command(OUTPUT ${test_plugin_qm}

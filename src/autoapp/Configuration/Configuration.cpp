@@ -63,6 +63,8 @@ const std::string cWirelessHotspotKey = "Wireless.Hotspot";
 const std::string cWirelessChannelKey = "Wireless.Channel";
 const std::string cWirelessAddressKey = "Wireless.Address";
 const std::string cWirelessDhcpRangeKey = "Wireless.DhcpRange";
+const std::string cWirelessClientKey = "Wireless.Client";
+const std::string cWirelessClientInterfaceKey = "Wireless.ClientInterface";
 const std::string cCarAudioEnabledKey = "CarAudio.Enabled";
 const std::string cCarAudioDeviceKey = "CarAudio.Device";
 const std::string cCarAudioPinKey = "CarAudio.Pin";
@@ -130,6 +132,8 @@ void Configuration::load()
         wireless_.channel = ini.get<int>(cWirelessChannelKey, wireless_.channel);
         wireless_.address = ini.get<std::string>(cWirelessAddressKey, wireless_.address);
         wireless_.dhcpRange = ini.get<std::string>(cWirelessDhcpRangeKey, wireless_.dhcpRange);
+        wireless_.client = ini.get<bool>(cWirelessClientKey, wireless_.client);
+        wireless_.clientInterface = ini.get<std::string>(cWirelessClientInterfaceKey, wireless_.clientInterface);
         carAudio_.enabled = ini.get<bool>(cCarAudioEnabledKey, carAudio_.enabled);
         carAudio_.device = ini.get<std::string>(cCarAudioDeviceKey, carAudio_.device);
         carAudio_.pin = ini.get<std::string>(cCarAudioPinKey, carAudio_.pin);
@@ -169,7 +173,7 @@ void Configuration::reset()
     bluetoothAdapterAddress_ = "";
     // off by default: it turns the WiFi card into a hotspot
     wirelessProjectionEnabled_ = false;
-    wireless_ = WirelessSettings{"", "", "5", "DE", "", "", "usb", "always", 0, "10.42.0.1/24", ""};
+    wireless_ = WirelessSettings{"", "", "5", "DE", "", "", "usb", "always", 0, "10.42.0.1/24", "", true, ""};
     carAudio_ = CarAudioSettings{false, "", "0000"};
     audioChannelEnabledMedia_ = true;
     audioChannelEnabledGuidance_ = true;
@@ -211,6 +215,8 @@ void Configuration::save()
     ini.put<int>(cWirelessChannelKey, wireless_.channel);
     ini.put<std::string>(cWirelessAddressKey, wireless_.address);
     ini.put<std::string>(cWirelessDhcpRangeKey, wireless_.dhcpRange);
+    ini.put<bool>(cWirelessClientKey, wireless_.client);
+    ini.put<std::string>(cWirelessClientInterfaceKey, wireless_.clientInterface);
     ini.put<bool>(cCarAudioEnabledKey, carAudio_.enabled);
     ini.put<std::string>(cCarAudioDeviceKey, carAudio_.device);
     ini.put<std::string>(cCarAudioPinKey, carAudio_.pin);

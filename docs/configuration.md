@@ -74,7 +74,9 @@ the container).
 | `Band` | `5` | `5`, `2.4` or `auto` (5 GHz, 2.4 GHz if 5 GHz does not start) |
 | `Channel` | `0` | `0` = 36 (5 GHz) / 6 (2.4 GHz); a fixed channel needs a fixed band |
 | `Country` | `DE` | regulatory domain, set with `iw reg set` (5 GHz access points need it) |
-| `Interface` | empty | WiFi device, empty = the first one NetworkManager knows |
+| `Interface` | empty | WiFi card of the hotspot, empty = the first one NetworkManager knows |
+| `Client` | `true` | join saved WiFi networks (Settings → Network & API → WiFi networks) whenever the hotspot does not need the card, see [installation.md](installation.md#wifi-networks) |
+| `ClientInterface` | empty | WiFi card for those networks, empty = any free one; a card other than the hotspot's keeps both running |
 | `Address` | `10.42.0.1/24` | OpenHU in the hotspot network (gateway and DNS for the phone) |
 | `DhcpRange` | empty | e.g. `10.42.0.50-10.42.0.60`, empty = NetworkManager default (needs NetworkManager ≥ 1.42) |
 | `Hotspot` | `always` | `always` or `demand`: started when a paired phone asks for it, off after 2 minutes without a wireless session |
