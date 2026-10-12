@@ -112,7 +112,7 @@ Phones need to be accessible for that user (the udev rule allows it).
 
 ## Wireless Android Auto
 
-Switch it on under **Einstellungen → Kabellos**, then pair the phone once: **Koppeln** (OpenHU is visible for
+Switch it on under **Settings → Wireless**, then pair the phone once: **Pair** (OpenHU is visible for
 2 minutes, confirm the code on both sides) or simply plug the phone in once with the cable – OpenHU pairs it over
 Android Auto by itself. Afterwards the phone connects without cable whenever it is in range.
 
@@ -122,17 +122,17 @@ What has to be in place:
 - **NetworkManager** manages the WiFi card (`nmcli device` shows it), the card supports access point mode
   (`iw list` → "Supported interface modes: AP"). WiFi switched off is shown on the settings page with a button
   to switch it on.
-- **Country** set correctly (Einstellungen → Kabellos → Land): without it 5 GHz access points are not allowed.
-  If 5 GHz does not work at all, use band "Auto" or "2,4 GHz" – many phones need 5 GHz for Android Auto, though.
+- **Country** set correctly (Settings → Wireless → Country): without it 5 GHz access points are not allowed.
+  If 5 GHz does not work at all, use band "Auto" or "2.4 GHz" – many phones need 5 GHz for Android Auto, though.
 - OpenHU creates the NetworkManager connection `openhu-hotspot` (IPv4 shared, DHCP for the phone) and only
-  activates it while wireless Android Auto is on ("Bei Bedarf": only while a phone needs it).
+  activates it while wireless Android Auto is on ("On demand": only while a phone needs it).
 
-With the phone on the cable USB wins by default ("Vorrang bei Kabel"); unplugged it switches to wireless.
+With the phone on the cable USB wins by default ("Priority with cable"); unplugged it switches to wireless.
 
 ## Bluetooth car radio
 
-Under **Einstellungen → Audio → Autoradio (Bluetooth)**: put the radio into pairing mode, **Suchen**, then
-**Verwenden** next to it. OpenHU pairs and connects it and makes it the audio output; it reconnects whenever the
+Under **Settings → Audio → Car radio (Bluetooth)**: put the radio into pairing mode, **Search**, then
+**Use** next to it. OpenHU pairs and connects it and makes it the audio output; it reconnects whenever the
 radio is switched on. The radio's buttons control Android Auto, while a call rings play/pause answers it.
 
 <img src="images/settings-audio.png" alt="Audio settings with the car radio section" width="640">

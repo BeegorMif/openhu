@@ -1,187 +1,189 @@
-# OpenHU – Projektstand
+# OpenHU – Project status
 
-Stand: 11.10.2026. Lebendes Dokument: wird bei jedem Phasenabschluss aktualisiert.
-Benutzer-Doku: `README.md` und `docs/` (Installation, Konfiguration, API, Plugins, Fehlersuche).
+As of 11.10.2026. Living document: updated whenever a phase is finished.
+User documentation: `README.md` and `docs/` (installation, configuration, API, plugins, troubleshooting).
 
-## Ziel
+## Goal
 
-OpenAuto (opencardev) zu einem erweiterbaren Head-Unit-System ausbauen, angelehnt an Hudiy:
-Android Auto im Hauptfenster, API für Fahrzeug-/Mediendaten, Plugins mit Store, CAN-Bus,
-Lenkradtasten, Radio, Rückfahrkamera. Projektname **OpenHU** (nur nach außen umbenannt, interne
-Namespaces `f1x::openauto` und Binary `autoapp` bleiben, damit Upstream-Änderungen mergebar bleiben).
+Turn OpenAuto (opencardev) into an extensible head unit system, inspired by Hudiy:
+Android Auto in the main window, API for vehicle/media data, plugins with a store, CAN bus,
+steering wheel keys, radio, reverse camera. Project name **OpenHU** (renamed on the outside only; the internal
+namespaces `f1x::openauto` and the binary `autoapp` stay, so upstream changes remain mergeable).
 
-## Repositories und Branches
+## Repositories and branches
 
-| Repo (lokal) | Branch | Inhalt |
+| Repo (local) | Branch | Content |
 |---|---|---|
-| `openauto/` (GitHub `average-web-dev/openhu`) | `main` (Stand), `upstream-main` (alter Fork-Stand) | OpenHU |
-| `aasdk-ref/` (GitHub-Fork `average-web-dev/aasdk`, Upstream `opencardev/aasdk` als Remote `upstream`) | `openhu` | aasdk + Navigation-State/Position, PhoneStatus |
-| `openhu-plugins/` (GitHub `average-web-dev/openhu-plugins`) | `main` | offizielle Plugins + Store-Index |
+| `openauto/` (GitHub `average-web-dev/openhu`) | `main` (current), `upstream-main` (old fork state) | OpenHU |
+| `aasdk-ref/` (GitHub fork `average-web-dev/aasdk`, upstream `opencardev/aasdk` as remote `upstream`) | `openhu` | aasdk + navigation state/position, PhoneStatus |
+| `openhu-plugins/` (GitHub `average-web-dev/openhu-plugins`) | `main` | official plugins + store index |
 
-Alle drei Repos sind gepusht (OpenHU bis Phase 6 + Doku, aasdk mit USB-Filter). aasdk hat eine eigene
-SemVer-Version (`project(aasdk VERSION ...)`), der Workflow `openhu.yml` im aasdk-Fork baut `libaasdk`/`libaasdk-dev`
-für amd64 und arm64 und veröffentlicht sie beim Tag `openhu-v<version>` als GitHub-Release. Die OpenHU-CI
-(`.github/workflows/ci.yml`) holt das neueste Release, das zu `OPENHU_AASDK_VERSION` passt
-(`scripts/fetch-aasdk.sh`), baut OpenHU für amd64 und arm64 (nativer arm-Runner), installiert die Pakete testweise in einem
-frischen `debian:trixie-slim` und lädt OpenHU- und aasdk-`.deb` als Artefakte `openhu-amd64`/`openhu-arm64` hoch.
-Sicherheitsnetz (vor allem für die Qt-6-Migration): Unit-Tests mit QtTest in `tests/` (EventBus, Konfiguration,
-Aktionen/Keymap, API inkl. WebSocket, Plugin-Store mit lokalem Repo), `qmllint` über die Shell-QML und
-`tests/shell-smoke.sh`, das die installierte Shell headless startet, alle Seiten per API zeigt und bei QML-Warnungen
-fehlschlägt. Lokal: `docker/dev.sh test`. Der Code außer `main()` liegt dafür in der Bibliothek `openhu_core`.
+All three repos are pushed (OpenHU up to phase 6 + docs, aasdk with the USB filter). aasdk has its own
+SemVer version (`project(aasdk VERSION ...)`); the workflow `openhu.yml` in the aasdk fork builds `libaasdk`/`libaasdk-dev`
+for amd64 and arm64 and publishes them as a GitHub release on the tag `openhu-v<version>`. The OpenHU CI
+(`.github/workflows/ci.yml`) fetches the newest release that fits `OPENHU_AASDK_VERSION`
+(`scripts/fetch-aasdk.sh`), builds OpenHU for amd64 and arm64 (native arm runner), installs the packages for a test in a
+fresh `debian:trixie-slim` and uploads the OpenHU and aasdk `.deb` as artifacts `openhu-amd64`/`openhu-arm64`.
+Safety net (above all for the Qt 6 migration): unit tests with QtTest in `tests/` (EventBus, configuration,
+actions/keymap, API incl. WebSocket, plugin store with a local repo), `qmllint` over the shell QML and
+`tests/shell-smoke.sh`, which starts the installed shell headless, shows every page through the API and fails on QML
+warnings. Locally: `docker/dev.sh test`. For this, all code except `main()` lives in the library `openhu_core`.
 
-Qt 6.8 (Branch `qt6`, Issue #5): Video über einen eigenen FFmpeg-Decoder (`Projection/FfmpegVideoOutput`, eine
-AA-Nachricht = ein `AVPacket`, neuester Frame an den `QVideoSink` des `VideoOutput` in `AaPage.qml`, Decoder über
-`Video.Decoder`), GStreamer entfällt. Audio über `QAudioSink`/`QAudioSource`. Plugin-API 2 (`api` im Manifest),
-Plugins anderer API werden weder installiert noch geladen. Debians Qt 6 hat kein eglfs: der Dienst ohne Desktop
-kommt mit #9 (Kiosk-Compositor `cage`).
+Qt 6.8 (branch `qt6`, issue #5): video through an own FFmpeg decoder (`Projection/FfmpegVideoOutput`, one
+AA message = one `AVPacket`, newest frame to the `QVideoSink` of the `VideoOutput` in `AaPage.qml`, decoder chosen with
+`Video.Decoder`), GStreamer is gone. Audio through `QAudioSink`/`QAudioSource`. Plugin API 2 (`api` in the manifest);
+plugins of another API are neither installed nor loaded. Debian's Qt 6 has no eglfs: the service without a desktop
+comes with #9 (kiosk compositor `cage`).
 
-## Phasen
+## Phases
 
-| Phase | Inhalt | Status |
+| Phase | Content | Status |
 |---|---|---|
-| 0 | Build-Grundlage: aasdk lokal, QML/WebSockets, Dev-Workflow im Container | erledigt |
-| 1 | QML-Shell, Android Auto im Hauptfenster (AaBridge/AaSurface, automatische Ränder) | erledigt, mit Handy getestet |
-| 2 | AA-Daten (nav/media/phone) + WebSocket-API, Lautstärke, Nachtmodus | erledigt, mit Handy getestet |
-| 3 | Aktionen (Tastatur, Lenkrad, API) → AA-Tasten / Shell | erledigt (`N`, `B`, `M`, Widgets → Maps/Spotify getestet) |
-| 4 | Plugin-System + Store (apt-artige Quellen, sha256, Install/Update/Remove) | erledigt |
-| 5 | Plugins CAN, Lenkradtasten, Rückfahrkamera, Radio | erledigt; Kamera mit Webcam getestet, CAN/Radio nur Unit-Tests |
-| 7 | Einstellungen neu (QML), Legacy-UI und toten Code entfernen | erledigt (siehe unten) |
-| 6a | Kabelloses Android Auto (BlueZ + NetworkManager-Hotspot, eingebaut) | erledigt, mit Fairphone 4 getestet |
-| 6 | Bluetooth-Audio an das Autoradio (A2DP, AVRCP-Tasten/Titel, Anrufe per Taste), eingebaut | erledigt, mit Galaxy Buds+ getestet |
-| – | aasdk-README modernisieren mit KI-Hinweis | erledigt (aasdk `c7b91ed`) |
-| – | Doku: README neu (KI-Hinweis, Screenshots), Installation, Konfiguration, Fehlersuche, Plugin-Beispiel | erledigt |
-| – | Bluetooth-Panel beim Tippen auf das BT-Symbol (Radio, Trennen, Einstellungen) | später |
-| – | arm64-Build für den Raspberry Pi, aasdk als Paket, Test auf echtem Pi (eglfs) | ganz am Schluss |
+| 0 | Build basis: local aasdk, QML/WebSockets, dev workflow in the container | done |
+| 1 | QML shell, Android Auto in the main window (AaBridge/AaSurface, automatic margins) | done, tested with a phone |
+| 2 | AA data (nav/media/phone) + WebSocket API, volume, night mode | done, tested with a phone |
+| 3 | Actions (keyboard, steering wheel, API) → AA keys / shell | done (`N`, `B`, `M`, widgets → Maps/Spotify tested) |
+| 4 | Plugin system + store (apt-like sources, sha256, install/update/remove) | done |
+| 5 | Plugins CAN, steering wheel keys, reverse camera, radio | done; camera tested with a webcam, CAN/radio unit tests only |
+| 7 | New settings (QML), remove the legacy UI and dead code | done (see below) |
+| 6a | Wireless Android Auto (BlueZ + NetworkManager hotspot, built in) | done, tested with a Fairphone 4 |
+| 6 | Bluetooth audio to the car radio (A2DP, AVRCP keys/title, calls by key), built in | done, tested with Galaxy Buds+ |
+| – | Modernize the aasdk README with an AI note | done (aasdk `c7b91ed`) |
+| – | Docs: new README (AI note, screenshots), installation, configuration, troubleshooting, plugin example | done |
+| – | Bluetooth panel when tapping the BT symbol (radio, disconnect, settings) | later |
+| – | arm64 build for the Raspberry Pi, aasdk as a package, test on a real Pi (eglfs) | at the very end |
 
-Plan im Detail: `~/.claude/plans/ich-h-tte-gene-folgenden-ethereal-lighthouse.md`.
+Detailed plan: `~/.claude/plans/ich-h-tte-gene-folgenden-ethereal-lighthouse.md`.
 
-## Wichtige Entscheidungen
+## Important decisions
 
-- QML-Shell statt Widgets; die alte Widgets-UI ist seit Phase 7 entfernt.
-- Plugins hybrid: manifest + QML-Seite/Overlay + Prozess in beliebiger Sprache über die API.
-- API: WebSocket + JSON, Port 5520, nur localhost (Doku `docs/api.md`, Plugins `docs/plugins.md`).
-- Store-Pakete sind fertige Archive `dist/<id>-<version>.tar.gz` (statt Ordner aus dem Repo-Tarball),
-  reproduzierbar gebaut von `tools/openhu-repo-index`.
-- Lautstärke über `pactl` (PulseAudio und PipeWire) statt libpulse.
-- Navigationskanal mit Typ ENUM (Pfeile zeichnet die Shell).
-- Rückfahrkamera: Standard im Inhaltsbereich und im Dock, Vollbild optional.
-- Aktionen (`input.action`) und Plugin-Befehle sind einmalige Events (`bus.emit`), Zustände
-  werden mit letztem Wert gespeichert (`bus.publish`).
+- QML shell instead of widgets; the old widgets UI is gone since phase 7.
+- Plugins are hybrid: manifest + QML page/overlay + a process in any language that talks to the API.
+- API: WebSocket + JSON, port 5520, localhost only (docs `docs/api.md`, plugins `docs/plugins.md`).
+- Store packages are ready-made archives `dist/<id>-<version>.tar.gz` (instead of folders from the repo tarball),
+  built reproducibly by `tools/openhu-repo-index`.
+- Volume through `pactl` (PulseAudio and PipeWire) instead of libpulse.
+- Navigation channel with type ENUM (the shell draws the arrows).
+- Reverse camera: by default in the content area and in the dock, full screen optional.
+- Actions (`input.action`) and plugin commands are one-shot events (`bus.emit`), states
+  are stored with their last value (`bus.publish`).
+- The strings of the shell are English; German and further languages are translations (`translations/`,
+  [translations.md](translations.md)), switched at runtime.
 
-## Entwicklung
+## Development
 
 ```
-openauto/docker/dev.sh run        # inkrementell bauen (aasdk + OpenHU) und im Xephyr-Fenster starten
-openauto/docker/dev.sh package    # .deb nach docker/output/
-openauto/docker/dev.sh reconnect  # Handy per USB-Reset neu verbinden
-openauto/docker/dev.sh clean      # Build-Volumes und ccache löschen
+openauto/docker/dev.sh run        # build incrementally (aasdk + OpenHU) and start in the Xephyr window
+openauto/docker/dev.sh package    # .deb to docker/output/
+openauto/docker/dev.sh reconnect  # reconnect the phone by USB reset
+openauto/docker/dev.sh clean      # delete the build volumes and ccache
 ```
 
-Konfiguration `docker/config/openhu.ini` (Fallback `openauto.ini`), Plugin-Daten `docker/data/`, Plugin-Repo als Store-Quelle
-`file /opt/openhu-plugins`.
+Configuration `docker/config/openhu.ini` (fallback `openauto.ini`), plugin data `docker/data/`, plugin repo as store
+source `file /opt/openhu-plugins`.
 
-## Bekannte Punkte / Erkenntnisse
+## Known points / findings
 
-- Ohne `gstreamer1.0-x` (X-Video-Sinks, sonst nur Recommends von `gstreamer1.0-plugins-good`) dauert unter xcb
-  jedes `QMediaPlayer` ~10 s (Wayland-Probe mit Timeout), der Verbindungsaufbau entsprechend länger.
-- aasdk-USBHub verwirft Hotplug-Ereignisse, solange kein Promise wartet. Nach Sitzungsende meldet sich das Handy
-  oft genau dann zurück (USB-Reset, AA am Handy beendet) oder bleibt im AOA-Modus ohne neues Ereignis; deshalb
-  setzt `App::onAndroidAutoQuit()` den Hub zurück, die neue Registrierung meldet alle angesteckten Geräte.
-- Status-Services müssen in `start()` `channel_->receive()` aufrufen, sonst beantwortet OpenHU die
-  Kanalöffnung nicht und das Handy sendet kein Video (war die Ursache für das schwarze Bild).
-- Im Container liegt aasdk nur im Volume unter `/opt/aasdk` (`CPATH`/`LD_LIBRARY_PATH` im Image), nicht in
-  `/usr/local`, sonst bindet `ldconfig` womöglich eine alte Bibliothek.
-- QML-Engine cached Plugin-Dateien: vor dem Austausch werden Seiten freigegeben und der Cache getrimmt;
-  Icons bekommen den Änderungszeitpunkt als URL-Parameter.
-- Das Handy liefert über Android Auto keine Signalstärke (immer 0) und keinen Akkustand.
-- systemd-Dienst: `openhu.ini` wird im Arbeitsverzeichnis gelesen → `WorkingDirectory=/var/lib/openhu`
-  (vorher landete die Datei unter `/`).
-- `vcan0`-Test des CAN-Plugins braucht `sudo` auf dem Host (siehe Plugin-README).
+- Without `gstreamer1.0-x` (X video sinks, otherwise only Recommends of `gstreamer1.0-plugins-good`) every
+  `QMediaPlayer` under xcb takes ~10 s (Wayland probe with a timeout), the connection setup correspondingly longer.
+- The aasdk USBHub drops hotplug events while no promise is waiting. After a session ends the phone often comes
+  back exactly then (USB reset, AA ended on the phone) or stays in AOA mode without a new event; so
+  `App::onAndroidAutoQuit()` resets the hub, and the new registration reports all plugged-in devices.
+- Status services have to call `channel_->receive()` in `start()`, otherwise OpenHU does not answer the
+  channel opening and the phone sends no video (that was the cause of the black picture).
+- In the container aasdk lives only in the volume under `/opt/aasdk` (`CPATH`/`LD_LIBRARY_PATH` in the image), not in
+  `/usr/local`, otherwise `ldconfig` might bind an old library.
+- The QML engine caches plugin files: before they are replaced, pages are released and the cache is trimmed;
+  icons get their modification time as a URL parameter.
+- The phone sends no signal strength (always 0) and no battery level over Android Auto.
+- systemd service: `openhu.ini` is read from the working directory → `WorkingDirectory=/var/lib/openhu`
+  (before, the file ended up under `/`).
+- The `vcan0` test of the CAN plugin needs `sudo` on the host (see the plugin README).
 
-## Phase 6 – Ergebnis (Autoradio)
+## Phase 6 – Result (car radio)
 
-- Fest eingebaut statt Plugin: `bt::BluetoothManager` (Adapter, Agent, Kopplung inkl. PIN für alte Radios,
-  Suche, Geräte) wird von kabellosem AA und dem Radio gemeinsam genutzt; `bt::CarAudio` verbindet das Radio
-  (auch erneut alle 20 s, Radio geht mit der Zündung an), setzt es per `pactl` als Standardausgabe und stellt
-  beim Trennen/Beenden die vorherige wieder her. Sink-Namen: PipeWire neu `bluez_output.AA:BB:…`, alt mit `_`.
-- AVRCP: eigener MPRIS-Player bei BlueZ (`Media1.RegisterPlayer`), Tasten → Aktionen; klingelt ein Anruf, nimmt
-  Play/Pause an, im Gespräch legt es auf; Display zeigt Titel/Interpret bzw. den Anrufer.
-- Lautstärke am Radio: AVRCP Absolute Volume über PipeWire → Standardausgabe → `audio.volume`.
-- Anrufton geht per A2DP ans Radio, das Mikrofon ist am OpenHU-Gerät (Entscheidung: kein HFP-Gateway).
-- Statusleiste: Bluetooth-Symbol, solange das Autoradio verbunden ist (das Handy hat sein eigenes Symbol).
-- Getestet: Kopplung/Verbindung/Ausgabe, Wiederverbinden nach Neustart, Tasten und Ton (Buds+). Anruftasten und
-  Titelanzeige auf einem Gerät mit Display noch ungetestet; kabelloses AA nach dem Umbau getestet.
+- Built in instead of a plugin: `bt::BluetoothManager` (adapter, agent, pairing incl. PIN for old radios,
+  search, devices) is shared by wireless AA and the radio; `bt::CarAudio` connects the radio
+  (again every 20 s, the radio comes on with the ignition), makes it the default output through `pactl` and
+  restores the previous one on disconnect/quit. Sink names: new PipeWire `bluez_output.AA:BB:…`, old with `_`.
+- AVRCP: own MPRIS player at BlueZ (`Media1.RegisterPlayer`), keys → actions; while a call rings, play/pause
+  answers it, during the call it hangs up; the display shows title/artist or the caller.
+- Volume on the radio: AVRCP Absolute Volume through PipeWire → default output → `audio.volume`.
+- Call audio goes to the radio by A2DP, the microphone is on the OpenHU device (decision: no HFP gateway).
+- Status bar: Bluetooth symbol while the car radio is connected (the phone has its own symbol).
+- Tested: pairing/connection/output, reconnect after a restart, keys and sound (Buds+). Call keys and
+  title display on a device with a display still untested; wireless AA tested after the rework.
 
-## Kabelloses Android Auto – Ergebnis
+## Wireless Android Auto – Result
 
-- Eingebaut in OpenHU (`src/autoapp/Wireless/`), das separate `btservice` samt systemd-Dienst und Qt Bluetooth
-  ist entfernt. Läuft auf Bare Metal und im Container gleich: BlueZ und NetworkManager über den System-D-Bus
-  (Container: `/run/dbus/system_bus_socket` eingehängt, `--privileged` wegen AppArmor).
-- Ablauf: BlueZ-Profil für den AA-RFCOMM-Kanal (UUID `4de17a00…`, **Kanal 8 fest**, sonst fehlt der
-  RFCOMM-Eintrag im SDP und das Handy hängt bei „Wird mit Android Auto verbunden“) → Handy bekommt
-  `WifiStartRequest` (10.42.0.1:5000) und auf `WifiInfoRequest` SSID/Passwort/BSSID (Sicherheitsmodus 8) →
-  Handy tritt dem Hotspot `openhu-hotspot` bei (NM, IPv4 shared, 5 GHz Kanal 36, Land per `iw reg set`) →
-  TCP auf Port 5000.
-- Handy-Verbindung: Bietet das System schon Freisprechen (PipeWire-HFP), verbindet OpenHU das Handy normal
-  (`Device1.Connect`); ein zusätzliches HSP-Profil daneben lässt das Handy die Verbindung ablehnen. Ohne HFP
-  (Pi ohne PipeWire) eigenes HSP-Profil wie bei den WLAN-Dongles.
-- Kopplung: Knopf „Koppeln“ (2 min sichtbar, Code-Bestätigung im Dialog, eigener BlueZ-Agent nur in dieser
-  Zeit) oder über das USB-Kabel (AA-Bluetooth-Kanal meldet die Adresse, OpenHU akzeptiert genau dieses Handy
-  und schickt den Code über AA zurück). Das Handy wartet darauf, dass OpenHU die Kopplung startet (`Pair()`);
-  getestet: gekoppelt in < 2 s ohne Rückfrage.
-- Einstellung „Vorrang bei Kabel“ (`Wireless.Priority`): USB (Standard) – mit Kabel keine WLAN-Daten, TCP
-  abgewiesen, Einstecken beendet die WLAN-Sitzung; WLAN – Handy darf auch mit Kabel kabellos wechseln.
-- Hotspot „Immer an“ / „Bei Bedarf“: bei Bedarf startet er, wenn ein gekoppeltes Handy den AA-Kanal öffnet
-  (das Handy wartet, WLAN-Daten erst danach; gemessen 0,3 s), und geht nach 2 min ohne kabellose Sitzung aus
-  (Abschalten getestet).
-- Band Auto/5/2,4 GHz (Auto: 5 GHz, bei Fehler 2,4 GHz; eine Karte kann nicht beide gleichzeitig),
-  erweitert: Kanal, Adresse/Gateway, DHCP-Bereich (NM `ipv4.shared-dhcp-range`, ab NM 1.42). Eigene DNS-Server
-  gehen nicht: NM erlaubt `ipv4.dns` bei `method=shared` nicht.
-- Startprobleme mit Handy am Kabel behoben: (1) ein Handy, das vom vorigen Lauf noch im Accessory-Modus hängt,
-  wird beim Start per USB-Reset frisch verbunden (sonst SSL-Fehler „unexpected message“); (2) aasdk fragte
-  jedes USB-Gerät per AOAP an und schlief 1 s pro Gerät („VMware-Workaround“) → 22 s bis zum Handy; jetzt
-  Filter (Hubs/HID/Audio/Video übersprungen), Pause entfernt (aasdk-Fork) → Handy nach 1,7 s.
-- Abstürze behoben: `SensorService` las GPS ohne gpsd-Verbindung (uninitialisiertes `gps_data_t`);
-  beim Beenden `_Exit` nach dem Aufräumen statt `exit` (Qt-Abbau-Absturz in der QML-Engine).
-- API aus dem Hotspot-Netz standardmäßig abgewiesen, Schalter „API auch im WLAN-Hotspot“ (ungetestet).
-- Versteckte SSID getestet und verworfen: NM richtet den Hotspot versteckt ein, das Handy meldet aber
-  `STATUS_WIFI_NETWORK_UNAVAILABLE` – Android Auto sucht nicht aktiv nach versteckten Netzen.
-- Wichtiger Fix in `App::waitForDevice`: Der USB-Hub-Start lief inline auf dem App-Strand und blockierte ihn
-  beim Programmstart 10–20 s (Hotplug-Enumeration aller USB-Geräte); das Handy gab nach 10 s ohne Daten auf.
-  Jetzt eigener Worker-Aufruf → kabellos verbunden ca. 5 s nach dem Start.
-- Endet eine kabellose Sitzung oder kommt nach dem Handshake 30 s keine TCP-Verbindung, trennt OpenHU
-  Bluetooth und verbindet neu (das Handy versucht es sonst nicht noch einmal). Ausnahme: AA am Handy beendet
-  (`ByeByeRequest` mit `USER_SELECTION`) – dann erst wieder, wenn das Handy selbst startet oder über
-  „Verbinden“ (trennt Bluetooth kurz, sonst startet das Handy AA nicht neu).
-- Hotspot wird bei Beenden, SIGTERM (`docker stop`, Entrypoint reicht es weiter) und Fenster-Schließen
-  (`atexit`) heruntergefahren.
+- Built into OpenHU (`src/autoapp/Wireless/`); the separate `btservice` with its systemd service and Qt Bluetooth
+  is removed. Runs the same on bare metal and in the container: BlueZ and NetworkManager over the system D-Bus
+  (container: `/run/dbus/system_bus_socket` mounted, `--privileged` because of AppArmor).
+- Flow: BlueZ profile for the AA RFCOMM channel (UUID `4de17a00…`, **channel 8 fixed**, otherwise the
+  RFCOMM entry is missing from the SDP record and the phone hangs at "Connecting to Android Auto") → the phone gets
+  `WifiStartRequest` (10.42.0.1:5000) and on `WifiInfoRequest` SSID/password/BSSID (security mode 8) →
+  the phone joins the hotspot `openhu-hotspot` (NM, IPv4 shared, 5 GHz channel 36, country with `iw reg set`) →
+  TCP on port 5000.
+- Phone connection: when the system already offers hands-free (PipeWire HFP), OpenHU connects the phone normally
+  (`Device1.Connect`); an additional HSP profile next to it makes the phone refuse the connection. Without HFP
+  (Pi without PipeWire) an own HSP profile, like the WiFi dongles do.
+- Pairing: button "Pair" (visible for 2 min, code confirmation in a dialog, own BlueZ agent only during that
+  time) or through the USB cable (the AA Bluetooth channel reports the address, OpenHU accepts exactly this phone
+  and sends the code back over AA). The phone waits for OpenHU to start the pairing (`Pair()`);
+  tested: paired in < 2 s without a question.
+- Setting "Priority with cable" (`Wireless.Priority`): USB (default) – with a cable no WiFi data, TCP
+  refused, plugging in ends the WiFi session; WiFi – the phone may switch to wireless also with a cable.
+- Hotspot "Always on" / "On demand": on demand it starts when a paired phone opens the AA channel
+  (the phone waits, WiFi data only afterwards; measured 0.3 s), and goes off after 2 min without a wireless session
+  (switching off tested).
+- Band Auto/5/2.4 GHz (Auto: 5 GHz, on an error 2.4 GHz; a card cannot do both at once),
+  advanced: channel, address/gateway, DHCP range (NM `ipv4.shared-dhcp-range`, from NM 1.42). Own DNS servers
+  do not work: NM does not allow `ipv4.dns` with `method=shared`.
+- Start problems with the phone on the cable fixed: (1) a phone still stuck in accessory mode from the previous run
+  is reconnected fresh by a USB reset at start (otherwise SSL error "unexpected message"); (2) aasdk asked
+  every USB device by AOAP and slept 1 s per device ("VMware workaround") → 22 s until the phone; now a
+  filter (hubs/HID/audio/video skipped), the pause removed (aasdk fork) → phone after 1.7 s.
+- Crashes fixed: `SensorService` read GPS without a gpsd connection (uninitialized `gps_data_t`);
+  on quit `_Exit` after cleaning up instead of `exit` (Qt teardown crash in the QML engine).
+- API from the hotspot network refused by default, switch "API also in the WiFi hotspot" (untested).
+- Hidden SSID tested and dropped: NM sets up the hotspot hidden, but the phone reports
+  `STATUS_WIFI_NETWORK_UNAVAILABLE` – Android Auto does not actively search for hidden networks.
+- Important fix in `App::waitForDevice`: the USB hub start ran inline on the app strand and blocked it
+  for 10–20 s at program start (hotplug enumeration of all USB devices); the phone gave up after 10 s without data.
+  Now an own worker call → wirelessly connected about 5 s after the start.
+- When a wireless session ends, or no TCP connection comes within 30 s after the handshake, OpenHU disconnects
+  Bluetooth and reconnects (the phone would not try again otherwise). Exception: AA ended on the phone
+  (`ByeByeRequest` with `USER_SELECTION`) – then only when the phone starts by itself or through
+  "Connect" (disconnects Bluetooth briefly, otherwise the phone does not restart AA).
+- The hotspot is shut down on quit, SIGTERM (`docker stop`, the entrypoint passes it on) and when the window is closed
+  (`atexit`).
 
-## Phase 7 – Ergebnis
+## Phase 7 – Result
 
-- Legacy-UI entfernt (`MainWindow`, `SettingsWindow`, Dialoge), ebenso toter Code: Services Radio/
+- Legacy UI removed (`MainWindow`, `SettingsWindow`, dialogs), as well as dead code: services radio/
   VendorExtension/MediaBrowser/GenericNotification/WifiProjection, `OMXVideoOutput`, `RecentAddressesList`,
-  `tests/`, `buildenv/`, `Dockerfile.rootfs`, `helpers/`, `packaging/opt/crankshaft`, Fix-Notizen,
-  ungenutzte Icons (~32 500 Zeilen).
-- `Configuration` neu und schlank (gleiche ini-Schlüssel, Datei `openhu.ini`), `QGuiApplication` statt
-  `QApplication`, CMake ohne OMX/taglib/blkid/Widgets/Crankshaft-Installation, udev-Regel ohne Crankshaft.
-- Einstellungsseite in QML (`Shell/qml/settings/`) mit Kategorien Allgemein, Android Auto, Audio, Bluetooth,
-  Tasten, Apps & Store, Netzwerk & API, Info. Jede Änderung wird sofort gespeichert; eine Leiste zeigt an,
-  wenn eine Neuverbindung (USB-Reset per Knopf) oder ein Neustart nötig ist.
-- Apps-Menü ist jetzt die Kategorie „Apps & Store“ (Öffnen, Im Dock, Aktiv, Installieren/Updates/Quellen).
-- Neustart im selben Prozess (`execv`, gleiche PID, funktioniert im Container und unter systemd). Vorher
-  werden Plugin-Prozesse und `pactl subscribe` beendet; der Wireless-Acceptor (Port 5000) ist
-  close-on-exec, sonst erben Kindprozesse den Socket und der neue Prozess bekommt „Address already in use“.
-- Tastenbelegung bearbeitbar (aufnehmen, Aktion zuweisen, entfernen, zurücksetzen; nur Abweichungen landen in
-  `~/.openhu/keymap.json`). In fokussierten Textfeldern gehen alle Tasten außer Medien/Lautstärke ans Feld.
+  `tests/`, `buildenv/`, `Dockerfile.rootfs`, `helpers/`, `packaging/opt/crankshaft`, fix notes,
+  unused icons (~32,500 lines).
+- `Configuration` new and lean (same ini keys, file `openhu.ini`), `QGuiApplication` instead of
+  `QApplication`, CMake without OMX/taglib/blkid/widgets/Crankshaft installation, udev rule without Crankshaft.
+- Settings page in QML (`Shell/qml/settings/`) with the categories General, Android Auto, Audio, Bluetooth,
+  Keys, Apps & Store, Network & API, Info. Every change is saved at once; a bar shows when a
+  reconnect (USB reset by button) or a restart is needed.
+- The apps menu is now the category "Apps & Store" (Open, In the dock, Active, Install/Updates/Sources).
+- Restart in the same process (`execv`, same PID, works in the container and under systemd). Before that,
+  plugin processes and `pactl subscribe` are ended; the wireless acceptor (port 5000) is
+  close-on-exec, otherwise child processes inherit the socket and the new process gets "Address already in use".
+- Key mapping editable (record, assign an action, remove, reset; only the differences end up in
+  `~/.openhu/keymap.json`). In focused text fields all keys except media/volume go to the field.
 - Android Auto:
-  - Fahrerseite wird gemeldet (war fest „rechts“).
-  - **Namenszusatz** (`[General] NameSuffix`): Das Handy zeigt „OpenHU <Zusatz>“. Die Fahrzeug-ID ist ein
-    Hash des Zusatzes, damit mehrere Head-Units am Handy getrennt konfiguriert werden; derselbe Name bleibt
-    dasselbe Auto (ohne Zusatz die bisherige ID).
-  - **Automatische Auflösung** (`[Video] AutoResolution`, Standard an): kleinste AA-Stufe, die die AA-Fläche
-    abdeckt (480p/720p/1080p, im Hochformat 720x1280/1080x1920), dazu automatische Ränder. AA kennt nur
-    feste Stufen; die Wahl greift bei der nächsten Verbindung.
-  - „Beenden“ in Android Auto → Startseite (`projection.exit`), Nachtmodus nur noch über API.
-- Getestet im Container: alle Kategorien ohne QML-Warnungen, Werte speichern/laden, Tasten anlernen,
-  automatische Auflösung bei 800x480/1280x720/1920x1080/720x1280, Hochformat-Layout, Neustart mit
-  laufendem Plugin. Noch mit Handy zu testen: geänderte Fahrerseite/Namenszusatz/Auflösung.
+  - The driver side is reported (was fixed to "right").
+  - **Name suffix** (`[General] NameSuffix`): the phone shows "OpenHU <suffix>". The vehicle ID is a
+    hash of the suffix, so several head units are configured separately on the phone; the same name stays
+    the same car (without a suffix the previous ID).
+  - **Automatic resolution** (`[Video] AutoResolution`, on by default): the smallest AA level that covers the AA
+    area (480p/720p/1080p, in portrait 720x1280/1080x1920), plus automatic margins. AA only knows
+    fixed levels; the choice applies with the next connection.
+  - "Exit" in Android Auto → home page (`projection.exit`), night mode only through the API.
+- Tested in the container: all categories without QML warnings, saving/loading values, learning keys,
+  automatic resolution at 800x480/1280x720/1920x1080/720x1280, portrait layout, restart with a
+  running plugin. Still to test with a phone: changed driver side/name suffix/resolution.

@@ -30,7 +30,7 @@ Requirements:
   Android Auto is switched on.
 - `iw` to set the WiFi country (needed for 5 GHz)
 
-Enable it on the settings page under **Kabellos**, then pair the phone there once.
+Enable it on the settings page under **Wireless**, then pair the phone there once.
 
 ## Service
 
