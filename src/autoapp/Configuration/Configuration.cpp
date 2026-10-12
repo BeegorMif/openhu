@@ -47,6 +47,7 @@ const std::string cVideoScreenDPIKey = "Video.ScreenDPI";
 const std::string cVideoMarginWidthKey = "Video.MarginWidth";
 const std::string cVideoMarginHeightKey = "Video.MarginHeight";
 const std::string cTouchscreenKey = "Input.EnableTouchscreen";
+const std::string cOnScreenKeyboardKey = "Input.OnScreenKeyboard";
 const std::string cBluetoothAdapterTypeKey = "Bluetooth.AdapterType";
 const std::string cBluetoothAdapterAddressKey = "Bluetooth.AdapterAddress";
 const std::string cWirelessProjectionKey = "Bluetooth.WirelessProjectionEnabled";
@@ -110,6 +111,7 @@ void Configuration::load()
         screenDPI_ = ini.get<size_t>(cVideoScreenDPIKey, screenDPI_);
         videoMargins_ = QRect(0, 0, ini.get<int32_t>(cVideoMarginWidthKey, 0), ini.get<int32_t>(cVideoMarginHeightKey, 0));
         enableTouchscreen_ = ini.get<bool>(cTouchscreenKey, enableTouchscreen_);
+        onScreenKeyboard_ = ini.get<bool>(cOnScreenKeyboardKey, onScreenKeyboard_);
 
         bluetoothAdapterType_ = static_cast<BluetoothAdapterType>(
             ini.get<uint32_t>(cBluetoothAdapterTypeKey, static_cast<uint32_t>(bluetoothAdapterType_)));
@@ -159,6 +161,7 @@ void Configuration::reset()
     screenDPI_ = 140;
     videoMargins_ = QRect(0, 0, 0, 0);
     enableTouchscreen_ = true;
+    onScreenKeyboard_ = true;
     bluetoothAdapterType_ = BluetoothAdapterType::NONE;
     bluetoothAdapterAddress_ = "";
     // off by default: it turns the WiFi card into a hotspot
@@ -189,6 +192,7 @@ void Configuration::save()
     ini.put<int32_t>(cVideoMarginWidthKey, videoMargins_.width());
     ini.put<int32_t>(cVideoMarginHeightKey, videoMargins_.height());
     ini.put<bool>(cTouchscreenKey, enableTouchscreen_);
+    ini.put<bool>(cOnScreenKeyboardKey, onScreenKeyboard_);
     ini.put<uint32_t>(cBluetoothAdapterTypeKey, static_cast<uint32_t>(bluetoothAdapterType_));
     ini.put<std::string>(cBluetoothAdapterAddressKey, bluetoothAdapterAddress_);
     ini.put<bool>(cWirelessProjectionKey, wirelessProjectionEnabled_);
@@ -240,6 +244,16 @@ void Configuration::showCursor(bool value)
 bool Configuration::showCursor() const
 {
     return showCursor_;
+}
+
+void Configuration::setOnScreenKeyboard(bool value)
+{
+    onScreenKeyboard_ = value;
+}
+
+bool Configuration::onScreenKeyboard() const
+{
+    return onScreenKeyboard_;
 }
 
 std::string Configuration::getNameSuffix() const

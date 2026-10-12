@@ -15,6 +15,7 @@ SettingRow {
         to: number.to
         stepSize: number.stepSize
         editable: true
+        inputMethodHints: Qt.ImhDigitsOnly
         value: settings.values[number.key] || 0
         onValueModified: {
             const error = settings.set(number.key, value)

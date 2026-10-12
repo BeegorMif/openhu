@@ -22,7 +22,10 @@
 #include <sys/socket.h>
 #include <unistd.h>
 #include <QElapsedTimer>
+#include <QFile>
 #include <QGuiApplication>
+#include <QLibraryInfo>
+#include <QLoggingCategory>
 #include <QNetworkInterface>
 #include <QQmlApplicationEngine>
 #include <QQmlContext>
@@ -134,6 +137,18 @@ int main(int argc, char* argv[])
     qputenv("QT_QUICK_CONTROLS_MATERIAL_ACCENT", "#4f9cf9");
     qputenv("QT_QUICK_CONTROLS_MATERIAL_BACKGROUND", "#192027");
 
+    // On-screen keyboard for text fields (Qt Virtual Keyboard, Keyboard.qml); a real keyboard keeps working with it.
+    // Not when another input method was chosen or the plugin is missing (the shell loads without the panel then).
+    const bool onScreenKeyboard = qEnvironmentVariableIsEmpty("QT_IM_MODULE")
+        && QFile::exists(QLibraryInfo::path(QLibraryInfo::PluginsPath)
+                         + "/platforminputcontexts/libqtvirtualkeyboardplugin.so");
+    if(onScreenKeyboard)
+    {
+        qputenv("QT_IM_MODULE", "qtvirtualkeyboard");
+    }
+    // word suggestions need hunspell dictionaries, which a head unit does not have
+    QLoggingCategory::setFilterRules("qt.virtualkeyboard.hunspell.warning=false");
+
     QGuiApplication application(argc, argv);
 
     auto configuration = std::make_shared<autoapp::configuration::Configuration>();
@@ -216,6 +231,8 @@ int main(int argc, char* argv[])
     engine.rootContext()->setContextProperty("bluetooth", &bluetoothManager);
     engine.rootContext()->setContextProperty("carAudio", &carAudio);
     engine.rootContext()->setContextProperty("system", &systemController);
+    engine.rootContext()->setContextProperty("onScreenKeyboardAvailable",
+                                             qgetenv("QT_IM_MODULE") == "qtvirtualkeyboard");
 
     // Clean up what outlives the process (hotspot, plugin processes), then end without running destructors:
     // exit() from inside the event loop tears down Qt's globals while the QML engine still exists (crash).

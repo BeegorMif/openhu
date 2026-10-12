@@ -42,6 +42,8 @@ public:
     HandednessOfTrafficType getHandednessOfTrafficType() const override;
     void showCursor(bool value) override;
     bool showCursor() const override;
+    void setOnScreenKeyboard(bool value) override;
+    bool onScreenKeyboard() const override;
     std::string getNameSuffix() const override;
     void setNameSuffix(const std::string& value) override;
     std::string getVehicleId() const override;
@@ -95,6 +97,7 @@ public:
 private:
     HandednessOfTrafficType handednessOfTrafficType_;
     bool showCursor_;
+    bool onScreenKeyboard_;
     std::string nameSuffix_;
     bool videoResolutionAuto_;
     std::string videoDecoder_;

@@ -7,10 +7,15 @@ SettingRow {
     id: textSetting
     property string key
     property string placeholder
+    // for the on-screen keyboard: no suggestions or capitals by default (names, addresses, codes)
+    property int inputHints: Qt.ImhNoPredictiveText | Qt.ImhNoAutoUppercase
 
     TextField {
         width: Theme.dockWidth * 3
         placeholderText: textSetting.placeholder
+        inputMethodHints: textSetting.inputHints
+        // Enter: done, the on-screen keyboard closes
+        onAccepted: focus = false
         text: String(settings.values[textSetting.key] || "")
         onEditingFinished: {
             if (text === String(settings.values[textSetting.key] || ""))

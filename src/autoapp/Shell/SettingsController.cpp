@@ -89,6 +89,7 @@ QVariantMap SettingsController::values() const
         {"general.driverSide", configuration_->getHandednessOfTrafficType()
                                    == configuration::HandednessOfTrafficType::RIGHT_HAND_DRIVE ? "right" : "left"},
         {"general.showCursor", configuration_->showCursor()},
+        {"general.onScreenKeyboard", configuration_->onScreenKeyboard()},
         {"general.nameSuffix", QString::fromStdString(configuration_->getNameSuffix())},
         {"aa.resolution", configuration_->getVideoResolutionAuto() ? QString("auto")
                                                                     : resolutionName(configuration_->getVideoResolution())},
@@ -133,6 +134,8 @@ QVariantMap SettingsController::info() const
 {
     return {
         {"version", QStringLiteral(OPENHU_VERSION)},
+        // language of the shell (the on-screen keyboard follows it); German only until #35 adds the switcher
+        {"language", QStringLiteral("de")},
         {"git", QStringLiteral(OPENHU_GIT)},
         {"qt", QString::fromLatin1(qVersion())},
         {"dataDir", plugins::PluginManager::baseDir()},
@@ -156,6 +159,10 @@ QString SettingsController::set(const QString& key, const QVariant& value)
     {
         configuration_->showCursor(value.toBool());
         this->applyCursor();
+    }
+    else if(key == "general.onScreenKeyboard")
+    {
+        configuration_->setOnScreenKeyboard(value.toBool());
     }
     else if(key == "general.nameSuffix")
     {

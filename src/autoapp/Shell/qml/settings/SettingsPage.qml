@@ -181,6 +181,12 @@ Item {
                 description: "Für Bedienung mit Maus statt Touchscreen."
                 key: "general.showCursor"
             }
+            SettingSwitch {
+                visible: onScreenKeyboardAvailable
+                title: "Bildschirmtastatur"
+                description: "Erscheint bei Textfeldern. Ausschalten, wenn eine Tastatur angeschlossen ist."
+                key: "general.onScreenKeyboard"
+            }
         }
     }
 
@@ -356,6 +362,7 @@ Item {
                 title: "Kopplungs-PIN"
                 description: "Nur für ältere Radios, die eine PIN statt eines Codes zur Bestätigung verlangen."
                 key: "carAudio.pin"
+                inputHints: Qt.ImhDigitsOnly
                 placeholder: "0000"
             }
         }
@@ -464,6 +471,7 @@ Item {
                 title: "Passwort"
                 description: "Muss nirgends eingetippt werden: Das Telefon bekommt es über Bluetooth."
                 key: "wireless.password"
+                inputHints: Qt.ImhSensitiveData | Qt.ImhNoPredictiveText | Qt.ImhNoAutoUppercase
             }
             SettingChoice {
                 title: "Frequenzband"
@@ -476,6 +484,7 @@ Item {
                 title: "Land"
                 description: "Legt die erlaubten WLAN-Kanäle fest (für 5 GHz nötig)."
                 key: "wireless.country"
+                inputHints: Qt.ImhUppercaseOnly | Qt.ImhNoPredictiveText
                 placeholder: "DE"
             }
             SettingRow {
@@ -502,6 +511,7 @@ Item {
                 title: "Adresse (Gateway)"
                 description: "OpenHU im Hotspot-Netz, mit Netzmaske. Das Telefon nutzt sie als Gateway und DNS."
                 key: "wireless.address"
+                inputHints: Qt.ImhPreferNumbers | Qt.ImhNoPredictiveText
                 placeholder: "10.42.0.1/24"
             }
             SettingText {
@@ -509,6 +519,7 @@ Item {
                 title: "DHCP-Bereich"
                 description: "Leer = automatisch."
                 key: "wireless.dhcpRange"
+                inputHints: Qt.ImhPreferNumbers | Qt.ImhNoPredictiveText
                 placeholder: "10.42.0.10-10.42.0.254"
             }
 

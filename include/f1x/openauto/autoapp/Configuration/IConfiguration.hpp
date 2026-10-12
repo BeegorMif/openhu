@@ -80,6 +80,9 @@ public:
     virtual HandednessOfTrafficType getHandednessOfTrafficType() const = 0;
     virtual void showCursor(bool value) = 0;
     virtual bool showCursor() const = 0;
+    // on-screen keyboard for text fields (touchscreen only head units); off with a real keyboard
+    virtual void setOnScreenKeyboard(bool value) = 0;
+    virtual bool onScreenKeyboard() const = 0;
     // Shown on the phone as "OpenHU <suffix>", to tell several head units apart
     virtual std::string getNameSuffix() const = 0;
     virtual void setNameSuffix(const std::string& value) = 0;
