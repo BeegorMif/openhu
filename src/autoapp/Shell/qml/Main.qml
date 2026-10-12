@@ -98,6 +98,40 @@ Window {
         function onToastRequested(text, durationMs) { toast.show(text, durationMs) }
     }
 
+    // Height of the on-screen keyboard while it is shown: the page area gets smaller, so the pages can scroll the
+    // focused field into view (revealFocus)
+    // Keyboard.qml is loaded by file name, so the shell starts without the module; qmllint only sees a QObject
+    // qmllint disable missing-property
+    readonly property real keyboardHeight: keyboard.item ? keyboard.item.occupied : 0
+    // qmllint enable missing-property
+
+    // Scrolls the Flickable around the focused text field so the field is above the keyboard
+    function revealFocus() {
+        const item = root.activeFocusItem
+        if (!item || keyboardHeight === 0)
+            return
+        let flickable = item.parent
+        while (flickable && !(flickable instanceof Flickable))
+            flickable = flickable.parent
+        if (!flickable)
+            return
+        const top = item.mapToItem(flickable.contentItem, 0, 0).y
+        const margin = Theme.spacing
+        if (top + item.height + margin > flickable.contentY + flickable.height)
+            flickable.contentY = Math.min(top + item.height + margin - flickable.height,
+                                          Math.max(0, flickable.contentHeight - flickable.height))
+        else if (top - margin < flickable.contentY)
+            flickable.contentY = Math.max(0, top - margin)
+    }
+    onActiveFocusItemChanged: revealTimer.restart()
+    onKeyboardHeightChanged: revealTimer.restart()
+    // after the layout followed the new height
+    Timer {
+        id: revealTimer
+        interval: 50
+        onTriggered: root.revealFocus()
+    }
+
     RowLayout {
         anchors.fill: parent
         spacing: 0
@@ -120,9 +154,11 @@ Window {
                 onVolumeClicked: volumePanel.show()
             }
 
+            // the pages: smaller while the on-screen keyboard is shown (dock and status bar stay)
             Item {
                 Layout.fillWidth: true
                 Layout.fillHeight: true
+                Layout.bottomMargin: root.keyboardHeight
 
                 HomePage {
                     anchors.fill: parent
@@ -209,10 +245,20 @@ Window {
         anchors.fill: parent
     }
 
+    // no size: a Loader with a size stretches the panel to it (Keyboard.qml sizes itself by the window)
+    Loader {
+        id: keyboard
+        active: onScreenKeyboardAvailable
+        source: "Keyboard.qml"
+        // qmllint disable missing-property
+        onLoaded: item.allowed = Qt.binding(() => settings.values["general.onScreenKeyboard"] !== false)
+        // qmllint enable missing-property
+    }
+
     Toast {
         id: toast
         anchors.horizontalCenter: parent.horizontalCenter
         anchors.bottom: parent.bottom
-        anchors.bottomMargin: Theme.spacing * 2
+        anchors.bottomMargin: Theme.spacing * 2 + root.keyboardHeight
     }
 }

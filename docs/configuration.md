@@ -47,6 +47,7 @@ the container).
 | Key | Default | |
 |---|---|---|
 | `EnableTouchscreen` | `true` | touch input for Android Auto |
+| `OnScreenKeyboard` | `true` | on-screen keyboard for text fields in the shell (Qt Virtual Keyboard, German/English); off with a real keyboard |
 
 ### [AudioChannel], [Audio]
 

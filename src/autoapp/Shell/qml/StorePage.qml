@@ -278,6 +278,7 @@ Item {
                 TextField {
                     id: sourceLocation
                     Layout.fillWidth: true
+                    inputMethodHints: Qt.ImhNoAutoUppercase | Qt.ImhNoPredictiveText
                     placeholderText: sourceType.currentText === "github" ? "benutzer/repository"
                                    : sourceType.currentText === "url" ? "https://server/pfad/" : "/media/usb/openhu-repo"
                 }
@@ -285,6 +286,7 @@ Item {
                     id: sourceBranch
                     visible: sourceType.currentText === "github"
                     Layout.preferredWidth: Theme.dockWidth * 1.4
+                    inputMethodHints: Qt.ImhNoAutoUppercase | Qt.ImhNoPredictiveText
                     placeholderText: "main"
                 }
                 Button {

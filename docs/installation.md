@@ -73,6 +73,7 @@ sudo apt install build-essential cmake ninja-build pkg-config git ca-certificate
     libgps-dev librtaudio-dev qt6-base-dev qt6-declarative-dev qt6-multimedia-dev qt6-websockets-dev \
     qt6-declarative-dev-tools libavcodec-dev libavutil-dev libswscale-dev qml6-module-qtquick \
     qml6-module-qtquick-window qml6-module-qtquick-layouts qml6-module-qtquick-controls qml6-module-qtmultimedia \
+    qml6-module-qtquick-virtualkeyboard qt6-virtualkeyboard-plugin \
     dpkg-dev fakeroot file
 
 git clone https://github.com/average-web-dev/openhu.git

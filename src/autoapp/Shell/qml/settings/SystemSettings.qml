@@ -159,6 +159,7 @@ Flickable {
                     width: Theme.dockWidth * 3
                     // one field: visible while typing (no second field to catch typos), hidden afterwards
                     echoMode: TextInput.PasswordEchoOnEdit
+                    inputMethodHints: Qt.ImhSensitiveData | Qt.ImhNoPredictiveText | Qt.ImhNoAutoUppercase
                     placeholderText: "Neues Passwort"
                     onAccepted: saveButton.clicked()
                 }
@@ -174,6 +175,7 @@ Flickable {
                         }
                         // the row says "Gesetzt" once the helper stored it, errors come as a toast
                         password.text = ""
+                        password.focus = false  // closes the on-screen keyboard
                     }
                 }
             }
