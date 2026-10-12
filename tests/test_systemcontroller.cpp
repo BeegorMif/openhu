@@ -60,7 +60,7 @@ private slots:
         QVERIFY(!system.available());
         QCOMPARE(system.update().value("state").toString(), QString("idle"));
         QVERIFY(!system.installUpdate().isEmpty());
-        QVERIFY(!system.setSshPassword("long-enough", "long-enough").isEmpty());
+        QVERIFY(!system.setSshPassword("long-enough").isEmpty());
     }
 
     void bootStatus()
@@ -139,10 +139,9 @@ private slots:
         QTRY_VERIFY(!system.ssh().value("busy").toBool());
         QVERIFY(!system.ssh().value("enabled").toBool());
 
-        QVERIFY(!system.setSshPassword("short", "short").isEmpty());
-        QVERIFY(!system.setSshPassword("long-enough", "different!").isEmpty());
-        QVERIFY(!system.setSshPassword("long\nenough", "long\nenough").isEmpty());
-        QCOMPARE(system.setSshPassword("long-enough", "long-enough"), QString());
+        QVERIFY(!system.setSshPassword("short").isEmpty());
+        QVERIFY(!system.setSshPassword("long\nenough").isEmpty());
+        QCOMPARE(system.setSshPassword("long-enough"), QString());
         QTRY_VERIFY(system.ssh().value("password").toBool());
         QCOMPARE(read(run_.filePath("password")), QByteArray("long-enough"));  // through stdin
 

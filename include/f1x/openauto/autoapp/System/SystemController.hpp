@@ -63,8 +63,8 @@ public:
 
     Q_INVOKABLE void refreshSsh();
     Q_INVOKABLE void setSshEnabled(bool enabled);
-    // checks length and repetition here, the helper hashes it; empty when accepted
-    Q_INVOKABLE QString setSshPassword(const QString& password, const QString& repeated);
+    // checks the length here, the helper hashes it; empty when accepted
+    Q_INVOKABLE QString setSshPassword(const QString& password);
 
     static constexpr int cMinPasswordLength = 8;
 

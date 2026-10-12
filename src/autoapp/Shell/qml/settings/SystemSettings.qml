@@ -152,36 +152,28 @@ Flickable {
         SettingRow {
             title: "Root-Passwort"
             description: page.sshInfo.password ? "Gesetzt. Ein neues ersetzt es." : "Noch nicht gesetzt (mindestens 8 Zeichen)."
-            Column {
-                spacing: Theme.spacing / 3
+            Row {
+                spacing: Theme.spacing / 2
                 TextField {
                     id: password
                     width: Theme.dockWidth * 3
-                    echoMode: TextInput.Password
+                    // one field: visible while typing (no second field to catch typos), hidden afterwards
+                    echoMode: TextInput.PasswordEchoOnEdit
                     placeholderText: "Neues Passwort"
+                    onAccepted: saveButton.clicked()
                 }
-                Row {
-                    spacing: Theme.spacing / 2
-                    TextField {
-                        id: repeated
-                        width: Theme.dockWidth * 3 - saveButton.width - Theme.spacing / 2
-                        echoMode: TextInput.Password
-                        placeholderText: "Wiederholen"
-                    }
-                    Button {
-                        id: saveButton
-                        text: "Speichern"
-                        enabled: !page.sshInfo.busy && password.text.length > 0
-                        onClicked: {
-                            const error = system.setSshPassword(password.text, repeated.text)
-                            if (error) {
-                                shell.toast(error, 4000)
-                                return
-                            }
-                            // the row says "Gesetzt" once the helper stored it, errors come as a toast
-                            password.text = ""
-                            repeated.text = ""
+                Button {
+                    id: saveButton
+                    text: "Speichern"
+                    enabled: !page.sshInfo.busy && password.text.length > 0
+                    onClicked: {
+                        const error = system.setSshPassword(password.text)
+                        if (error) {
+                            shell.toast(error, 4000)
+                            return
                         }
+                        // the row says "Gesetzt" once the helper stored it, errors come as a toast
+                        password.text = ""
                     }
                 }
             }

@@ -283,7 +283,7 @@ void SystemController::setSshEnabled(bool enabled)
     });
 }
 
-QString SystemController::setSshPassword(const QString& password, const QString& repeated)
+QString SystemController::setSshPassword(const QString& password)
 {
     if(!this->available())
     {
@@ -292,10 +292,6 @@ QString SystemController::setSshPassword(const QString& password, const QString&
     if(password.size() < cMinPasswordLength)
     {
         return QString("Mindestens %1 Zeichen").arg(cMinPasswordLength);
-    }
-    if(password != repeated)
-    {
-        return QStringLiteral("Die Passwörter sind verschieden");
     }
     if(password.contains('\n'))
     {
