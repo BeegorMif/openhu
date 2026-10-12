@@ -41,9 +41,9 @@ Item {
 
             Text {
                 Layout.fillWidth: true
-                text: keymap.capturing ? "Taste drücken …"
-                    : keymap.captured ? "Taste „" + keymap.captured + "“: Aktion wählen"
-                    : "Tastatur- und Lenkradtasten (über USB-Adapter als Tastatur) lösen Aktionen aus."
+                text: keymap.capturing ? qsTr("Press a key …")
+                    : keymap.captured ? qsTr("Key “%1”: choose an action").arg(keymap.captured)
+                    : qsTr("Keyboard and steering wheel keys (through a USB adapter as keyboard) trigger actions.")
                 color: keymap.capturing || keymap.captured ? Theme.primary : Theme.textDim
                 font.pixelSize: Theme.fontSmall
                 wrapMode: Text.WordWrap
@@ -56,7 +56,7 @@ Item {
             }
             Button {
                 visible: keymap.captured !== ""
-                text: "Zuweisen"
+                text: qsTr("Assign")
                 highlighted: true
                 onClicked: {
                     actions.setKeyAction(keymap.captured, newAction.currentText)
@@ -64,7 +64,7 @@ Item {
                 }
             }
             Button {
-                text: keymap.capturing ? "Abbrechen" : "Taste hinzufügen"
+                text: keymap.capturing ? qsTr("Cancel") : qsTr("Add key")
                 onClicked: {
                     keymap.captured = ""
                     keymap.capturing = !keymap.capturing
@@ -72,7 +72,7 @@ Item {
                 }
             }
             Button {
-                text: "Standard"
+                text: qsTr("Default")
                 flat: true
                 onClicked: actions.resetKeymap()
             }
@@ -112,7 +112,7 @@ Item {
                     }
                     Text {
                         visible: modelData.custom
-                        text: "geändert"
+                        text: qsTr("changed")
                         color: Theme.primary
                         font.pixelSize: Theme.fontSmall
                     }

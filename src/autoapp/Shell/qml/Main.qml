@@ -200,7 +200,7 @@ Window {
                         Text {
                             anchors.centerIn: parent
                             visible: pluginPage.status === Loader.Error
-                            text: pluginPage.name + ": Seite kann nicht geladen werden (Log: data/logs)"
+                            text: qsTr("%1: page cannot be loaded (log: data/logs)").arg(pluginPage.name)
                             color: Theme.textDim
                             font.pixelSize: Theme.fontNormal
                         }
@@ -266,7 +266,7 @@ Window {
         // qmllint disable missing-property
         onLoaded: {
             item.allowed = Qt.binding(() => settings.values["general.onScreenKeyboard"] !== false)
-            item.language = Qt.binding(() => settings.info.language || "de")
+            item.language = Qt.binding(() => settings.values["general.language"])
         }
         // qmllint enable missing-property
     }

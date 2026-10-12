@@ -2,7 +2,7 @@
 
 A plugin is a folder `~/.openhu/plugins/<id>/` (container: `docker/data/plugins/<id>/`) with a `manifest.json`.
 It can bring a QML page, an overlay and a background process in any language that talks to the
-[API](api.md). Plugins are installed from the store (Einstellungen → Apps & Store) or copied by hand.
+[API](api.md). Plugins are installed from the store (Settings → Apps & Store) or copied by hand.
 
 ## manifest.json
 
@@ -27,7 +27,7 @@ It can bring a QML page, an overlay and a background process in any language tha
 | `version` | `1.2.3`, compared numerically for updates |
 | `api` | plugin API the plugin is made for: `2` = OpenHU with Qt 6 (QML pages for Qt 6). Plugins of another API are not installed and, if copied by hand, not loaded |
 | `arch` | `all`, `amd64`, `arm64`, `armhf` |
-| `ui.page` | QML page, shown as `plugin:<id>` (dock, "Öffnen" in the store, `ui.navigate`) |
+| `ui.page` | QML page, shown as `plugin:<id>` (dock, "Open" in the store, `ui.navigate`) |
 | `ui.dock` | page as dock entry (users can change it, `plugin.setDock`) |
 | `ui.overlay` | QML above the whole shell, shown with `ui.overlay.show` / `ui.overlay.hide` |
 | `ui.icon` | SVG/PNG for the dock |
@@ -36,7 +36,8 @@ It can bring a QML page, an overlay and a background process in any language tha
 | `permissions` | shown in the store before installing (informational) |
 | `shared` | files from the repository's `common/` copied to `lib/` when the archive is built |
 
-Processes get `OPENHU_API_URL`, `OPENHU_PLUGIN_ID`, `OPENHU_PLUGIN_DIR` and `OPENHU_DATA_DIR` (persistent data,
+Processes get `OPENHU_API_URL`, `OPENHU_PLUGIN_ID`, `OPENHU_PLUGIN_DIR`, `OPENHU_LANGUAGE` (language of the shell at
+the start, see [Translations](#translations)) and `OPENHU_DATA_DIR` (persistent data,
 `~/.openhu/plugin-data/<id>`, kept on updates). Output goes to `~/.openhu/logs/<id>.log`.
 Enabled/disabled and dock state are kept in `~/.openhu/plugins.json`.
 
@@ -51,6 +52,28 @@ Enabled/disabled and dock state are kept in `~/.openhu/plugins.json`.
 
 Typical pattern: the process owns the state and publishes it (`radio.state`), the page shows it with
 `BusTopic` and sends commands as one-shot events (`api.emitEvent("radio.command", {cmd: "tune", value: 99.5})`).
+
+### Translations
+
+Texts in plugin QML go through `qsTr()`, with English as the source. A plugin brings its translations as
+`i18n/<language>.qm` (`i18n/de.qm`) in its folder; the shell loads the one of its language and switches with it,
+without a restart. The context of a string is the QML file name (`Main`), so give the pages of a plugin
+distinctive names when several plugins use the same texts.
+
+```sh
+/usr/lib/qt6/bin/lupdate -source-language en -target-language de qml -ts i18n/de.ts   # collect the strings
+linguist i18n/de.ts                                                                    # translate
+/usr/lib/qt6/bin/lrelease i18n/de.ts -qm i18n/de.qm                                    # ship the .qm
+```
+
+The language itself (`de`, `en`) is there for everything else a plugin shows:
+
+- QML: `BusTopic { id: language; topic: "ui.language" }` → `language.data.language`; `Qt.locale()` is already the
+  locale of the language (dates, numbers)
+- processes: `OPENHU_LANGUAGE` at the start, the topic `ui.language` (`bus.get`, or subscribe to follow a switch)
+
+So a plugin keeps its texts in its own folder: `i18n/*.qm` for QML, anything else (e.g. a JSON file per language)
+for its process.
 
 ## Example
 

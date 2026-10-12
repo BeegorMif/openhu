@@ -157,15 +157,15 @@ QString SystemController::installUpdate()
 {
     if(!this->available())
     {
-        return QStringLiteral("Nur auf OpenHU OS");
+        return tr("Only on OpenHU OS");
     }
     if(aaConnected_)
     {
-        return QStringLiteral("Nicht während Android Auto verbunden ist");
+        return tr("Not while Android Auto is connected");
     }
     if(this->updateRunning() || update_.value("busy").toBool())
     {
-        return QStringLiteral("Das Update läuft bereits");
+        return tr("The update is already running");
     }
 
     QStringList args{"start"};
@@ -287,15 +287,15 @@ QString SystemController::setSshPassword(const QString& password)
 {
     if(!this->available())
     {
-        return QStringLiteral("Nur auf OpenHU OS");
+        return tr("Only on OpenHU OS");
     }
     if(password.size() < cMinPasswordLength)
     {
-        return QString("Mindestens %1 Zeichen").arg(cMinPasswordLength);
+        return tr("At least %1 characters").arg(cMinPasswordLength);
     }
     if(password.contains('\n'))
     {
-        return QStringLiteral("Kein Zeilenumbruch im Passwort");
+        return tr("No line break in the password");
     }
     ssh_.insert("busy", true);
     emit sshChanged();
@@ -334,7 +334,7 @@ void SystemController::run(const QString& helper, const QStringList& args, const
         if(result.isEmpty() && exitCode != 0)
         {
             const QString error = QString::fromUtf8(process->readAllStandardError()).trimmed();
-            result.insert("error", error.isEmpty() ? QString("%1: Fehler %2").arg(helper).arg(exitCode) : error);
+            result.insert("error", error.isEmpty() ? tr("%1: error %2").arg(helper).arg(exitCode) : error);
         }
         if(result.contains("error"))
         {
@@ -348,7 +348,7 @@ void SystemController::run(const QString& helper, const QStringList& args, const
         if(error == QProcess::FailedToStart)
         {
             process->deleteLater();
-            done({{"error", helper + " konnte nicht gestartet werden"}});
+            done({{"error", tr("%1 could not be started").arg(helper)}});
         }
     });
     process->start(pkexec_, arguments);

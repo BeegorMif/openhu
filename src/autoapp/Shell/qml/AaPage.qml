@@ -63,7 +63,7 @@ Rectangle {
             width: Math.min(implicitWidth, page.width - 2 * Theme.spacing)
             wrapMode: Text.WordWrap
             horizontalAlignment: Text.AlignHCenter
-            text: aaBridge.videoError !== "" ? aaBridge.videoError : "Warte auf Android Auto …"
+            text: aaBridge.videoError !== "" ? aaBridge.videoError : qsTr("Waiting for Android Auto …")
             color: Theme.textDim
             font.pixelSize: Theme.fontLarge
         }

@@ -68,6 +68,8 @@ signals:
     void wirelessChanged();
     // car radio output switched or its PIN changed
     void carAudioChanged();
+    // general.language chosen (applied by shell::Translations)
+    void languageChanged(const QString& language);
 
 private:
     void markPending(const QString& what);

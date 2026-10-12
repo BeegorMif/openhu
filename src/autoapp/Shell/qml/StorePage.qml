@@ -46,22 +46,22 @@ Item {
                 onCurrentIndexChanged: page.tab = currentIndex
                 background: Rectangle { color: "transparent" }
 
-                TabButton { text: "Verfügbar" }
-                TabButton { text: "Installiert" }
+                TabButton { text: qsTr("Available") }
+                TabButton { text: qsTr("Installed") }
                 TabButton {
                     text: {
                         var count = 0
                         var all = store.packages
                         for (var i = 0; i < all.length; ++i)
                             if (all[i].updateAvailable) ++count
-                        return count > 0 ? "Updates (" + count + ")" : "Updates"
+                        return count > 0 ? qsTr("Updates (%1)").arg(count) : qsTr("Updates")
                     }
                 }
-                TabButton { text: "Quellen" }
+                TabButton { text: qsTr("Sources") }
             }
 
             Button {
-                text: "Aktualisieren"
+                text: qsTr("Refresh")
                 enabled: !store.busy
                 onClicked: store.refresh()
             }
@@ -86,7 +86,7 @@ Item {
             }
             Button {
                 visible: page.tab === 2 && page.filtered.length > 1
-                text: "Alle aktualisieren"
+                text: qsTr("Update all")
                 enabled: !store.busy
                 onClicked: store.updateAll()
             }
@@ -156,12 +156,12 @@ Item {
                             Layout.fillWidth: true
                             text: {
                                 var parts = []
-                                parts.push(modelData.source ? (modelData.official ? "Offiziell" : "Nicht offiziell · " + modelData.source)
-                                                            : "Lokal installiert")
+                                parts.push(modelData.source ? (modelData.official ? qsTr("Official") : qsTr("Not official") + " · " + modelData.source)
+                                                            : qsTr("Installed locally"))
                                 if (modelData.permissions && modelData.permissions.length)
-                                    parts.push("Rechte: " + modelData.permissions.join(", "))
+                                    parts.push(qsTr("Permissions: %1").arg(modelData.permissions.join(", ")))
                                 if (!modelData.compatible)
-                                    parts.push("nicht für dieses Gerät oder diese OpenHU-Version")
+                                    parts.push(qsTr("not for this device or this OpenHU version"))
                                 return parts.join(" · ")
                             }
                             color: modelData.official ? Theme.success : Theme.textDim
@@ -173,32 +173,32 @@ Item {
                     Button {
                         visible: modelData.installed && page.pluginInfo(modelData.id).page !== undefined
                                  && page.pluginInfo(modelData.id).page !== "" && page.pluginInfo(modelData.id).enabled
-                        text: "Öffnen"
+                        text: qsTr("Open")
                         onClicked: shell.navigate("plugin:" + modelData.id)
                     }
                     Switch {
                         visible: modelData.installed && !!page.pluginInfo(modelData.id).page
-                        text: "Im Dock"
+                        text: qsTr("In the dock")
                         checked: !!page.pluginInfo(modelData.id).dock
                         onToggled: api.request("plugin.setDock", { id: modelData.id, dock: checked })
                     }
                     Switch {
                         visible: modelData.installed
-                        text: "Aktiv"
+                        text: qsTr("Active")
                         checked: !!page.pluginInfo(modelData.id).enabled
                         onToggled: api.request(checked ? "plugin.enable" : "plugin.disable", { id: modelData.id })
                     }
                     Button {
                         visible: !modelData.installed || modelData.updateAvailable
                         enabled: !store.busy && modelData.compatible
-                        text: modelData.installed ? "Aktualisieren" : "Installieren"
+                        text: modelData.installed ? qsTr("Update") : qsTr("Install")
                         highlighted: true
                         onClicked: store.install(modelData.id)
                     }
                     Button {
                         visible: modelData.installed
                         enabled: !store.busy
-                        text: "Entfernen"
+                        text: qsTr("Remove")
                         flat: true
                         onClicked: store.remove(modelData.id)
                     }
@@ -208,9 +208,9 @@ Item {
             Text {
                 anchors.centerIn: parent
                 visible: parent.count === 0
-                text: page.tab === 0 ? "Keine weiteren Plugins verfügbar"
-                    : page.tab === 1 ? "Noch keine Plugins installiert"
-                    : "Alles aktuell"
+                text: page.tab === 0 ? qsTr("No more plugins available")
+                    : page.tab === 1 ? qsTr("No plugins installed yet")
+                    : qsTr("Everything up to date")
                 color: Theme.textDim
                 font.pixelSize: Theme.fontNormal
             }
@@ -243,18 +243,18 @@ Item {
 
                         Text {
                             Layout.fillWidth: true
-                            text: modelData.line + (modelData.official ? "  (offiziell)" : "")
+                            text: modelData.line + (modelData.official ? "  (" + qsTr("official") + ")" : "")
                             color: Theme.text
                             font.pixelSize: Theme.fontNormal
                             elide: Text.ElideMiddle
                         }
                         Text {
-                            text: modelData.packages + " Plugins"
+                            text: modelData.packages === 1 ? qsTr("1 plugin") : qsTr("%1 plugins").arg(modelData.packages)
                             color: Theme.textDim
                             font.pixelSize: Theme.fontSmall
                         }
                         Button {
-                            text: "Entfernen"
+                            text: qsTr("Remove")
                             flat: true
                             enabled: !store.busy
                             onClicked: {
@@ -279,8 +279,8 @@ Item {
                     id: sourceLocation
                     Layout.fillWidth: true
                     inputMethodHints: Qt.ImhNoAutoUppercase | Qt.ImhNoPredictiveText
-                    placeholderText: sourceType.currentText === "github" ? "benutzer/repository"
-                                   : sourceType.currentText === "url" ? "https://server/pfad/" : "/media/usb/openhu-repo"
+                    placeholderText: sourceType.currentText === "github" ? qsTr("user/repository")
+                                   : sourceType.currentText === "url" ? qsTr("https://server/path/") : "/media/usb/openhu-repo"
                 }
                 TextField {
                     id: sourceBranch
@@ -290,7 +290,7 @@ Item {
                     placeholderText: "main"
                 }
                 Button {
-                    text: "Hinzufügen"
+                    text: qsTr("Add")
                     highlighted: true
                     enabled: sourceLocation.text !== "" && !store.busy
                     onClicked: {

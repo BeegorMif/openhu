@@ -1,6 +1,6 @@
 # Configuration
 
-Everything below can be changed on the settings page of the shell (**Einstellungen**). Changes are saved right
+Everything below can be changed on the settings page of the shell (**Settings**). Changes are saved right
 away; the bar at the top of the settings tells when a change needs a reconnect of the phone or a restart.
 This page is the reference for editing files by hand, provisioning devices, or debugging.
 
@@ -27,6 +27,7 @@ the container).
 
 | Key | Default | |
 |---|---|---|
+| `Language` | empty | language of the shell and the on-screen keyboard: `de`, `en`. Empty: from the system locale if there is a translation for it, otherwise English (also without a locale, e.g. `C.UTF-8`). See [translations.md](translations.md) |
 | `HandednessOfTrafficType` | `0` | driver side: `0` left-hand drive, `1` right-hand drive (Android Auto puts its controls on the driver's side) |
 | `ShowCursor` | `false` | mouse cursor (for mouse instead of touchscreen) |
 | `NameSuffix` | empty | the phone shows "OpenHU *suffix*". The vehicle id is derived from it, so differently named head units are separate cars on the phone (own settings), the same name stays the same car |
@@ -47,7 +48,7 @@ the container).
 | Key | Default | |
 |---|---|---|
 | `EnableTouchscreen` | `true` | touch input for Android Auto |
-| `OnScreenKeyboard` | `true` | on-screen keyboard for text fields in the shell (Qt Virtual Keyboard, German/English); off with a real keyboard |
+| `OnScreenKeyboard` | `true` | on-screen keyboard for text fields in the shell (Qt Virtual Keyboard, layout in the language of the shell); off with a real keyboard |
 
 ### [AudioChannel], [Audio]
 

@@ -110,7 +110,7 @@ QString BluezProfile::registerProfile(const QString& uuid, const QVariantMap& op
     auto bus = QDBusConnection::systemBus();
     if(!bus.registerObject(path_, this, QDBusConnection::ExportAllSlots))
     {
-        return "D-Bus-Objekt " + path_ + " belegt";
+        return tr("D-Bus object %1 is taken").arg(path_);
     }
 
     const QString error = bluez::call("/org/bluez", "org.bluez.ProfileManager1", "RegisterProfile",
@@ -181,7 +181,7 @@ QString PairingAgent::registerAgent()
     auto bus = QDBusConnection::systemBus();
     if(!bus.registerObject(cAgentPath, this, QDBusConnection::ExportAllSlots))
     {
-        return "D-Bus-Objekt " + cAgentPath + " belegt";
+        return tr("D-Bus object %1 is taken").arg(cAgentPath);
     }
     QString error = bluez::call("/org/bluez", "org.bluez.AgentManager1", "RegisterAgent",
                                 {QVariant::fromValue(QDBusObjectPath(cAgentPath)), QStringLiteral("DisplayYesNo")});

@@ -22,6 +22,7 @@
         <file>qml/settings/SettingRow.qml</file>
         <file>qml/settings/SettingSwitch.qml</file>
         <file>qml/settings/SettingChoice.qml</file>
+        <file>qml/settings/SettingDropdown.qml</file>
         <file>qml/settings/SettingNumber.qml</file>
         <file>qml/settings/SettingText.qml</file>
         <file>qml/settings/SectionTitle.qml</file>

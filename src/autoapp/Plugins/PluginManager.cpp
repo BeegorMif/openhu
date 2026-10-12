@@ -346,6 +346,8 @@ void PluginManager::startProcess(Plugin& plugin)
     environment.insert("OPENHU_PLUGIN_ID", plugin.id);
     environment.insert("OPENHU_PLUGIN_DIR", plugin.dir);
     environment.insert("OPENHU_DATA_DIR", dataDir);
+    // at the start; a switch later comes as the topic ui.language
+    environment.insert("OPENHU_LANGUAGE", core::EventBus::instance().last("ui.language").value("language").toString());
     environment.insert("PYTHONUNBUFFERED", "1");
 
     plugin.process = std::make_unique<QProcess>();

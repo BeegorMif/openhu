@@ -26,58 +26,58 @@ Flickable {
     function bootText() {
         const boot = system.bootStatus
         if (boot.state === "updated")
-            return "Update auf " + boot.running + " installiert."
+            return qsTr("Update to %1 installed.").arg(boot.running)
         if (boot.state === "rollback")
-            return "Update auf " + boot.failed + " fehlgeschlagen – die vorherige Version wurde wiederhergestellt."
+            return qsTr("Update to %1 failed – the previous version was restored.").arg(boot.failed)
         if (boot.state === "trial")
-            return "Die neue Version wird gerade geprüft."
-        return "Wird als Ganzes aktualisiert; startet eine neue Version nicht, kommt die alte automatisch zurück."
+            return qsTr("The new version is being checked.")
+        return qsTr("Updated as a whole; if a new version does not start, the old one comes back automatically.")
     }
 
     function updateTitle() {
         switch (page.updateInfo.state) {
-        case "checking": return "Update wird vorbereitet …"
-        case "installing": return "Update auf " + page.updateInfo.version + " wird installiert"
-        case "done": return "Update auf " + page.updateInfo.version + " installiert"
-        case "error": return "Update fehlgeschlagen"
-        case "cancelled": return "Update abgebrochen"
+        case "checking": return qsTr("Preparing the update …")
+        case "installing": return qsTr("Installing the update to %1").arg(page.updateInfo.version)
+        case "done": return qsTr("Update to %1 installed").arg(page.updateInfo.version)
+        case "error": return qsTr("Update failed")
+        case "cancelled": return qsTr("Update cancelled")
         }
         if (page.updateInfo.busy)
-            return "Suche nach Updates …"
+            return qsTr("Searching for updates …")
         if (page.updateInfo.checked && page.updateInfo.checkError)
-            return "Suche fehlgeschlagen"
+            return qsTr("Search failed")
         if (page.updateInfo.checked && page.updateInfo.available)
-            return "Neue Version " + page.updateInfo.newest
+            return qsTr("New version %1").arg(page.updateInfo.newest)
         if (page.updateInfo.checked)
-            return "OpenHU OS ist auf dem neuesten Stand"
-        return "Nach Updates suchen"
+            return qsTr("OpenHU OS is up to date")
+        return qsTr("Search for updates")
     }
 
     function updateDescription() {
         switch (page.updateInfo.state) {
         case "installing":
-            return page.updateInfo.percent + " % · " + (page.updateInfo.phase === "kernel" ? "Kernel" : "System")
-                   + " · OpenHU läuft weiter, Android Auto bitte nicht verbinden"
-        case "done": return "Aktiv nach dem Neustart. Startet sie nicht, kommt " + page.updateInfo.from + " automatisch zurück."
+            return page.updateInfo.percent + " % · " + (page.updateInfo.phase === "kernel" ? qsTr("Kernel") : qsTr("System"))
+                   + " · " + qsTr("OpenHU keeps running, please do not connect Android Auto")
+        case "done": return qsTr("Active after the restart. If it does not start, %1 comes back automatically.").arg(page.updateInfo.from)
         case "error": return page.updateInfo.error || ""
-        case "cancelled": return "Die laufende Version ist unverändert."
+        case "cancelled": return qsTr("The running version is unchanged.")
         }
         if (page.updateInfo.checked && page.updateInfo.checkError)
             return page.updateInfo.checkError
         if (page.updateInfo.checked && page.updateInfo.available)
-            return "Etwa 500 MB Download." + (page.updateInfo.blocked ? " Nicht während Android Auto verbunden ist." : "")
-        return "Online über GitHub-Releases (Internetverbindung nötig)."
+            return qsTr("About 500 MB download.") + (page.updateInfo.blocked ? " " + qsTr("Not while Android Auto is connected.") : "")
+        return qsTr("Online from GitHub releases (needs an internet connection).")
     }
 
     function sshText() {
         if (page.sshInfo.error)
             return page.sshInfo.error
-        let text = !page.sshInfo.enabled ? "Aus."
-                 : page.sshInfo.running ? "An: ssh root@" + (page.sshInfo.addresses && page.sshInfo.addresses.length ? page.sshInfo.addresses.join(" / ") : "<Adresse>") + "."
-                 : "An, startet gerade …"
+        let text = !page.sshInfo.enabled ? qsTr("Off.")
+                 : page.sshInfo.running ? qsTr("On: ssh root@%1.").arg(page.sshInfo.addresses && page.sshInfo.addresses.length ? page.sshInfo.addresses.join(" / ") : qsTr("<address>"))
+                 : qsTr("On, starting …")
         if (!page.sshInfo.enabled && !page.sshInfo.password && !page.sshInfo.keys)
-            text += " Zuerst ein Root-Passwort setzen."
-        return text + " Erreichbar in jedem Netz des Geräts, auch im WLAN-Hotspot für das Telefon."
+            text += " " + qsTr("Set a root password first.")
+        return text + " " + qsTr("Reachable in every network of the device, also in the WiFi hotspot for the phone.")
     }
 
     // plain Column: rows with wrapped text get their width from here (no layout loop)
@@ -90,11 +90,11 @@ Flickable {
 
         SectionTitle { text: "OpenHU OS" }
         SettingRow {
-            title: "Version " + system.osVersion
+            title: qsTr("Version %1").arg(system.osVersion)
             description: page.bootText()
         }
 
-        SectionTitle { text: "Update" }
+        SectionTitle { text: qsTr("Update") }
         SettingRow {
             title: page.updateTitle()
             description: page.updateDescription()
@@ -104,14 +104,14 @@ Flickable {
                 Button {
                     visible: !page.installing && page.updateInfo.state !== "done" && !(page.updateInfo.checked && page.updateInfo.available)
                     enabled: !page.updateInfo.busy
-                    text: page.updateInfo.checked ? "Erneut suchen" : "Suchen"
+                    text: page.updateInfo.checked ? qsTr("Search again") : qsTr("Search")
                     onClicked: system.checkForUpdate()
                 }
                 ConfirmButton {
                     visible: !page.installing && page.updateInfo.state !== "done" && !!page.updateInfo.checked && !!page.updateInfo.available
                     enabled: !page.updateInfo.blocked && !page.updateInfo.busy
-                    label: "Installieren"
-                    confirmText: "Wirklich installieren?"
+                    label: qsTr("Install")
+                    confirmText: qsTr("Really install?")
                     onConfirmed: {
                         const error = system.installUpdate()
                         if (error)
@@ -120,13 +120,13 @@ Flickable {
                 }
                 Button {
                     visible: page.installing
-                    text: "Abbrechen"
+                    text: qsTr("Cancel")
                     onClicked: system.cancelUpdate()
                 }
                 ConfirmButton {
                     visible: page.updateInfo.state === "done"
-                    label: "Neu starten"
-                    confirmText: "Wirklich neu starten?"
+                    label: qsTr("Restart")
+                    confirmText: qsTr("Really restart?")
                     onConfirmed: shell.reboot()
                 }
             }
@@ -139,7 +139,7 @@ Flickable {
             value: page.updateInfo.percent || 0
         }
 
-        SectionTitle { text: "SSH-Zugang" }
+        SectionTitle { text: qsTr("SSH access") }
         SettingRow {
             title: "SSH"
             description: page.sshText()
@@ -150,8 +150,8 @@ Flickable {
             }
         }
         SettingRow {
-            title: "Root-Passwort"
-            description: page.sshInfo.password ? "Gesetzt. Ein neues ersetzt es." : "Noch nicht gesetzt (mindestens 8 Zeichen)."
+            title: qsTr("Root password")
+            description: page.sshInfo.password ? qsTr("Set. A new one replaces it.") : qsTr("Not set yet (at least 8 characters).")
             Row {
                 spacing: Theme.spacing / 2
                 TextField {
@@ -160,12 +160,12 @@ Flickable {
                     // one field: visible while typing (no second field to catch typos), hidden afterwards
                     echoMode: TextInput.PasswordEchoOnEdit
                     inputMethodHints: Qt.ImhSensitiveData | Qt.ImhNoPredictiveText | Qt.ImhNoAutoUppercase
-                    placeholderText: "Neues Passwort"
+                    placeholderText: qsTr("New password")
                     onAccepted: saveButton.clicked()
                 }
                 Button {
                     id: saveButton
-                    text: "Speichern"
+                    text: qsTr("Save")
                     enabled: !page.sshInfo.busy && password.text.length > 0
                     onClicked: {
                         const error = system.setSshPassword(password.text)
@@ -173,7 +173,7 @@ Flickable {
                             shell.toast(error, 4000)
                             return
                         }
-                        // the row says "Gesetzt" once the helper stored it, errors come as a toast
+                        // the row says "Set" once the helper stored it, errors come as a toast
                         password.text = ""
                         password.focus = false  // closes the on-screen keyboard
                     }
@@ -181,22 +181,22 @@ Flickable {
             }
         }
 
-        SectionTitle { text: "Gerät" }
+        SectionTitle { text: qsTr("Device") }
         SettingRow {
-            title: "Neu starten"
-            description: "Startet das Gerät neu"
+            title: qsTr("Restart")
+            description: qsTr("Restarts the device")
             ConfirmButton {
-                label: "Neu starten"
-                confirmText: "Wirklich neu starten?"
+                label: qsTr("Restart")
+                confirmText: qsTr("Really restart?")
                 onConfirmed: shell.reboot()
             }
         }
         SettingRow {
-            title: "Ausschalten"
-            description: "Fährt das Gerät herunter"
+            title: qsTr("Power off")
+            description: qsTr("Shuts the device down")
             ConfirmButton {
-                label: "Ausschalten"
-                confirmText: "Wirklich ausschalten?"
+                label: qsTr("Power off")
+                confirmText: qsTr("Really power off?")
                 onConfirmed: shell.powerOff()
             }
         }

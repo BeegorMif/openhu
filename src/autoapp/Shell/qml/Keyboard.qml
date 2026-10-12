@@ -8,13 +8,18 @@ import QtQuick.VirtualKeyboard.Settings
 InputPanel {
     id: panel
 
-    // Settings -> Allgemein -> Bildschirmtastatur (off with a real keyboard)
+    // Settings -> General -> On-screen keyboard (off with a real keyboard)
     property bool allowed: true
-    // language of OpenHU (settings.info.language): the layout follows it, no language key on the keyboard
+    // language of OpenHU (general.language): the layout follows it, no language key on the keyboard
     property string language: "de"
     onLanguageChanged: applyLanguage()
     function applyLanguage() {
-        const locale = language === "en" ? "en_US" : "de_DE"
+        // <language>_<LANGUAGE> (de_DE, fr_FR; English: en_US), else another layout of the language (sv_SE).
+        // availableLocales can still be empty here: then the first one.
+        const available = VirtualKeyboardSettings.availableLocales
+        const preferred = language === "en" ? "en_US" : language + "_" + language.toUpperCase()
+        const locale = available.length === 0 || available.indexOf(preferred) >= 0 ? preferred
+                     : available.find(name => name.startsWith(language + "_")) || preferred
         VirtualKeyboardSettings.activeLocales = [locale]
         VirtualKeyboardSettings.locale = locale
     }

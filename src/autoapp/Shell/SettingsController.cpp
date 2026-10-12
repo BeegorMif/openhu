@@ -24,6 +24,7 @@
 #include <f1x/openauto/autoapp/Shell/SettingsController.hpp>
 #include <f1x/openauto/autoapp/Plugins/PluginManager.hpp>
 #include <f1x/openauto/autoapp/Shell/AaBridge.hpp>
+#include <f1x/openauto/autoapp/Shell/Translations.hpp>
 #include <f1x/openauto/Common/Log.hpp>
 
 #ifndef OPENHU_VERSION
@@ -90,6 +91,7 @@ QVariantMap SettingsController::values() const
                                    == configuration::HandednessOfTrafficType::RIGHT_HAND_DRIVE ? "right" : "left"},
         {"general.showCursor", configuration_->showCursor()},
         {"general.onScreenKeyboard", configuration_->onScreenKeyboard()},
+        {"general.language", Translations::resolve(QString::fromStdString(configuration_->getLanguage()))},
         {"general.nameSuffix", QString::fromStdString(configuration_->getNameSuffix())},
         {"aa.resolution", configuration_->getVideoResolutionAuto() ? QString("auto")
                                                                     : resolutionName(configuration_->getVideoResolution())},
@@ -134,9 +136,8 @@ QVariantMap SettingsController::info() const
 {
     return {
         {"version", QStringLiteral(OPENHU_VERSION)},
-        // language of the shell (the on-screen keyboard follows it); German only until #35 adds the switcher
-        {"language", QStringLiteral("de")},
         {"git", QStringLiteral(OPENHU_GIT)},
+        {"languages", Translations::languages()},
         {"qt", QString::fromLatin1(qVersion())},
         {"dataDir", plugins::PluginManager::baseDir()},
         {"configFile", QDir::current().absoluteFilePath("openhu.ini")},
@@ -164,12 +165,22 @@ QString SettingsController::set(const QString& key, const QVariant& value)
     {
         configuration_->setOnScreenKeyboard(value.toBool());
     }
+    else if(key == "general.language")
+    {
+        const QString language = value.toString();
+        if(!Translations::available().contains(language))
+        {
+            return tr("Unknown language");
+        }
+        configuration_->setLanguage(language.toStdString());
+        emit languageChanged(language);
+    }
     else if(key == "general.nameSuffix")
     {
         const QString suffix = value.toString().trimmed();
         if(suffix.size() > 24)
         {
-            return "Höchstens 24 Zeichen";
+            return tr("At most 24 characters");
         }
         configuration_->setNameSuffix(suffix.toStdString());
         this->markPending(cReconnect);
@@ -202,7 +213,7 @@ QString SettingsController::set(const QString& key, const QVariant& value)
         const int dpi = value.toInt();
         if(dpi < 80 || dpi > 400)
         {
-            return "DPI zwischen 80 und 400";
+            return tr("DPI between 80 and 400");
         }
         configuration_->setScreenDPI(static_cast<size_t>(dpi));
         this->markPending(cReconnect);
@@ -212,7 +223,7 @@ QString SettingsController::set(const QString& key, const QVariant& value)
         const int margin = value.toInt();
         if(margin < 0 || margin > 600)
         {
-            return "Rand zwischen 0 und 600 Pixel";
+            return tr("Margin between 0 and 600 pixels");
         }
         QRect margins = configuration_->getVideoMargins();
         if(key == "aa.marginWidth")
@@ -244,7 +255,7 @@ QString SettingsController::set(const QString& key, const QVariant& value)
         {
             if(text.toUtf8().size() > 32)
             {
-                return "Höchstens 32 Zeichen";
+                return tr("At most 32 characters");
             }
             wireless.ssid = text.toStdString();
         }
@@ -252,7 +263,7 @@ QString SettingsController::set(const QString& key, const QVariant& value)
         {
             if(text.size() < 8 || text.size() > 63)
             {
-                return "Passwort: 8 bis 63 Zeichen";
+                return tr("Password: 8 to 63 characters");
             }
             wireless.password = text.toStdString();
         }
@@ -270,15 +281,15 @@ QString SettingsController::set(const QString& key, const QVariant& value)
                                 || (channel >= 149 && channel <= 165 && (channel - 149) % 4 == 0);
             if(channel != 0 && wireless.band == "2.4" && (channel < 1 || channel > 13))
             {
-                return "2,4 GHz: Kanal 1 bis 13";
+                return tr("2.4 GHz: channel 1 to 13");
             }
             if(channel != 0 && wireless.band == "5" && !valid5)
             {
-                return "5 GHz: Kanal 36, 40, 44, 48 (ohne Radarerkennung) oder 52–64, 100–144, 149–165";
+                return tr("5 GHz: channel 36, 40, 44, 48 (without radar detection) or 52–64, 100–144, 149–165");
             }
             if(channel != 0 && wireless.band == "auto")
             {
-                return "Einen festen Kanal nur mit festem Band (5 oder 2,4 GHz)";
+                return tr("A fixed channel only with a fixed band (5 or 2.4 GHz)");
             }
             wireless.channel = channel;
         }
@@ -292,7 +303,7 @@ QString SettingsController::set(const QString& key, const QVariant& value)
             if(host.protocol() != QAbstractSocket::IPv4Protocol || !text.contains('/') || !prefixOk || prefix < 8
                || prefix > 30 || hostBits == 0 || hostBits == ~(~0u << (32 - prefix)))
             {
-                return "Adresse mit Netzmaske, z. B. 10.42.0.1/24";
+                return tr("Address with netmask, e.g. 10.42.0.1/24");
             }
             wireless.address = text.toStdString();
             // the DHCP range belongs to the old network
@@ -310,7 +321,7 @@ QString SettingsController::set(const QString& key, const QVariant& value)
                    || to.protocol() != QAbstractSocket::IPv4Protocol || !from.isInSubnet(subnet) || !to.isInSubnet(subnet)
                    || from.toIPv4Address() > to.toIPv4Address())
                 {
-                    return "Bereich im Hotspot-Netz, z. B. 10.42.0.10-10.42.0.254";
+                    return tr("Range in the hotspot network, e.g. 10.42.0.10-10.42.0.254");
                 }
                 wireless.dhcpRange = (from.toString() + "-" + to.toString()).toStdString();
             }
@@ -331,13 +342,13 @@ QString SettingsController::set(const QString& key, const QVariant& value)
         {
             if(text.size() != 2)
             {
-                return "Ländercode mit 2 Buchstaben, z. B. DE";
+                return tr("Country code with 2 letters, e.g. DE");
             }
             wireless.country = text.toUpper().toStdString();
         }
         else
         {
-            return "Unbekannte Einstellung: " + key;
+            return tr("Unknown setting: %1").arg(key);
         }
         configuration_->setWirelessSettings(wireless);
         QMetaObject::invokeMethod(this, &SettingsController::wirelessChanged, Qt::QueuedConnection);
@@ -379,7 +390,7 @@ QString SettingsController::set(const QString& key, const QVariant& value)
         const int port = value.toInt();
         if(port < 1024 || port > 65535)
         {
-            return "Port zwischen 1024 und 65535";
+            return tr("Port between 1024 and 65535");
         }
         configuration_->setApiPort(static_cast<uint16_t>(port));
         this->markPending(cRestart);
@@ -396,7 +407,7 @@ QString SettingsController::set(const QString& key, const QVariant& value)
             const QString pin = value.toString().trimmed();
             if(pin.isEmpty() || pin.size() > 16)
             {
-                return "PIN mit 1 bis 16 Zeichen, meist 0000 oder 1234";
+                return tr("PIN with 1 to 16 characters, mostly 0000 or 1234");
             }
             carAudio.pin = pin.toStdString();
         }
@@ -415,7 +426,7 @@ QString SettingsController::set(const QString& key, const QVariant& value)
     }
     else
     {
-        return "Unbekannte Einstellung: " + key;
+        return tr("Unknown setting: %1").arg(key);
     }
 
     configuration_->save();

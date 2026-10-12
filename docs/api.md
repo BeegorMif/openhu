@@ -34,6 +34,7 @@ Example: `websocat ws://127.0.0.1:5520` and then `{"type":"subscribe","topics":[
 | `system.daynight` | `night` (bool) – also switches Android Auto to night mode |
 | `input.action` | `action`, `phase` (`click`, `press`, `release`) – every triggered action (one-shot event, no stored value) |
 | `ui.page` | `page` – page shown in the shell (`home`, `aa`, `settings`, `plugin:<id>`) |
+| `ui.language` | `language` (`de`, `en`), `available` – language of the shell; texts of plugin processes can follow it |
 | `projection.exit` | – one-shot: "exit" inside Android Auto, the shell shows its home page |
 | `plugins.state` | `plugins` – installed plugins after (re)loading |
 | `store.state` | `busy`, `status`, `error` – progress of store operations |
@@ -127,7 +128,7 @@ For long presses send `press` and `release` separately.
 
 ## Keyboard
 
-Edited on the settings page (Tasten), stored as differences to the defaults in `~/.openhu/keymap.json`
+Edited on the settings page (Keys), stored as differences to the defaults in `~/.openhu/keymap.json`
 (container: `docker/data/keymap.json`).
 Keys use Qt names, an empty action removes a key:
 

@@ -108,21 +108,21 @@ ActionDispatcher::ActionDispatcher(audio::VolumeController& volume, shell::Shell
 QVariantMap ActionDispatcher::actions()
 {
     return {
-        {"media.play_pause", "Wiedergabe/Pause (Android Auto)"},
-        {"media.play", "Wiedergabe"}, {"media.pause", "Pause"},
-        {"media.next", "Nächster Titel"}, {"media.previous", "Vorheriger Titel"},
-        {"call.answer", "Anruf annehmen"}, {"call.end", "Anruf beenden/ablehnen"},
-        {"voice", "Sprachassistent"},
-        {"aa.home", "Android Auto: Startbildschirm"}, {"aa.back", "Android Auto: Zurück"},
-        {"aa.navigation", "Android Auto: Navigation"}, {"aa.media", "Android Auto: Medien"},
-        {"aa.phone", "Android Auto: Telefon"},
-        {"dpad.up", "Hoch"}, {"dpad.down", "Runter"}, {"dpad.left", "Links"}, {"dpad.right", "Rechts"},
-        {"dpad.enter", "Auswählen"}, {"rotary.left", "Drehregler links"}, {"rotary.right", "Drehregler rechts"},
-        {"volume.up", "Lauter"}, {"volume.down", "Leiser"}, {"volume.mute", "Stumm an/aus"},
-        {"ui.home", "Shell: Startseite"}, {"ui.aa", "Shell: Android Auto anzeigen"},
-        {"ui.settings", "Shell: Einstellungen"},
-        {"ui.back", "Zurück (Android Auto oder Shell)"},
-        {"aa.reconnect", "Telefon per USB-Reset neu verbinden"},
+        {"media.play_pause", tr("Play/pause (Android Auto)")},
+        {"media.play", tr("Play")}, {"media.pause", tr("Pause")},
+        {"media.next", tr("Next track")}, {"media.previous", tr("Previous track")},
+        {"call.answer", tr("Answer call")}, {"call.end", tr("End/decline call")},
+        {"voice", tr("Voice assistant")},
+        {"aa.home", tr("Android Auto: home screen")}, {"aa.back", tr("Android Auto: back")},
+        {"aa.navigation", tr("Android Auto: navigation")}, {"aa.media", tr("Android Auto: media")},
+        {"aa.phone", tr("Android Auto: phone")},
+        {"dpad.up", tr("Up")}, {"dpad.down", tr("Down")}, {"dpad.left", tr("Left")}, {"dpad.right", tr("Right")},
+        {"dpad.enter", tr("Select")}, {"rotary.left", tr("Rotary knob left")}, {"rotary.right", tr("Rotary knob right")},
+        {"volume.up", tr("Louder")}, {"volume.down", tr("Quieter")}, {"volume.mute", tr("Mute on/off")},
+        {"ui.home", tr("Shell: home page")}, {"ui.aa", tr("Shell: show Android Auto")},
+        {"ui.settings", tr("Shell: settings")},
+        {"ui.back", tr("Back (Android Auto or shell)")},
+        {"aa.reconnect", tr("Reconnect the phone by USB reset")},
     };
 }
 
@@ -199,7 +199,7 @@ bool ActionDispatcher::trigger(const QString& action, Phase phase)
         if(once)
         {
             const auto devices = core::resetAndroidUsbDevices();
-            shell_.toast(devices.isEmpty() ? "Kein Telefon am USB gefunden" : "Telefon wird neu verbunden …", 3000);
+            shell_.toast(devices.isEmpty() ? tr("No phone found on USB") : tr("Reconnecting the phone …"), 3000);
         }
         return true;
     }
