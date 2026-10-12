@@ -965,10 +965,6 @@
         <translation>Etwa 500 MB Download.</translation>
     </message>
     <message>
-        <source>Careful: OpenHU is on mobile data (a phone&apos;s hotspot).</source>
-        <translation>Achtung: OpenHU hängt an mobilen Daten (Hotspot eines Telefons).</translation>
-    </message>
-    <message>
         <source>Not while Android Auto is connected.</source>
         <translation>Nicht während Android Auto verbunden ist.</translation>
     </message>
@@ -1110,10 +1106,6 @@
     <message>
         <source>no internet</source>
         <translation>kein Internet</translation>
-    </message>
-    <message>
-        <source>mobile data</source>
-        <translation>mobile Daten</translation>
     </message>
     <message>
         <source>Joins a known network in range by itself whenever the hotspot does not need the WiFi card.</source>

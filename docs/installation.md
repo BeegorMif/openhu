@@ -151,8 +151,6 @@ networks a free one, or choose the cards in the settings. A Raspberry Pi's own c
 together only on one shared channel (the hotspot would have to follow the home WiFi, often onto 2.4 GHz), so OpenHU
 does not use that.
 
-On a phone's tethering the update warns about the mobile data (about 500 MB).
-
 ## Bluetooth car radio
 
 Under **Settings → Audio → Car radio (Bluetooth)**: put the radio into pairing mode, **Search**, then

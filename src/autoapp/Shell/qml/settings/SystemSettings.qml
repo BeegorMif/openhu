@@ -153,7 +153,6 @@ Flickable {
                    + (hotspotOnCard ? " " + qsTr("The WiFi card runs the hotspot: connect to a WiFi network under Network & API.") : "")
         if (page.updateInfo.checked && page.updateInfo.available)
             return qsTr("About 500 MB download.")
-                   + ((wifi.state.client || {}).metered ? " " + qsTr("Careful: OpenHU is on mobile data (a phone's hotspot).") : "")
                    + (page.updateInfo.blocked ? " " + qsTr("Not while Android Auto is connected.") : "")
         return qsTr("Online from GitHub releases (needs an internet connection).")
     }

@@ -50,8 +50,6 @@ Column {
         if (networks.client.ssid) {
             let text = networks.client.ip || ""
             text += (text ? " · " : "") + (wifi.state.internet ? qsTr("internet") : qsTr("no internet"))
-            if (networks.client.metered)
-                text += " · " + qsTr("mobile data")
             if (networks.room === "client")
                 text += " · " + qsTr("the hotspot is off while connected")
             return text

@@ -47,7 +47,7 @@ done
     echo "CLIENT.uuid:$uuid"
     echo "CLIENT.device:$dev"
     "$nmcli" -t -m multiline -f 802-11-wireless.ssid connection show "$uuid" 2>/dev/null | sed 's/^/CLIENT./'
-    "$nmcli" -t -m multiline -f IP4.ADDRESS,GENERAL.METERED device show "$dev" 2>/dev/null | sed 's/^/CLIENT./'
+    "$nmcli" -t -m multiline -f IP4.ADDRESS device show "$dev" 2>/dev/null | sed 's/^/CLIENT./'
 done
 "$nmcli" -t -f UUID,NAME connection show 2>/dev/null | while IFS=: read -r uuid name; do
     case "$name" in openhu-wifi-*) ;; *) continue ;; esac
@@ -249,7 +249,6 @@ void WifiClient::parseState(const QString& output)
         else if(key == "CLIENT.device" && !client.contains("device")) client.insert("device", line.section(':', 1));
         else if(key == "CLIENT.802-11-wireless.ssid" && !client.contains("ssid")) client.insert("ssid", valueAfterColon(line));
         else if(key.startsWith("CLIENT.IP4.ADDRESS") && !client.contains("ip")) client.insert("ip", line.section(':', 1).section('/', 0, 0));
-        else if(key == "CLIENT.GENERAL.METERED") client.insert("metered", line.section(':', 1).startsWith("yes"));
         else if(key == "NET")
         {
             finishNetwork();

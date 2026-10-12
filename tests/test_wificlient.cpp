@@ -21,8 +21,7 @@ case "$*" in
     "-t -f UUID,TYPE,DEVICE,STATE,NAME connection show --active") echo "u1:802-11-wireless:wlan0:activated:openhu-wifi-Gar\:age" ;;
     "-g 802-11-wireless.mode connection show u1") echo infrastructure ;;
     "-t -m multiline -f 802-11-wireless.ssid connection show u1") echo '802-11-wireless.ssid:Gar\:age' ;;
-    "-t -m multiline -f IP4.ADDRESS,GENERAL.METERED device show wlan0")
-        printf 'IP4.ADDRESS[1]:192.168.77.5/24\nGENERAL.METERED:yes (guessed)\n' ;;
+    "-t -m multiline -f IP4.ADDRESS device show wlan0") echo 'IP4.ADDRESS[1]:192.168.77.5/24' ;;
     "-t -f UUID,NAME connection show") printf 'u1:openhu-wifi-Gar\\:age\nu2:Home\nu3:openhu-wifi-Phone\n' ;;
     "-t -m multiline -f 802-11-wireless.ssid,802-11-wireless.hidden,connection.autoconnect-priority,802-11-wireless-security.key-mgmt,connection.autoconnect,connection.interface-name,connection.timestamp connection show u1")
         printf '802-11-wireless.ssid:Gar\\:age\n802-11-wireless.hidden:no\nconnection.autoconnect-priority:1\n802-11-wireless-security.key-mgmt:wpa-psk\nconnection.autoconnect:yes\nconnection.interface-name:\nconnection.timestamp:1791820800\n' ;;
@@ -69,7 +68,6 @@ private slots:
         const QVariantMap client = wifi.state().value("client").toMap();
         QCOMPARE(client.value("ssid").toString(), QString("Gar:age"));
         QCOMPARE(client.value("ip").toString(), QString("192.168.77.5"));
-        QVERIFY(client.value("metered").toBool());
         QVERIFY(wifi.state().value("internet").toBool());
 
         // only OpenHU's own profiles, highest priority first

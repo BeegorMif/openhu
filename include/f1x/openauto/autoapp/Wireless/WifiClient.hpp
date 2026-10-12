@@ -40,8 +40,8 @@ namespace f1x::openauto::autoapp::wireless
 class WifiClient: public QObject
 {
     Q_OBJECT
-    // available (NetworkManager with a WiFi card), enabled, devices (WiFi cards), client {uuid, ssid, ip, metered,
-    // device} while connected, internet, networks [{uuid, ssid, priority, secured, hidden, active, joined}] (highest
+    // available (NetworkManager with a WiFi card), enabled, devices (WiFi cards), client {uuid, ssid, ip, device}
+    // while connected, internet, networks [{uuid, ssid, priority, secured, hidden, active, joined}] (highest
     // priority first; joined: connected at least once), found [{ssid, signal, security, secured, known}] after a
     // search, scanning, busy, message (what happened last), hotspotDevice (the card of OpenHU's hotspot)
     Q_PROPERTY(QVariantMap state READ state NOTIFY changed)
