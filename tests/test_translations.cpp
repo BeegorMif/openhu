@@ -55,18 +55,21 @@ private slots:
     void switchLanguage()
     {
         QVERIFY(QFile::exists(OPENHU_QM_DIR "/openhu_de.qm"));
+        QVERIFY(QFile::exists(OPENHU_QM_DIR "/openhu_en.qm"));
         Translations translations(OPENHU_QM_DIR);
         QSignalSpy changed(&translations, &Translations::languageChanged);
 
         translations.setLanguage("de");
-        QCOMPARE(QCoreApplication::translate("SettingsPage", "Language"), QString("Sprache"));
-        QCOMPARE(QCoreApplication::translate("f1x::openauto::autoapp::shell::SettingsController", "Port between 1024 and 65535"),
-                 QString("Port zwischen 1024 und 65535"));
+        QCOMPARE(qtTrId("settings.general.language"), QString("Sprache"));
+        QCOMPARE(qtTrId("settings.error.port_between_1024_65535"), QString("Port zwischen 1024 und 65535"));
         QCOMPARE(QLocale().language(), QLocale::German);
         QCOMPARE(EventBus::instance().last("ui.language").value("language").toString(), QString("de"));
 
+        // English is a translation file like every other one
         translations.setLanguage("en");
-        QCOMPARE(QCoreApplication::translate("SettingsPage", "Language"), QString("Language"));
+        QCOMPARE(qtTrId("settings.general.language"), QString("Language"));
+        // an ID without a translation shows as itself: easy to spot
+        QCOMPARE(qtTrId("settings.general.no_such_text"), QString("settings.general.no_such_text"));
         QCOMPARE(QLocale().language(), QLocale::English);
         QCOMPARE(changed.count(), 2);
 
@@ -81,16 +84,16 @@ private slots:
         Translations translations(OPENHU_QM_DIR);
         translations.setPluginsDir(plugins.path());
         translations.setLanguage("de");
-        QCOMPARE(QCoreApplication::translate("Main", "Top speed"), QString("Top speed"));
+        QCOMPARE(qtTrId("org.example.speed.main.top_speed"), QString("org.example.speed.main.top_speed"));
 
         QVERIFY(QDir().mkpath(plugins.filePath("org.example.speed/i18n")));
         QVERIFY(QFile::copy(OPENHU_TEST_QM, plugins.filePath("org.example.speed/i18n/de.qm")));
         translations.reload();
-        QCOMPARE(QCoreApplication::translate("Main", "Top speed"), QString("Höchstgeschwindigkeit"));
-        QCOMPARE(QCoreApplication::translate("SettingsPage", "Language"), QString("Sprache"));
+        QCOMPARE(qtTrId("org.example.speed.main.top_speed"), QString("Höchstgeschwindigkeit"));
+        QCOMPARE(qtTrId("settings.general.language"), QString("Sprache"));
 
         translations.setLanguage("en");
-        QCOMPARE(QCoreApplication::translate("Main", "Top speed"), QString("Top speed"));
+        QCOMPARE(qtTrId("org.example.speed.main.top_speed"), QString("org.example.speed.main.top_speed"));
     }
 };
 

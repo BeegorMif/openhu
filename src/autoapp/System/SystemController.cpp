@@ -160,15 +160,15 @@ QString SystemController::installUpdate()
 {
     if(!this->available())
     {
-        return tr("Only on OpenHU OS");
+        return qtTrId("system.only_openhu_os");
     }
     if(aaConnected_)
     {
-        return tr("Not while Android Auto is connected");
+        return qtTrId("system.not_android_auto_connected");
     }
     if(this->updateRunning() || update_.value("busy").toBool())
     {
-        return tr("The update is already running");
+        return qtTrId("system.update_already_running");
     }
 
     QStringList args{"start"};
@@ -290,15 +290,15 @@ QString SystemController::setSshPassword(const QString& password)
 {
     if(!this->available())
     {
-        return tr("Only on OpenHU OS");
+        return qtTrId("system.only_openhu_os");
     }
     if(password.size() < cMinPasswordLength)
     {
-        return tr("At least %1 characters").arg(cMinPasswordLength);
+        return qtTrId("system.least_characters").arg(cMinPasswordLength);
     }
     if(password.contains('\n'))
     {
-        return tr("No line break in the password");
+        return qtTrId("system.no_line_break_password");
     }
     ssh_.insert("busy", true);
     emit sshChanged();
@@ -369,11 +369,11 @@ QString SystemController::setTime(qint64 seconds)
 {
     if(!this->available())
     {
-        return tr("Only on OpenHU OS");
+        return qtTrId("system.only_openhu_os");
     }
     if(time_.value("ntp").toBool())
     {
-        return tr("Switch the time from the internet off first");
+        return qtTrId("system.switch_time_internet_off");
     }
     OPENAUTO_LOG(info) << "[SystemController] setting the time to "
                        << QDateTime::fromSecsSinceEpoch(seconds, QTimeZone::UTC).toString(Qt::ISODate).toStdString();
@@ -432,7 +432,7 @@ void SystemController::run(const QString& helper, const QStringList& args, const
         if(result.isEmpty() && exitCode != 0)
         {
             const QString error = QString::fromUtf8(process->readAllStandardError()).trimmed();
-            result.insert("error", error.isEmpty() ? tr("%1: error %2").arg(helper).arg(exitCode) : error);
+            result.insert("error", error.isEmpty() ? qtTrId("system.error").arg(helper).arg(exitCode) : error);
         }
         if(result.contains("error"))
         {
@@ -446,7 +446,7 @@ void SystemController::run(const QString& helper, const QStringList& args, const
         if(error == QProcess::FailedToStart)
         {
             process->deleteLater();
-            done({{"error", tr("%1 could not be started").arg(helper)}});
+            done({{"error", qtTrId("system.could_not_started").arg(helper)}});
         }
     });
     process->start(pkexec_, arguments);

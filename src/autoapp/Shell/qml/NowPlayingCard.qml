@@ -78,7 +78,7 @@ Rectangle {
                 elide: Text.ElideRight
             }
             Text {
-                text: (playback.data.state === "paused" ? qsTr("Paused") : qsTr("Playing")) + (playback.data.app ? " · " + playback.data.app : "")
+                text: (playback.data.state === "paused" ? qsTrId("home.media.paused") : qsTrId("home.media.playing")) + (playback.data.app ? " · " + playback.data.app : "")
                 color: Theme.textDim
                 font.pixelSize: Theme.fontSmall
             }
@@ -116,7 +116,7 @@ Rectangle {
         }
         Text {
             anchors.horizontalCenter: parent.horizontalCenter
-            text: qsTr("Nothing playing")
+            text: qsTrId("home.media.nothing_playing")
             color: Theme.textDim
             font.pixelSize: Theme.fontNormal
         }

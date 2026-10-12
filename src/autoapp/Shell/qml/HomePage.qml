@@ -46,7 +46,7 @@ Item {
             }
             Text {
                 // the format is part of the translation ("dddd, d. MMMM" in German)
-                text: home.now.toLocaleDateString(Qt.locale(settings.values["general.language"]), qsTr("dddd, MMMM d"))
+                text: home.now.toLocaleDateString(Qt.locale(settings.values["general.language"]), qsTrId("home.date_format"))
                 color: Theme.textDim
                 font.pixelSize: Theme.fontLarge
             }
@@ -117,7 +117,7 @@ Item {
                     Text {
                         Layout.fillWidth: true
                         wrapMode: Text.WordWrap
-                        text: qsTr("Connect the phone by USB or wirelessly.")
+                        text: qsTrId("home.connect_phone_usb_wirelessly")
                         color: Theme.textDim
                         font.pixelSize: Theme.fontNormal
                     }
@@ -128,14 +128,14 @@ Item {
                         text: {
                             const state = wireless.state
                             if (bluetooth.state.pairing)
-                                return qsTr("Visible as “%1”: pair under Bluetooth on the phone.").arg(bluetooth.state.adapter)
+                                return qsTrId("home.visible_pair_under_bluetooth").arg(bluetooth.state.adapter)
                             if (!state.running)
                                 return ""
                             if (state.bluetooth === "error")
                                 return state.bluetoothError
                             if (state.hotspot === "error")
                                 return state.hotspotError
-                            return state.phaseText || qsTr("Wireless ready")
+                            return state.phaseText || qsTrId("home.wireless_ready")
                         }
                         color: Theme.text
                         font.pixelSize: Theme.fontSmall
@@ -154,7 +154,7 @@ Item {
                             }
                             Button {
                                 readonly property bool last: modelData.address.toUpperCase() === wireless.state.lastDevice
-                                text: (last ? qsTr("Connect again: %1") : qsTr("Connect: %1")).arg(modelData.name)
+                                text: (last ? qsTrId("home.connect_again") : qsTrId("home.connect")).arg(modelData.name)
                                 highlighted: last
                                 onClicked: wireless.connectDevice(modelData.address)
                             }

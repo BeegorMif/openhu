@@ -129,7 +129,7 @@ bool BluetoothManager::ensureAdapter()
 
     if(path.isEmpty())
     {
-        error_ = objects.isEmpty() ? tr("Bluetooth service (bluetoothd) not reachable.") : tr("No Bluetooth adapter found.");
+        error_ = objects.isEmpty() ? qtTrId("bluetooth.bluetooth_service_bluetoothd_not") : qtTrId("bluetooth.no_bluetooth_adapter_found");
         OPENAUTO_LOG(warning) << "[BluetoothManager] " << error_.toStdString();
         adapterPath_.clear();
         this->publish();
@@ -139,7 +139,7 @@ bool BluetoothManager::ensureAdapter()
     const QString powerError = bluez::setProperty(path, bluez::cAdapter, "Powered", true);
     if(!powerError.isEmpty())
     {
-        error_ = tr("Bluetooth cannot be switched on: %1").arg(powerError);
+        error_ = qtTrId("bluetooth.bluetooth_cannot_switched").arg(powerError);
         this->publish();
         return false;
     }
@@ -189,7 +189,7 @@ void BluetoothManager::checkPresence()
     {
         OPENAUTO_LOG(info) << "[BluetoothManager] adapter " << adapterPath_.toStdString() << " removed";
         adapterPath_.clear();
-        error_ = tr("No Bluetooth adapter found.");
+        error_ = qtTrId("bluetooth.no_bluetooth_adapter_found");
     }
     if(present == present_)
     {

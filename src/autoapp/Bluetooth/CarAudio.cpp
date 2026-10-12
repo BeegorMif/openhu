@@ -252,7 +252,7 @@ void CarAudio::findSink()
     if(++sinkAttempts_ >= 20)
     {
         sinkTimer_.stop();
-        error_ = tr("Connected, but no audio output found (A2DP active in PipeWire/PulseAudio?).");
+        error_ = qtTrId("caraudio.connected_but_no_audio");
         OPENAUTO_LOG(warning) << "[CarAudio] no sink for the radio";
         this->publish();
     }
@@ -312,7 +312,7 @@ void CarAudio::updatePlayer()
     {
         const QString caller = call_.value("name").toString().isEmpty() ? call_.value("number").toString()
                                                                         : call_.value("name").toString();
-        player_.update("Playing", (callState_ == "incoming" ? tr("Call: %1") : tr("Talking: %1")).arg(caller),
+        player_.update("Playing", (callState_ == "incoming" ? qtTrId("caraudio.call") : qtTrId("caraudio.talking")).arg(caller),
                        call_.value("number").toString(), QString(), 0, call_.value("duration").toDouble());
         return;
     }
@@ -329,12 +329,12 @@ QVariantMap CarAudio::state() const
     const QString address = QString::fromStdString(settings.device);
     const QVariantMap device = bluetooth_.device(address);
     QString status;
-    if(!settings.enabled || address.isEmpty()) status = tr("Off");
+    if(!settings.enabled || address.isEmpty()) status = qtTrId("caraudio.off");
     else if(!error_.isEmpty()) status = error_;
-    else if(connected_ && !sink_.isEmpty()) status = tr("Sound plays through %1").arg(device.value("name", address).toString());
-    else if(connected_) status = tr("Connected, setting up the audio output …");
-    else if(device.isEmpty()) status = tr("Pairing …");
-    else status = tr("Waiting for %1 (radio on?)").arg(device.value("name", address).toString());
+    else if(connected_ && !sink_.isEmpty()) status = qtTrId("caraudio.sound_plays_through").arg(device.value("name", address).toString());
+    else if(connected_) status = qtTrId("caraudio.connected_setting_up_audio");
+    else if(device.isEmpty()) status = qtTrId("caraudio.pairing");
+    else status = qtTrId("caraudio.waiting_radio").arg(device.value("name", address).toString());
 
     return {
         {"enabled", settings.enabled},

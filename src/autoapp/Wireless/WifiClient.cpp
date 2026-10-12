@@ -440,23 +440,23 @@ QString WifiClient::add(const QString& ssid, const QString& password, bool hidde
 {
     if(!available_)
     {
-        return tr("No WiFi card");
+        return qtTrId("wifi.no_wifi_card");
     }
     if(!enabled_)
     {
-        return tr("Connecting to WiFi networks is switched off");
+        return qtTrId("wifi.connecting_wifi_networks_switched");
     }
     if(ssid.isEmpty() || ssid.toUtf8().size() > 32)
     {
-        return tr("The name has 1 to 32 characters");
+        return qtTrId("wifi.name_has_1_32");
     }
     if(!password.isEmpty() && (password.size() < 8 || password.size() > 63))
     {
-        return tr("The password has 8 to 63 characters");
+        return qtTrId("wifi.password_has_8_63");
     }
     if(busy_)
     {
-        return tr("Please wait a moment");
+        return qtTrId("wifi.please_wait_moment");
     }
 
     bool sae = false;
@@ -502,11 +502,11 @@ QString WifiClient::add(const QString& ssid, const QString& password, bool hidde
             const QString uuid = output.section('(', 1).section(')', 0, 0);
             if(exitCode != 0 || uuid.isEmpty())
             {
-                emit error(tr("%1 could not be saved: %2").arg(ssid, output.trimmed()));
+                emit error(qtTrId("wifi.could_not_saved").arg(ssid, output.trimmed()));
                 this->refresh();
                 return;
             }
-            message_ = tr("%1 saved.").arg(ssid);
+            message_ = qtTrId("wifi.saved").arg(ssid);
             addedNames_.insert(uuid, ssid);
             // the new one last: networks added before keep their place
             this->setPriorities(QStringList(order) << uuid);
@@ -541,7 +541,7 @@ void WifiClient::connectTo(const QString& uuid, std::function<void(bool)> done)
     }
     OPENAUTO_LOG(info) << "[WifiClient] joining " << ssid.toStdString();
     busy_ = true;
-    message_ = tr("Connecting to %1 …").arg(ssid);
+    message_ = qtTrId("wifi.connecting").arg(ssid);
     this->publish();
     QStringList args{"--wait", "30", "connection", "up", uuid};
     if(!interface_.isEmpty())
@@ -552,18 +552,18 @@ void WifiClient::connectTo(const QString& uuid, std::function<void(bool)> done)
         busy_ = false;
         if(exitCode == 0)
         {
-            message_ = tr("Connected to %1.").arg(ssid);
+            message_ = qtTrId("wifi.connected").arg(ssid);
         }
         else if(!joined && (output.contains("Secrets were required") || output.contains("802-1X supplicant")))
         {
             // a wrong password would only be tried again and again
             this->nmcli({"connection", "delete", uuid}, [this](int, const QString&) { this->refresh(); });
             message_.clear();
-            emit error(tr("Could not connect to %1: wrong password?").arg(ssid));
+            emit error(qtTrId("wifi.could_not_connect_wrong").arg(ssid));
         }
         else
         {
-            message_ = tr("Could not connect to %1 (not in range?).").arg(ssid);
+            message_ = qtTrId("wifi.could_not_connect_not").arg(ssid);
             OPENAUTO_LOG(info) << "[WifiClient] " << ssid.toStdString() << ": " << output.trimmed().toStdString();
         }
         this->refresh();

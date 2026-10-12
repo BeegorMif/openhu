@@ -105,12 +105,8 @@ void Translations::reload()
     }
     translators_.clear();
 
-    // the source language needs no file; later installed translators are asked first, so plugins come last
-    QStringList files;
-    if(language_ != available().first())
-    {
-        files << qmDir_ + "/openhu_" + language_ + ".qm";
-    }
+    // every language is a file, English too (the code has IDs only); plugins come last, so they are asked first
+    QStringList files{qmDir_ + "/openhu_" + language_ + ".qm"};
     if(!pluginsDir_.isEmpty())
     {
         const QDir plugins(pluginsDir_);

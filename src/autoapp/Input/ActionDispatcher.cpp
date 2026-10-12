@@ -108,21 +108,21 @@ ActionDispatcher::ActionDispatcher(audio::VolumeController& volume, shell::Shell
 QVariantMap ActionDispatcher::actions()
 {
     return {
-        {"media.play_pause", tr("Play/pause (Android Auto)")},
-        {"media.play", tr("Play")}, {"media.pause", tr("Pause")},
-        {"media.next", tr("Next track")}, {"media.previous", tr("Previous track")},
-        {"call.answer", tr("Answer call")}, {"call.end", tr("End/decline call")},
-        {"voice", tr("Voice assistant")},
-        {"aa.home", tr("Android Auto: home screen")}, {"aa.back", tr("Android Auto: back")},
-        {"aa.navigation", tr("Android Auto: navigation")}, {"aa.media", tr("Android Auto: media")},
-        {"aa.phone", tr("Android Auto: phone")},
-        {"dpad.up", tr("Up")}, {"dpad.down", tr("Down")}, {"dpad.left", tr("Left")}, {"dpad.right", tr("Right")},
-        {"dpad.enter", tr("Select")}, {"rotary.left", tr("Rotary knob left")}, {"rotary.right", tr("Rotary knob right")},
-        {"volume.up", tr("Louder")}, {"volume.down", tr("Quieter")}, {"volume.mute", tr("Mute on/off")},
-        {"ui.home", tr("Shell: home page")}, {"ui.aa", tr("Shell: show Android Auto")},
-        {"ui.settings", tr("Shell: settings")},
-        {"ui.back", tr("Back (Android Auto or shell)")},
-        {"aa.reconnect", tr("Reconnect the phone by USB reset")},
+        {"media.play_pause", qtTrId("actions.play_pause_android_auto")},
+        {"media.play", qtTrId("actions.play")}, {"media.pause", qtTrId("actions.pause")},
+        {"media.next", qtTrId("actions.next_track")}, {"media.previous", qtTrId("actions.previous_track")},
+        {"call.answer", qtTrId("actions.answer_call")}, {"call.end", qtTrId("actions.end_decline_call")},
+        {"voice", qtTrId("actions.voice_assistant")},
+        {"aa.home", qtTrId("actions.android_auto_home_screen")}, {"aa.back", qtTrId("actions.android_auto_back")},
+        {"aa.navigation", qtTrId("actions.android_auto_navigation")}, {"aa.media", qtTrId("actions.android_auto_media")},
+        {"aa.phone", qtTrId("actions.android_auto_phone")},
+        {"dpad.up", qtTrId("actions.up")}, {"dpad.down", qtTrId("actions.down")}, {"dpad.left", qtTrId("actions.left")}, {"dpad.right", qtTrId("actions.right")},
+        {"dpad.enter", qtTrId("actions.select")}, {"rotary.left", qtTrId("actions.rotary_knob_left")}, {"rotary.right", qtTrId("actions.rotary_knob_right")},
+        {"volume.up", qtTrId("actions.louder")}, {"volume.down", qtTrId("actions.quieter")}, {"volume.mute", qtTrId("actions.mute_off")},
+        {"ui.home", qtTrId("actions.shell_home_page")}, {"ui.aa", qtTrId("actions.shell_show_android_auto")},
+        {"ui.settings", qtTrId("actions.shell_settings")},
+        {"ui.back", qtTrId("actions.back_android_auto_shell")},
+        {"aa.reconnect", qtTrId("actions.reconnect_phone_usb_reset")},
     };
 }
 
@@ -199,7 +199,7 @@ bool ActionDispatcher::trigger(const QString& action, Phase phase)
         if(once)
         {
             const auto devices = core::resetAndroidUsbDevices();
-            shell_.toast(devices.isEmpty() ? tr("No phone found on USB") : tr("Reconnecting the phone …"), 3000);
+            shell_.toast(devices.isEmpty() ? qtTrId("actions.no_phone_found_usb") : qtTrId("actions.reconnecting_phone"), 3000);
         }
         return true;
     }

@@ -239,7 +239,7 @@ void PluginStore::refresh()
 {
     for(int i = 0; i < sources_.size(); ++i)
     {
-        this->enqueue(tr("Refreshing %1").arg(sources_[i].line()), [this, i](std::function<void()> done) {
+        this->enqueue(qtTrId("store.refreshing").arg(sources_[i].line()), [this, i](std::function<void()> done) {
             this->fetchIndex(i, std::move(done));
         });
     }
@@ -251,7 +251,7 @@ void PluginStore::refresh()
 
 void PluginStore::install(const QString& id)
 {
-    this->enqueue(tr("Installing %1").arg(id), [this, id](std::function<void()> done) {
+    this->enqueue(qtTrId("store.installing").arg(id), [this, id](std::function<void()> done) {
         this->installPackage(id, std::move(done));
     });
 }
@@ -270,10 +270,10 @@ void PluginStore::updateAll()
 
 void PluginStore::remove(const QString& id)
 {
-    this->enqueue(tr("Removing %1").arg(id), [this, id](std::function<void()> done) {
+    this->enqueue(qtTrId("store.removing").arg(id), [this, id](std::function<void()> done) {
         if(!validId(id) || !QDir(PluginManager::pluginsDir() + "/" + id).exists())
         {
-            this->setStatus(tr("Plugin %1 is not installed").arg(id), true);
+            this->setStatus(qtTrId("store.plugin_not_installed").arg(id), true);
             done();
             return;
         }
@@ -287,7 +287,7 @@ void PluginStore::remove(const QString& id)
             this->saveInstalled(installed);
 
             manager_.load();
-            this->setStatus(tr("%1 removed").arg(id));
+            this->setStatus(qtTrId("store.removed").arg(id));
             emit changed();
             done();
         });
@@ -299,11 +299,11 @@ QString PluginStore::addSource(const QString& type, const QString& location, con
     Source source{type.trimmed(), location.trimmed(), branch.trimmed()};
     if(source.type != "github" && source.type != "url" && source.type != "file")
     {
-        return tr("The type must be github, url or file");
+        return qtTrId("store.type_must_github_url");
     }
     if(source.location.isEmpty() || source.location.contains(' '))
     {
-        return tr("Invalid address");
+        return qtTrId("store.invalid_address");
     }
     if(source.type == "github")
     {
@@ -311,14 +311,14 @@ QString PluginStore::addSource(const QString& type, const QString& location, con
         source.location.remove(QRegularExpression("^(https?://)?github\\.com/")).remove(QRegularExpression("(\\.git)?/?$"));
         if(source.location.count('/') != 1)
         {
-            return tr("Give a GitHub source as <user>/<repo>");
+            return qtTrId("store.give_github_source_user");
         }
     }
     for(const auto& existing: sources_)
     {
         if(existing.line() == source.line())
         {
-            return tr("The source is already listed");
+            return qtTrId("store.source_already_listed");
         }
     }
 
@@ -328,7 +328,7 @@ QString PluginStore::addSource(const QString& type, const QString& location, con
     emit changed();
 
     const int index = sources_.size() - 1;
-    this->enqueue(tr("Refreshing %1").arg(source.line()), [this, index](std::function<void()> done) {
+    this->enqueue(qtTrId("store.refreshing").arg(source.line()), [this, index](std::function<void()> done) {
         this->fetchIndex(index, [this, done]() {
             emit changed();
             done();
@@ -341,11 +341,11 @@ QString PluginStore::removeSource(int index)
 {
     if(busy_)
     {
-        return tr("Please wait, the store is busy");
+        return qtTrId("store.please_wait_store_busy");
     }
     if(index < 0 || index >= sources_.size())
     {
-        return tr("Unknown source");
+        return qtTrId("store.unknown_source");
     }
 
     sources_.removeAt(index);
@@ -491,7 +491,7 @@ void PluginStore::fetchIndex(int sourceIndex, std::function<void()> done)
         if(reply->error() != QNetworkReply::NoError || !document.isObject())
         {
             this->setStatus(source.line() + ": " + (reply->error() != QNetworkReply::NoError ? reply->errorString()
-                                                                                              : tr("index.json is invalid")), true);
+                                                                                              : qtTrId("store.index_json_invalid")), true);
             done();
             return;
         }
@@ -503,7 +503,7 @@ void PluginStore::fetchIndex(int sourceIndex, std::function<void()> done)
         {
             cache.write(data);
         }
-        this->setStatus(tr("%1: %2 plugins").arg(source.line()).arg(indexes_[index].size()));
+        this->setStatus(qtTrId("store.source_plugins").arg(source.line()).arg(indexes_[index].size()));
         done();
     });
 }
@@ -534,19 +534,19 @@ void PluginStore::installPackage(const QString& id, std::function<void()> done)
     const QVariantMap package = this->findPackage(id, &sourceIndex);
     if(package.isEmpty() || !validId(id))
     {
-        this->setStatus(tr("Plugin %1 is not offered by any source").arg(id), true);
+        this->setStatus(qtTrId("store.plugin_not_offered_any").arg(id), true);
         done();
         return;
     }
     if(!archCompatible(package))
     {
-        this->setStatus(tr("%1 is not available for %2").arg(id, currentArch()), true);
+        this->setStatus(qtTrId("store.not_available").arg(id, currentArch()), true);
         done();
         return;
     }
     if(!PluginManager::compatible(package))
     {
-        this->setStatus(tr("%1 is for another OpenHU version (plugin API %2, OpenHU %3)")
+        this->setStatus(qtTrId("store.another_openhu_version_plugin")
                             .arg(id).arg(package.value("api", 1).toInt()).arg(PluginManager::cApiVersion), true);
         done();
         return;
@@ -562,7 +562,7 @@ void PluginStore::installPackage(const QString& id, std::function<void()> done)
         reply->deleteLater();
         if(reply->error() != QNetworkReply::NoError)
         {
-            this->setStatus(tr("%1: download failed (%2)").arg(id, reply->errorString()), true);
+            this->setStatus(qtTrId("store.download_failed").arg(id, reply->errorString()), true);
             done();
             return;
         }
@@ -571,7 +571,7 @@ void PluginStore::installPackage(const QString& id, std::function<void()> done)
         const QString actual = QString::fromLatin1(QCryptographicHash::hash(archive, QCryptographicHash::Sha256).toHex());
         if(sha256.isEmpty() || actual != sha256)
         {
-            this->setStatus(tr("%1: checksum does not match, installation cancelled").arg(id), true);
+            this->setStatus(qtTrId("store.checksum_does_not_match").arg(id), true);
             done();
             return;
         }
@@ -581,7 +581,7 @@ void PluginStore::installPackage(const QString& id, std::function<void()> done)
         QFile file(archivePath);
         if(!file.open(QIODevice::WriteOnly) || file.write(archive) != archive.size())
         {
-            this->setStatus(tr("%1: cannot save the archive").arg(id), true);
+            this->setStatus(qtTrId("store.cannot_save_archive").arg(id), true);
             done();
             return;
         }
@@ -602,8 +602,7 @@ void PluginStore::installPackage(const QString& id, std::function<void()> done)
         if(!PluginManager::compatible(manifest) || !archCompatible(manifest))
         {
             QDir(PluginManager::baseDir() + "/tmp/unpack-" + id).removeRecursively();
-            this->setStatus(tr("%1: the archive is for another OpenHU version (plugin API %2, OpenHU %3), "
-                                       "the installed version stays")
+            this->setStatus(qtTrId("store.archive_another_openhu_version")
                                 .arg(id).arg(manifest.value("api", 1).toInt()).arg(PluginManager::cApiVersion), true);
             done();
             return;
@@ -618,7 +617,7 @@ void PluginStore::installPackage(const QString& id, std::function<void()> done)
             QDir(PluginManager::baseDir() + "/tmp/unpack-" + id).removeRecursively();
             if(!moved)
             {
-                this->setStatus(tr("%1: cannot create the plugin folder").arg(id), true);
+                this->setStatus(qtTrId("store.cannot_create_plugin_folder").arg(id), true);
                 manager_.load();
                 done();
                 return;
@@ -629,7 +628,7 @@ void PluginStore::installPackage(const QString& id, std::function<void()> done)
             this->saveInstalled(installed);
 
             manager_.load();
-            this->setStatus(tr("%1 %2 installed").arg(id, version));
+            this->setStatus(qtTrId("store.plugin_installed").arg(id, version));
             emit changed();
             done();
         });
@@ -656,7 +655,7 @@ QString PluginStore::unpack(const QString& id, const QString& archive, QString& 
     tar.start("tar", {"-xzf", archive, "-C", staging + "/content", "--no-same-owner"});
     if(!tar.waitForFinished(60000) || tar.exitCode() != 0)
     {
-        error = tr("Cannot unpack the archive: %1").arg(QString::fromLocal8Bit(tar.readAllStandardError()).trimmed());
+        error = qtTrId("store.cannot_unpack_archive").arg(QString::fromLocal8Bit(tar.readAllStandardError()).trimmed());
         QDir(staging).removeRecursively();
         return QString();
     }
@@ -670,7 +669,7 @@ QString PluginStore::unpack(const QString& id, const QString& archive, QString& 
 
     if(readJsonFile(root + "/manifest.json").value("id").toString() != id)
     {
-        error = tr("manifest.json is missing or has another id");
+        error = qtTrId("store.manifest_json_missing_has");
         QDir(staging).removeRecursively();
         return QString();
     }

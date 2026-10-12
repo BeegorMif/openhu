@@ -46,7 +46,7 @@ Rectangle {
         }
         Text {
             anchors.verticalCenter: parent.verticalCenter
-            text: volume.muted ? qsTr("Muted") : volume.volume + " %"
+            text: volume.muted ? qsTrId("statusbar.muted") : volume.volume + " %"
             color: Theme.textDim
             font.pixelSize: Theme.fontSmall
         }

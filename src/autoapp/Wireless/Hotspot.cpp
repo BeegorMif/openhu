@@ -132,11 +132,11 @@ void Hotspot::onFinished(int exitCode)
     else
     {
         state_ = State::Error;
-        if(errorCode_ == "nmcli") error_ = tr("NetworkManager (nmcli) is missing.");
-        else if(errorCode_ == "radio") error_ = tr("WiFi is switched off.");
-        else if(errorCode_ == "device") error_ = tr("No WiFi device found.");
-        else if(errorCode_ == "up") error_ = tr("The hotspot does not start. Can the WiFi card do access point on this band? Is the country right?");
-        else error_ = tr("The hotspot could not be set up.");
+        if(errorCode_ == "nmcli") error_ = qtTrId("wireless.hotspot.networkmanager_nmcli_missing");
+        else if(errorCode_ == "radio") error_ = qtTrId("wireless.hotspot.wifi_switched_off");
+        else if(errorCode_ == "device") error_ = qtTrId("wireless.hotspot.no_wifi_device_found");
+        else if(errorCode_ == "up") error_ = qtTrId("wireless.hotspot.hotspot_does_not_start");
+        else error_ = qtTrId("wireless.hotspot.hotspot_could_not_set");
         OPENAUTO_LOG(warning) << "[Hotspot] " << errorCode_.toStdString() << ": " << detail.toStdString();
     }
     emit changed();

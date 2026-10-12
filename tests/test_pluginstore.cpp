@@ -5,6 +5,7 @@
 #include <QJsonObject>
 #include <QProcess>
 #include <QtTest>
+#include "English.hpp"
 #include <f1x/openauto/autoapp/Plugins/PluginManager.hpp>
 #include <f1x/openauto/autoapp/Plugins/PluginStore.hpp>
 #include "TestHome.hpp"
@@ -145,6 +146,12 @@ class TestPluginStore: public QObject
     Q_OBJECT
 
 private slots:
+    // the messages are checked by their English text
+    void initTestCase()
+    {
+        loadEnglish();
+    }
+
     void compareVersions_data()
     {
         QTest::addColumn<QString>("a");

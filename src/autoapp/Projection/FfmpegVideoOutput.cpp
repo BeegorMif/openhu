@@ -308,7 +308,7 @@ void FfmpegVideoOutput::decodeLoop()
     if(codec_ == nullptr)
     {
         OPENAUTO_LOG(error) << "[FfmpegVideoOutput] no H.264 decoder, Android Auto shows no picture";
-        this->failed(tr("No H.264 decoder available, Android Auto shows no picture"));
+        this->failed(qtTrId("video.no_h_264_decoder"));
         return;
     }
 
@@ -371,7 +371,7 @@ void FfmpegVideoOutput::decodeLoop()
             if(!this->openDecoder("h264"))
             {
                 OPENAUTO_LOG(error) << "[FfmpegVideoOutput] no software decoder either, Android Auto shows no picture";
-                this->failed(tr("No H.264 decoder available, Android Auto shows no picture"));
+                this->failed(qtTrId("video.no_h_264_decoder"));
                 break;
             }
             for(auto& old: history)

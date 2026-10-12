@@ -31,9 +31,10 @@ class QTranslator;
 namespace f1x::openauto::autoapp::shell
 {
 
-// Language of the shell. The strings in the code are English; translations/openhu_<language>.ts is compiled into
-// the resources (:/i18n/openhu_<language>.qm). Plugins bring their own as <plugin>/i18n/<language>.qm
-// (docs/plugins.md). Switching retranslates the QML engine at once (qsTr bindings), sets the default QLocale
+// Language of the shell. The code has text IDs (qsTrId/qtTrId, "settings.general.language"); every language,
+// English too, is translations/openhu_<language>.ts, compiled into the resources (:/i18n/openhu_<language>.qm).
+// An ID without a translation shows as the ID. Plugins bring their own as <plugin>/i18n/<language>.qm with IDs
+// that start with the plugin id (docs/plugins.md). Switching retranslates the QML engine at once (qsTr bindings), sets the default QLocale
 // (dates, numbers) and publishes "ui.language".
 class Translations: public QObject
 {
@@ -43,7 +44,7 @@ public:
     explicit Translations(const QString& qmDir = QStringLiteral(":/i18n"), QObject* parent = nullptr);
     ~Translations() override;
 
-    // the first one is the language of the source strings
+    // the languages with a translation file; the first one is the default
     static QStringList available();
     // [{value: "de", label: "Deutsch"}, ...] for the choice in the settings, each named in itself
     static QVariantList languages();
