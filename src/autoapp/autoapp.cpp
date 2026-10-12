@@ -21,6 +21,7 @@
 #include <thread>
 #include <sys/socket.h>
 #include <unistd.h>
+#include <QElapsedTimer>
 #include <QGuiApplication>
 #include <QNetworkInterface>
 #include <QQmlApplicationEngine>
@@ -108,6 +109,8 @@ void configureLogging() {
 
 int main(int argc, char* argv[])
 {
+    QElapsedTimer startup;
+    startup.start();
     configureLogging();
 
     libusb_context* usbContext;
@@ -267,7 +270,8 @@ int main(int argc, char* argv[])
         if(QScreen* screen = QGuiApplication::primaryScreen())
         {
             window->setGeometry(screen->geometry());
-            OPENAUTO_LOG(info) << "[AutoApp] Display " << screen->geometry().width() << "x" << screen->geometry().height();
+            OPENAUTO_LOG(info) << "[AutoApp] Display " << screen->geometry().width() << "x" << screen->geometry().height()
+                               << ", shell loaded after " << startup.elapsed() << " ms";
         }
         window->showFullScreen();
     }

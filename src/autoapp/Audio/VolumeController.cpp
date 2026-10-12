@@ -115,14 +115,24 @@ void VolumeController::refresh()
 
     // "Volume: front-left: 26214 /  40% / -23.88 dB, ..." -> first percentage
     const auto match = QRegularExpression("(\\d+)%").match(volumeOutput);
-    const int volume = match.hasMatch() ? match.captured(1).toInt() : volume_;
+    if(!match.hasMatch())
+    {
+        return;  // no audio server (yet)
+    }
+    const int volume = match.captured(1).toInt();
     const bool muted = muteOutput.contains("yes");
 
-    if(volume != volume_ || muted != muted_)
+    const bool first = !known_;
+    known_ = true;
+    if(first || volume != volume_ || muted != muted_)
     {
         volume_ = volume;
         muted_ = muted;
         emit changed();
+        if(!first)
+        {
+            emit adjusted();
+        }
         this->publish();
     }
 }
