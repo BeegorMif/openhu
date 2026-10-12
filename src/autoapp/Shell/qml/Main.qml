@@ -106,7 +106,7 @@ Window {
             Layout.fillHeight: true
             Layout.preferredWidth: Theme.dockWidth
             currentPage: root.page
-            onPageSelected: root.navigate(name)
+            onPageSelected: name => root.navigate(name)
         }
 
         ColumnLayout {
