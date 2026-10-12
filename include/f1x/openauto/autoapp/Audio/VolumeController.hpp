@@ -55,7 +55,10 @@ public:
     void stop();
 
 signals:
+    // Volume or mute state changed, also when they are read for the first time (bindings)
     void changed();
+    // A change after the first read (keys, API, other apps): not when OpenHU learns the volume at startup
+    void adjusted();
 
 private:
     void runPactl(const QStringList& arguments);
@@ -64,6 +67,8 @@ private:
 
     int volume_ = 0;
     bool muted_ = false;
+    // false until pactl answered once (PipeWire may start after OpenHU)
+    bool known_ = false;
     QProcess subscribe_;
     QTimer refreshTimer_;
 };

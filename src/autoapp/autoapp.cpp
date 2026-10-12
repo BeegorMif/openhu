@@ -21,13 +21,17 @@
 #include <thread>
 #include <sys/socket.h>
 #include <unistd.h>
+#include <QElapsedTimer>
+#include <QEventLoop>
 #include <QGuiApplication>
 #include <QNetworkInterface>
 #include <QQmlApplicationEngine>
 #include <QQmlContext>
+#include <QQuickView>
 #include <QQuickWindow>
 #include <QScreen>
 #include <QSocketNotifier>
+#include <QTimer>
 #include <aasdk/USB/USBHub.hpp>
 #include <aasdk/USB/ConnectedAccessoriesEnumerator.hpp>
 #include <aasdk/USB/AccessoryModeQueryChain.hpp>
@@ -108,6 +112,8 @@ void configureLogging() {
 
 int main(int argc, char* argv[])
 {
+    QElapsedTimer startup;
+    startup.start();
     configureLogging();
 
     libusb_context* usbContext;
@@ -130,6 +136,27 @@ int main(int argc, char* argv[])
     qputenv("QT_QUICK_CONTROLS_MATERIAL_BACKGROUND", "#192027");
 
     QGuiApplication application(argc, argv);
+
+    // Startup screen while everything else starts and the shell loads (about 1 s): it continues the boot splash
+    // of OpenHU OS, without it the compositor shows a black screen until the shell's first frame.
+    auto* startupScreen = new QQuickView;
+    startupScreen->setColor(QColor("#0f1317"));
+    startupScreen->setResizeMode(QQuickView::SizeRootObjectToView);
+    startupScreen->setSource(QUrl(QStringLiteral("qrc:/shell/qml/StartupScreen.qml")));
+    startupScreen->showFullScreen();
+    {
+        // on screen before the rest blocks the GUI thread
+        QEventLoop untilShown;
+        bool shown = false;
+        QObject::connect(startupScreen, &QQuickWindow::frameSwapped, &untilShown, [&]() {
+            shown = true;
+            untilShown.quit();
+        });
+        QTimer::singleShot(500, &untilShown, &QEventLoop::quit);
+        untilShown.exec();
+        OPENAUTO_LOG(info) << "[AutoApp] startup screen " << (shown ? "shown" : "not confirmed") << " after "
+                           << startup.elapsed() << " ms";
+    }
 
     auto configuration = std::make_shared<autoapp::configuration::Configuration>();
     autoapp::shell::AaBridge::instance().configure(configuration);
@@ -267,9 +294,19 @@ int main(int argc, char* argv[])
         if(QScreen* screen = QGuiApplication::primaryScreen())
         {
             window->setGeometry(screen->geometry());
-            OPENAUTO_LOG(info) << "[AutoApp] Display " << screen->geometry().width() << "x" << screen->geometry().height();
+            OPENAUTO_LOG(info) << "[AutoApp] Display " << screen->geometry().width() << "x" << screen->geometry().height()
+                               << ", shell loaded after " << startup.elapsed() << " ms";
         }
         window->showFullScreen();
+        // the startup screen goes once the shell is on screen
+        QObject::connect(window, &QQuickWindow::frameSwapped, startupScreen, [startupScreen]() {
+            startupScreen->close();
+            startupScreen->deleteLater();
+        }, Qt::SingleShotConnection);
+    }
+    else
+    {
+        startupScreen->deleteLater();
     }
 
     // A phone left in accessory mode by a previous run (restart, crash) still runs its old session and answers

@@ -2,7 +2,8 @@ import QtQuick
 import OpenHU 1.0
 import QtQuick.Controls
 
-// Volume overlay: appears on every volume change (keys, API, steering wheel) and on tap in the status bar.
+// Volume overlay: appears on every volume change (keys, API, steering wheel) and on tap in the status bar, not
+// when OpenHU reads the volume at startup.
 Rectangle {
     id: panel
     width: Theme.dockWidth * 5
@@ -28,7 +29,7 @@ Rectangle {
 
     Connections {
         target: volume
-        function onChanged() { panel.show() }
+        function onAdjusted() { panel.show() }
     }
 
     Row {

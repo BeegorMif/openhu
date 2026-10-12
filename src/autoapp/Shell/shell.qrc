@@ -2,6 +2,7 @@
     <qresource prefix="/shell">
         <file>qml/module/Theme.qml</file>
         <file>qml/Main.qml</file>
+        <file>qml/StartupScreen.qml</file>
         <file>qml/Dock.qml</file>
         <file>qml/DockButton.qml</file>
         <file>qml/StatusBar.qml</file>
