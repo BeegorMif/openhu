@@ -583,6 +583,7 @@ Item {
                 title: qsTr("Address")
                 description: settings.info.apiUrl
             }
+            WifiNetworks {}
         }
     }
 

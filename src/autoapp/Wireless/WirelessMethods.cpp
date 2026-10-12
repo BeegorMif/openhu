@@ -21,8 +21,8 @@
 namespace f1x::openauto::autoapp::wireless
 {
 
-void registerWirelessMethods(api::ApiServer& server, WirelessController& wireless, bt::BluetoothManager& bluetooth,
-                             bt::CarAudio& carAudio)
+void registerWirelessMethods(api::ApiServer& server, WirelessController& wireless, WifiClient& wifi,
+                             bt::BluetoothManager& bluetooth, bt::CarAudio& carAudio)
 {
     server.registerMethod("caraudio.state", [&carAudio](const QVariantMap&) -> QVariant {
         return carAudio.state();
@@ -42,6 +42,35 @@ void registerWirelessMethods(api::ApiServer& server, WirelessController& wireles
     });
     server.registerMethod("wireless.state", [&wireless](const QVariantMap&) -> QVariant {
         return wireless.state();
+    });
+    auto check = [](const QString& error) {
+        if(!error.isEmpty())
+        {
+            throw api::ApiError(error.toStdString());
+        }
+        return QVariantMap{{"queued", true}};
+    };
+    server.registerMethod("wifi.state", [&wifi](const QVariantMap&) -> QVariant {
+        return wifi.state();
+    });
+    // through WirelessController: the hotspot may have to make room on the card
+    server.registerMethod("wifi.scan", [&wireless, check](const QVariantMap&) -> QVariant {
+        return check(wireless.searchNetworks());
+    });
+    server.registerMethod("wifi.add", [&wireless, check](const QVariantMap& params) -> QVariant {
+        return check(wireless.addNetwork(params.value("ssid").toString(), params.value("password").toString(),
+                                         params.value("hidden").toBool()));
+    });
+    server.registerMethod("wifi.connect", [&wireless, check](const QVariantMap& params) -> QVariant {
+        return check(wireless.connectNetwork(params.value("uuid").toString()));
+    });
+    server.registerMethod("wifi.remove", [&wifi](const QVariantMap& params) -> QVariant {
+        wifi.remove(params.value("uuid").toString());
+        return QVariantMap{{"queued", true}};
+    });
+    server.registerMethod("wifi.moveUp", [&wifi](const QVariantMap& params) -> QVariant {
+        wifi.moveUp(params.value("uuid").toString());
+        return QVariantMap{{"queued", true}};
     });
     server.registerMethod("bluetooth.state", [&bluetooth](const QVariantMap&) -> QVariant {
         return bluetooth.state();

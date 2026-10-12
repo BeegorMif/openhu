@@ -17,6 +17,7 @@
         <file>qml/PairingDialog.qml</file>
         <file>qml/PhoneIcon.qml</file>
         <file>qml/BluetoothIcon.qml</file>
+        <file>qml/WifiIcon.qml</file>
         <file>qml/SignalBars.qml</file>
         <file>qml/settings/SettingsPage.qml</file>
         <file>qml/settings/SettingRow.qml</file>
@@ -29,6 +30,7 @@
         <file>qml/settings/KeymapSettings.qml</file>
         <file>qml/settings/ConfirmButton.qml</file>
         <file>qml/settings/SystemSettings.qml</file>
+        <file>qml/settings/WifiNetworks.qml</file>
         <file>qml/StorePage.qml</file>
     </qresource>
 </RCC>

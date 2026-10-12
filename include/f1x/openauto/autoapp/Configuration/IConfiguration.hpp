@@ -53,6 +53,9 @@ struct WirelessSettings
     std::string address;    // OpenHU in the hotspot (gateway for the phone), "10.42.0.1/24"
     std::string dhcpRange;  // "10.42.0.10-10.42.0.254", empty: NetworkManager default
     // (no DNS setting: NetworkManager's shared mode always hands out itself as DNS forwarder)
+    // known WiFi networks (wireless::WifiClient): joined while the hotspot does not need the card
+    bool client;
+    std::string clientInterface;  // empty: any free WiFi device
 };
 
 // Sound to a Bluetooth car radio (A2DP), its buttons control OpenHU (AVRCP)

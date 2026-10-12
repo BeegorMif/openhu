@@ -85,6 +85,12 @@ Rectangle {
             color: Theme.success
             font.pixelSize: Theme.fontSmall
         }
+        // in a known WiFi network (dim without internet)
+        WifiIcon {
+            anchors.verticalCenter: parent.verticalCenter
+            visible: !!(wifi.state.client || {}).ssid
+            color: wifi.state.internet ? Theme.text : Theme.textDim
+        }
         // sound goes to the Bluetooth car radio (the phone has its own icon)
         BluetoothIcon {
             anchors.verticalCenter: parent.verticalCenter

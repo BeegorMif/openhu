@@ -38,7 +38,8 @@ Example: `websocat ws://127.0.0.1:5520` and then `{"type":"subscribe","topics":[
 | `projection.exit` | – one-shot: "exit" inside Android Auto, the shell shows its home page |
 | `plugins.state` | `plugins` – installed plugins after (re)loading |
 | `store.state` | `busy`, `status`, `error` – progress of store operations |
-| `wireless.state` | `enabled`, `running`, `hotspot` (`off`, `starting`, `on`, `error`), `hotspotMode` (`always`, `demand`), `hotspotError`, `wifiOff`, `interface`, `channel`, `ssid`, `bluetooth` (`off`, `on`, `error`), `bluetoothError`, `phase` (`idle`, `waiting`, `hotspot`, `handshake`, `joining`, `connected`, `error`), `phaseText`, `device` |
+| `wireless.state` | `enabled`, `running`, `hotspot` (`off`, `starting`, `on`, `error`), `hotspotMode` (`always`, `demand`), `hotspotError`, `hotspotRoom` (the hotspot leaves the card to WiFi networks: `search`, `client`, empty), `searchUntil` (ms since 1970), `wifiOff`, `interface`, `channel`, `ssid`, `bluetooth` (`off`, `on`, `error`), `bluetoothError`, `phase` (`idle`, `waiting`, `hotspot`, `handshake`, `joining`, `connected`, `error`), `phaseText`, `device` |
+| `wifi.state` | `available` (NetworkManager with a WiFi card), `enabled`, `devices` (WiFi cards), `client` (`ssid`, `ip`, `metered`, `device`, `uuid`) while OpenHU is in a known WiFi network, `internet`, `networks` (saved ones, `uuid`, `ssid`, `priority`, `secured`, `hidden`, `active`, `joined` = connected at least once; highest priority first), `found` (after `wifi.scan`: `ssid`, `signal`, `security`, `secured`, `known`), `scanning`, `busy`, `message`, `hotspotDevice` (the card runs OpenHU's hotspot) |
 | `bluetooth.pairing` | `active`, `device`, `passkey` – a device asks to pair (confirmed in the shell or with `bluetooth.confirm`) |
 | `bluetooth.state` | `available`, `error`, `adapter`, `pairing` (visible), `pairingDevice`, `pairingPasskey`, `pairingWith` (pairing started by OpenHU), `searching` |
 | `caraudio.state` | `enabled`, `device`, `name`, `paired`, `connected`, `sink`, `error`, `status` – sound to the Bluetooth car radio |
@@ -86,6 +87,12 @@ API clients on the wireless hotspot network are refused unless "API auch im WLAN
 | `store.sources.add` | `type` (`github`/`url`/`file`), `location`, `branch` | sources |
 | `store.sources.remove` | `index` | sources |
 | `wireless.state` | – | like the topic `wireless.state` |
+| `wifi.state` | – | like the topic `wifi.state` |
+| `wifi.scan` | – | `{queued}` – networks in range in `found`; on a card shared with an "Always on" hotspot the hotspot is off for 5 minutes (not during wireless Android Auto) |
+| `wifi.add` | `ssid`, `password` (8–63 characters, empty for an open network), `hidden` | `{queued}` – saved as NetworkManager profile `openhu-wifi-<ssid>` and joined like `wifi.connect`; a wrong password removes it again |
+| `wifi.connect` | `uuid` | `{queued}` – join it now; on a shared card the hotspot stays off while the connection lasts. Joined once, NetworkManager joins it by itself afterwards |
+| `wifi.remove` | `uuid` | `{queued}` |
+| `wifi.moveUp` | `uuid` | `{queued}` – one place higher in the order NetworkManager tries them |
 | `bluetooth.state` | – | like the topic `bluetooth.state` |
 | `bluetooth.devices` | – | paired devices (`address`, `name`, `connected`, `icon`, `uuids`) |
 | `bluetooth.search` | `enabled` (default `true`), `seconds` (default 30) | `{discovered}` – devices found so far |
