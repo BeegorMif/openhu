@@ -59,6 +59,8 @@ public:
     Q_INVOKABLE void restart();
 
     void applyCursor() const;
+    // "system.nightMode" {mode: auto/day/night}: Android Auto's night mode (SensorService)
+    void publishNightMode() const;
 
 signals:
     void changed();

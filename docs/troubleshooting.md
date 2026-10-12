@@ -29,7 +29,7 @@ accessory mode from the previous run. OpenHU resets such a phone at startup; if 
 
 ## Wireless Android Auto
 
-The state is shown under **Settings → Wireless** and in the topic `wireless.state`.
+The state is shown under **Settings → Android Auto → Wireless Android Auto** and in the topic `wireless.state`.
 
 | Message / symptom | Cause, fix |
 |---|---|

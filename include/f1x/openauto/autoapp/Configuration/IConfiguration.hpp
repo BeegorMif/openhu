@@ -86,6 +86,9 @@ public:
     // on-screen keyboard for text fields (touchscreen only head units); off with a real keyboard
     virtual void setOnScreenKeyboard(bool value) = 0;
     virtual bool onScreenKeyboard() const = 0;
+    // Night mode of Android Auto: "auto" (from plugins/API, daynight.set), "day" or "night"
+    virtual std::string getNightMode() const = 0;
+    virtual void setNightMode(const std::string& value) = 0;
     // Language of the shell ("de", "en"); empty: from the system locale (shell::Translations)
     virtual std::string getLanguage() const = 0;
     virtual void setLanguage(const std::string& value) = 0;

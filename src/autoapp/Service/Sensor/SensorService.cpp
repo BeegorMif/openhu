@@ -266,7 +266,12 @@ namespace f1x::openauto::autoapp::service::sensor {
   }
 
   bool SensorService::isNightMode() {
-    // Set via API/plugins ("daynight.set", e.g. from a light sensor or the CAN bus)
+    // Settings → Android Auto → Night mode; "auto": set via API/plugins ("daynight.set", e.g. from a light sensor
+    // or the CAN bus)
+    const QString mode = core::EventBus::instance().last("system.nightMode").value("mode").toString();
+    if (mode == "day" || mode == "night") {
+      return mode == "night";
+    }
     return core::EventBus::instance().last("system.daynight").value("night").toBool();
   }
 

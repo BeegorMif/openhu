@@ -15,7 +15,7 @@ Item {
     Rectangle {
         anchors.fill: parent
         radius: Theme.radius
-        color: button.active ? Theme.surfaceHigh : (mouse.pressed ? Theme.outline : "transparent")
+        color: button.active ? Theme.selected : (mouse.pressed ? Theme.outline : "transparent")
     }
 
     Image {

@@ -14,6 +14,8 @@ QtObject {
     readonly property color text: "#e8eef4"
     readonly property color textDim: "#93a1ae"
     readonly property color success: "#4cc38a"
+    // the selected entry (dock, settings categories): the accent colour, faint
+    readonly property color selected: Qt.rgba(primary.r, primary.g, primary.b, 0.16)
 
     readonly property int dockWidth: Math.round(104 * scale)
     readonly property int statusHeight: Math.round(52 * scale)

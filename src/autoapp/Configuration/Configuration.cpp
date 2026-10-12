@@ -37,6 +37,7 @@ const std::string cHandednessKey = "General.HandednessOfTrafficType";
 const std::string cShowCursorKey = "General.ShowCursor";
 const std::string cNameSuffixKey = "General.NameSuffix";
 const std::string cLanguageKey = "General.Language";
+const std::string cNightModeKey = "General.NightMode";
 const std::string cVideoResolutionAutoKey = "Video.AutoResolution";
 const std::string cVideoDecoderKey = "Video.Decoder";
 const std::string cApiPortKey = "Api.Port";
@@ -102,6 +103,7 @@ void Configuration::load()
         showCursor_ = ini.get<bool>(cShowCursorKey, showCursor_);
         nameSuffix_ = ini.get<std::string>(cNameSuffixKey, nameSuffix_);
         language_ = ini.get<std::string>(cLanguageKey, language_);
+        nightMode_ = ini.get<std::string>(cNightModeKey, nightMode_);
         apiPort_ = ini.get<uint16_t>(cApiPortKey, apiPort_);
         apiListenAddress_ = ini.get<std::string>(cApiListenKey, apiListenAddress_);
         apiAllowHotspot_ = ini.get<bool>(cApiAllowHotspotKey, apiAllowHotspot_);
@@ -158,6 +160,7 @@ void Configuration::reset()
     showCursor_ = false;
     nameSuffix_ = "";
     language_ = "";
+    nightMode_ = "auto";
     videoResolutionAuto_ = true;
     videoDecoder_ = "auto";
     apiPort_ = 5520;
@@ -189,6 +192,7 @@ void Configuration::save()
     ini.put<bool>(cShowCursorKey, showCursor_);
     ini.put<std::string>(cNameSuffixKey, nameSuffix_);
     ini.put<std::string>(cLanguageKey, language_);
+    ini.put<std::string>(cNightModeKey, nightMode_);
     ini.put<bool>(cVideoResolutionAutoKey, videoResolutionAuto_);
     ini.put<std::string>(cVideoDecoderKey, videoDecoder_);
     ini.put<uint16_t>(cApiPortKey, apiPort_);
@@ -264,6 +268,16 @@ void Configuration::setOnScreenKeyboard(bool value)
 bool Configuration::onScreenKeyboard() const
 {
     return onScreenKeyboard_;
+}
+
+std::string Configuration::getNightMode() const
+{
+    return nightMode_;
+}
+
+void Configuration::setNightMode(const std::string& value)
+{
+    nightMode_ = value;
 }
 
 std::string Configuration::getLanguage() const

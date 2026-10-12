@@ -44,6 +44,8 @@ public:
     bool showCursor() const override;
     void setOnScreenKeyboard(bool value) override;
     bool onScreenKeyboard() const override;
+    std::string getNightMode() const override;
+    void setNightMode(const std::string& value) override;
     std::string getLanguage() const override;
     void setLanguage(const std::string& value) override;
     std::string getNameSuffix() const override;
@@ -102,6 +104,7 @@ private:
     bool onScreenKeyboard_;
     std::string nameSuffix_;
     std::string language_;
+    std::string nightMode_;
     bool videoResolutionAuto_;
     std::string videoDecoder_;
     uint16_t apiPort_;
