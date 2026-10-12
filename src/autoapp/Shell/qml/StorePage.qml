@@ -46,22 +46,22 @@ Item {
                 onCurrentIndexChanged: page.tab = currentIndex
                 background: Rectangle { color: "transparent" }
 
-                TabButton { text: qsTr("Available") }
-                TabButton { text: qsTr("Installed") }
+                TabButton { text: qsTrId("store.available") }
+                TabButton { text: qsTrId("store.installed") }
                 TabButton {
                     text: {
                         var count = 0
                         var all = store.packages
                         for (var i = 0; i < all.length; ++i)
                             if (all[i].updateAvailable) ++count
-                        return count > 0 ? qsTr("Updates (%1)").arg(count) : qsTr("Updates")
+                        return count > 0 ? qsTrId("store.updates_count").arg(count) : qsTrId("store.updates")
                     }
                 }
-                TabButton { text: qsTr("Sources") }
+                TabButton { text: qsTrId("store.sources") }
             }
 
             Button {
-                text: qsTr("Refresh")
+                text: qsTrId("store.refresh")
                 enabled: !store.busy
                 onClicked: store.refresh()
             }
@@ -86,7 +86,7 @@ Item {
             }
             Button {
                 visible: page.tab === 2 && page.filtered.length > 1
-                text: qsTr("Update all")
+                text: qsTrId("store.update_all")
                 enabled: !store.busy
                 onClicked: store.updateAll()
             }
@@ -156,12 +156,12 @@ Item {
                             Layout.fillWidth: true
                             text: {
                                 var parts = []
-                                parts.push(modelData.source ? (modelData.official ? qsTr("Official") : qsTr("Not official") + " · " + modelData.source)
-                                                            : qsTr("Installed locally"))
+                                parts.push(modelData.source ? (modelData.official ? qsTrId("store.official") : qsTrId("store.not_official") + " · " + modelData.source)
+                                                            : qsTrId("store.installed_locally"))
                                 if (modelData.permissions && modelData.permissions.length)
-                                    parts.push(qsTr("Permissions: %1").arg(modelData.permissions.join(", ")))
+                                    parts.push(qsTrId("store.permissions").arg(modelData.permissions.join(", ")))
                                 if (!modelData.compatible)
-                                    parts.push(qsTr("not for this device or this OpenHU version"))
+                                    parts.push(qsTrId("store.not_device_openhu_version"))
                                 return parts.join(" · ")
                             }
                             color: modelData.official ? Theme.success : Theme.textDim
@@ -173,32 +173,32 @@ Item {
                     Button {
                         visible: modelData.installed && page.pluginInfo(modelData.id).page !== undefined
                                  && page.pluginInfo(modelData.id).page !== "" && page.pluginInfo(modelData.id).enabled
-                        text: qsTr("Open")
+                        text: qsTrId("store.open")
                         onClicked: shell.navigate("plugin:" + modelData.id)
                     }
                     Switch {
                         visible: modelData.installed && !!page.pluginInfo(modelData.id).page
-                        text: qsTr("In the dock")
+                        text: qsTrId("store.dock")
                         checked: !!page.pluginInfo(modelData.id).dock
                         onToggled: api.request("plugin.setDock", { id: modelData.id, dock: checked })
                     }
                     Switch {
                         visible: modelData.installed
-                        text: qsTr("Active")
+                        text: qsTrId("store.active")
                         checked: !!page.pluginInfo(modelData.id).enabled
                         onToggled: api.request(checked ? "plugin.enable" : "plugin.disable", { id: modelData.id })
                     }
                     Button {
                         visible: !modelData.installed || modelData.updateAvailable
                         enabled: !store.busy && modelData.compatible
-                        text: modelData.installed ? qsTr("Update") : qsTr("Install")
+                        text: modelData.installed ? qsTrId("store.update") : qsTrId("store.install")
                         highlighted: true
                         onClicked: store.install(modelData.id)
                     }
                     Button {
                         visible: modelData.installed
                         enabled: !store.busy
-                        text: qsTr("Remove")
+                        text: qsTrId("store.remove")
                         flat: true
                         onClicked: store.remove(modelData.id)
                     }
@@ -208,9 +208,9 @@ Item {
             Text {
                 anchors.centerIn: parent
                 visible: parent.count === 0
-                text: page.tab === 0 ? qsTr("No more plugins available")
-                    : page.tab === 1 ? qsTr("No plugins installed yet")
-                    : qsTr("Everything up to date")
+                text: page.tab === 0 ? qsTrId("store.no_more_plugins_available")
+                    : page.tab === 1 ? qsTrId("store.no_plugins_installed_yet")
+                    : qsTrId("store.everything_up_date")
                 color: Theme.textDim
                 font.pixelSize: Theme.fontNormal
             }
@@ -243,18 +243,18 @@ Item {
 
                         Text {
                             Layout.fillWidth: true
-                            text: modelData.line + (modelData.official ? "  (" + qsTr("official") + ")" : "")
+                            text: modelData.line + (modelData.official ? "  (" + qsTrId("store.official_source") + ")" : "")
                             color: Theme.text
                             font.pixelSize: Theme.fontNormal
                             elide: Text.ElideMiddle
                         }
                         Text {
-                            text: modelData.packages === 1 ? qsTr("1 plugin") : qsTr("%1 plugins").arg(modelData.packages)
+                            text: modelData.packages === 1 ? qsTrId("store.one_plugin") : qsTrId("store.n_plugins").arg(modelData.packages)
                             color: Theme.textDim
                             font.pixelSize: Theme.fontSmall
                         }
                         Button {
-                            text: qsTr("Remove")
+                            text: qsTrId("store.remove")
                             flat: true
                             enabled: !store.busy
                             onClicked: {
@@ -279,8 +279,8 @@ Item {
                     id: sourceLocation
                     Layout.fillWidth: true
                     inputMethodHints: Qt.ImhNoAutoUppercase | Qt.ImhNoPredictiveText
-                    placeholderText: sourceType.currentText === "github" ? qsTr("user/repository")
-                                   : sourceType.currentText === "url" ? qsTr("https://server/path/") : "/media/usb/openhu-repo"
+                    placeholderText: sourceType.currentText === "github" ? qsTrId("store.user_repository")
+                                   : sourceType.currentText === "url" ? qsTrId("store.https_server_path") : "/media/usb/openhu-repo"
                 }
                 TextField {
                     id: sourceBranch
@@ -290,7 +290,7 @@ Item {
                     placeholderText: "main"
                 }
                 Button {
-                    text: qsTr("Add")
+                    text: qsTrId("store.add")
                     highlighted: true
                     enabled: sourceLocation.text !== "" && !store.busy
                     onClicked: {

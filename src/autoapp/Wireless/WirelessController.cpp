@@ -299,7 +299,7 @@ void WirelessController::startBluetooth()
                                                {"RequireAuthorization", false}});
     if(!error.isEmpty())
     {
-        bluetoothError_ = tr("Android Auto profile: %1").arg(error);
+        bluetoothError_ = qtTrId("wireless.android_auto_profile").arg(error);
         return;
     }
     // The phone starts wireless Android Auto once a "car" is connected. With hands-free from PipeWire the phone
@@ -657,7 +657,7 @@ QString WirelessController::makeRoom(const QString& reason)
     }
     if((projectionActive_ && !usbProjection_) || handshake_ || pendingFd_ >= 0)
     {
-        return tr("Not while Android Auto runs wirelessly");
+        return qtTrId("wireless.not_android_auto_runs");
     }
     if(hotspot_.state() == Hotspot::State::Off && roomFor_.isEmpty() && this->hotspotOnDemand())
     {
@@ -706,7 +706,7 @@ QString WirelessController::searchNetworks()
 {
     if(!wifi_.enabled())
     {
-        return tr("Connecting to WiFi networks is switched off");
+        return qtTrId("wireless.connecting_wifi_networks_switched");
     }
     const bool hotspotWasUp = hotspot_.state() != Hotspot::State::Off;
     // in a network already: the card can search as it is
@@ -737,7 +737,7 @@ QString WirelessController::connectNetwork(const QString& uuid)
 {
     if(!wifi_.enabled())
     {
-        return tr("Connecting to WiFi networks is switched off");
+        return qtTrId("wireless.connecting_wifi_networks_switched");
     }
     const bool hotspotWasUp = hotspot_.state() != Hotspot::State::Off;
     const QString error = this->makeRoom("client");
@@ -771,13 +771,13 @@ QString WirelessController::hotspotInterface() const
 QVariantMap WirelessController::state() const
 {
     QString phaseText;
-    if(phase_ == "waiting") phaseText = tr("Waiting for the phone …");
-    else if(phase_ == "hotspot") phaseText = tr("Phone shows up, WiFi hotspot is starting …");
-    else if(phase_ == "handshake") phaseText = tr("Phone connected, handing over the WiFi access …");
-    else if(phase_ == "joining") phaseText = tr("Phone is connecting to the WiFi …");
-    else if(phase_ == "connected") phaseText = tr("Android Auto runs wirelessly");
-    else if(phase_ == "error") phaseText = tr("The phone reports: %1").arg(phaseDetail_);
-    else if(endedByUser_) phaseText = tr("Disconnected on the phone");
+    if(phase_ == "waiting") phaseText = qtTrId("wireless.waiting_phone");
+    else if(phase_ == "hotspot") phaseText = qtTrId("wireless.phone_shows_up_wifi");
+    else if(phase_ == "handshake") phaseText = qtTrId("wireless.phone_connected_handing_over");
+    else if(phase_ == "joining") phaseText = qtTrId("wireless.phone_connecting_wifi");
+    else if(phase_ == "connected") phaseText = qtTrId("wireless.android_auto_runs_wirelessly");
+    else if(phase_ == "error") phaseText = qtTrId("wireless.phone_reports").arg(phaseDetail_);
+    else if(endedByUser_) phaseText = qtTrId("wireless.disconnected_phone");
 
     return {
         {"enabled", configuration_->getWirelessProjectionEnabled()},

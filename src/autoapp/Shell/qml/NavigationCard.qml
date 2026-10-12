@@ -50,7 +50,7 @@ Rectangle {
             spacing: Theme.spacing / 3
 
             Text {
-                text: navStatus.data.state === "rerouting" ? qsTr("Recalculating the route …") : Maneuver.distance(distance.data)
+                text: navStatus.data.state === "rerouting" ? qsTrId("home.navigation.recalculating_route") : Maneuver.distance(distance.data)
                 color: Theme.text
                 font.pixelSize: Theme.fontLarge * 1.3
                 font.bold: true
@@ -65,7 +65,7 @@ Rectangle {
             Text {
                 Layout.fillWidth: true
                 visible: text !== ""
-                text: [destination.data.eta ? qsTr("Arrival %1").arg(destination.data.eta) : "",
+                text: [destination.data.eta ? qsTrId("home.navigation.arrival").arg(destination.data.eta) : "",
                        Maneuver.distance(destination.data),
                        Maneuver.duration(destination.data.seconds)].filter(function(part) { return part }).join(" · ")
                 color: Theme.textDim
@@ -88,7 +88,7 @@ Rectangle {
         }
         Text {
             anchors.horizontalCenter: parent.horizontalCenter
-            text: qsTr("No active navigation")
+            text: qsTrId("home.navigation.no_active_navigation")
             color: Theme.textDim
             font.pixelSize: Theme.fontNormal
         }

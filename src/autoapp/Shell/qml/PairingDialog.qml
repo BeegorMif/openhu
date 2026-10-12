@@ -30,7 +30,7 @@ Rectangle {
 
             Text {
                 width: parent.width
-                text: qsTr("Bluetooth pairing")
+                text: qsTrId("bluetooth.pairing.bluetooth_pairing")
                 color: Theme.text
                 font.pixelSize: Theme.fontLarge
             }
@@ -38,8 +38,8 @@ Rectangle {
                 width: parent.width
                 wrapMode: Text.WordWrap
                 text: bluetooth.state.pairingPasskey
-                      ? qsTr("“%1” wants to pair. Does the device show the same code?").arg(bluetooth.state.pairingDevice)
-                      : qsTr("“%1” wants to pair.").arg(bluetooth.state.pairingDevice)
+                      ? qsTrId("bluetooth.pairing.wants_pair_does_device").arg(bluetooth.state.pairingDevice)
+                      : qsTrId("bluetooth.pairing.wants_pair").arg(bluetooth.state.pairingDevice)
                 color: Theme.textDim
                 font.pixelSize: Theme.fontNormal
             }
@@ -55,11 +55,11 @@ Rectangle {
                 anchors.right: parent.right
                 spacing: Theme.spacing / 2
                 Button {
-                    text: qsTr("Decline")
+                    text: qsTrId("bluetooth.pairing.decline")
                     onClicked: bluetooth.confirmPairing(false)
                 }
                 Button {
-                    text: qsTr("Pair")
+                    text: qsTrId("bluetooth.pairing.pair")
                     highlighted: true
                     onClicked: bluetooth.confirmPairing(true)
                 }

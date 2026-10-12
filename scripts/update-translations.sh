@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
-# Brings translations/openhu_<language>.ts up to date with the strings in the code (qsTr/tr, English):
-# new strings come in as unfinished, removed ones go. Translate them afterwards with Qt Linguist
-# (linguist translations/openhu_de.ts) or in a text editor, see docs/translations.md.
+# Brings translations/openhu_<language>.ts up to date with the text IDs in the code (qsTrId/qtTrId): new IDs come in
+# as unfinished, removed ones go. Every language is a translation, English too (openhu_en.ts holds the English
+# texts). Translate with Qt Linguist (open openhu_en.ts next to the language) or in a text editor, see
+# docs/translations.md.
 #
 #   scripts/update-translations.sh              all languages
 #   scripts/update-translations.sh <file.ts>... these files (tests/translations.sh: copies)
@@ -22,7 +23,8 @@ fi
 
 cd "$root"
 for ts in "$@"; do
-    # no file/line locations: a moved string does not change the .ts files
-    "$lupdate" -silent -locations none -no-obsolete -source-language en "${lang[@]}" \
-        -extensions cpp,hpp,qml,js -I include src include -ts "$ts"
+    # no file/line locations: a moved text does not change the .ts files. The IDs have no source text in the code
+    # (the English one lives in openhu_en.ts), lupdate warns about every one of them.
+    "$lupdate" -silent -locations none -no-obsolete "${lang[@]}" \
+        -extensions cpp,hpp,qml,js -I include src include -ts "$ts" 2>&1 | { grep -v "has no source" || true; } >&2
 done

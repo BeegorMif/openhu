@@ -55,15 +55,16 @@ Typical pattern: the process owns the state and publishes it (`radio.state`), th
 
 ### Translations
 
-Texts in plugin QML go through `qsTr()`, with English as the source. A plugin brings its translations as
-`i18n/<language>.qm` (`i18n/de.qm`) in its folder; the shell loads the one of its language and switches with it,
-without a restart. The context of a string is the QML file name (`Main`), so give the pages of a plugin
-distinctive names when several plugins use the same texts.
+Plugins work like the shell ([translations.md](translations.md)): texts in plugin QML are IDs,
+`qsTrId("org.example.speed.main.top_speed")`, starting with the plugin id so they cannot clash with the shell or
+other plugins. Every language, English too, is `i18n/<language>.qm` in the plugin's folder (`i18n/en.qm`,
+`i18n/de.qm`); the shell loads the one of its language and switches with it, without a restart. An ID without a
+translation shows as the ID, so the English file has to be complete.
 
 ```sh
-/usr/lib/qt6/bin/lupdate -source-language en -target-language de qml -ts i18n/de.ts   # collect the strings
-linguist i18n/de.ts                                                                    # translate
-/usr/lib/qt6/bin/lrelease i18n/de.ts -qm i18n/de.qm                                    # ship the .qm
+/usr/lib/qt6/bin/lupdate -locations none -target-language en qml -ts i18n/en.ts   # collect the IDs (once per language)
+linguist i18n/en.ts i18n/de.ts                                                   # write the texts, side by side
+/usr/lib/qt6/bin/lrelease -idbased i18n/en.ts i18n/de.ts                         # i18n/en.qm, i18n/de.qm to ship
 ```
 
 The language itself (`de`, `en`) is there for everything else a plugin shows:

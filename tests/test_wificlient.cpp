@@ -2,6 +2,7 @@
 #include <QSignalSpy>
 #include <QTemporaryDir>
 #include <QtTest>
+#include "English.hpp"
 #include <f1x/openauto/autoapp/Wireless/WifiClient.hpp>
 
 using f1x::openauto::autoapp::wireless::WifiClient;
@@ -42,6 +43,12 @@ class TestWifiClient: public QObject
     Q_OBJECT
 
 private slots:
+    // the messages are checked by their English text
+    void initTestCase()
+    {
+        loadEnglish();
+    }
+
     void init()
     {
         QVERIFY(dir_.isValid());

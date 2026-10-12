@@ -200,7 +200,7 @@ Window {
                         Text {
                             anchors.centerIn: parent
                             visible: pluginPage.status === Loader.Error
-                            text: qsTr("%1: page cannot be loaded (log: data/logs)").arg(pluginPage.name)
+                            text: qsTrId("shell.page_cannot_loaded_log").arg(pluginPage.name)
                             color: Theme.textDim
                             font.pixelSize: Theme.fontNormal
                         }

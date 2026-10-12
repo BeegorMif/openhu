@@ -67,7 +67,7 @@ Detailed plan: `~/.claude/plans/ich-h-tte-gene-folgenden-ethereal-lighthouse.md`
 - Reverse camera: by default in the content area and in the dock, full screen optional.
 - Actions (`input.action`) and plugin commands are one-shot events (`bus.emit`), states
   are stored with their last value (`bus.publish`).
-- The strings of the shell are English; German and further languages are translations (`translations/`,
+- The shell's texts are IDs in the code (`qsTrId`); every language, English too, is a translation file (`translations/`,
   [translations.md](translations.md)), switched at runtime.
 
 ## Development

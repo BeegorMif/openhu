@@ -86,7 +86,7 @@ void ShellController::callLogind(const char* method)
     if(reply.type() == QDBusMessage::ErrorMessage)
     {
         OPENAUTO_LOG(error) << "[ShellController] " << method << " failed: " << reply.errorMessage().toStdString();
-        this->toast((QString(method) == "Reboot" ? tr("Restart not possible: %1") : tr("Power off not possible: %1"))
+        this->toast((QString(method) == "Reboot" ? qtTrId("shell.restart_not_possible") : qtTrId("shell.power_off_not_possible"))
                         .arg(reply.errorMessage()), 5000);
     }
 }

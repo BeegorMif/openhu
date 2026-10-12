@@ -41,9 +41,9 @@ Item {
 
             Text {
                 Layout.fillWidth: true
-                text: keymap.capturing ? qsTr("Press a key …")
-                    : keymap.captured ? qsTr("Key “%1”: choose an action").arg(keymap.captured)
-                    : qsTr("Keyboard and steering wheel keys (through a USB adapter as keyboard) trigger actions.")
+                text: keymap.capturing ? qsTrId("settings.keys.press_key")
+                    : keymap.captured ? qsTrId("settings.keys.key_choose_action").arg(keymap.captured)
+                    : qsTrId("settings.keys.keyboard_steering_wheel_keys")
                 color: keymap.capturing || keymap.captured ? Theme.primary : Theme.textDim
                 font.pixelSize: Theme.fontSmall
                 wrapMode: Text.WordWrap
@@ -56,7 +56,7 @@ Item {
             }
             Button {
                 visible: keymap.captured !== ""
-                text: qsTr("Assign")
+                text: qsTrId("settings.keys.assign")
                 highlighted: true
                 onClicked: {
                     actions.setKeyAction(keymap.captured, newAction.currentText)
@@ -64,7 +64,7 @@ Item {
                 }
             }
             Button {
-                text: keymap.capturing ? qsTr("Cancel") : qsTr("Add key")
+                text: keymap.capturing ? qsTrId("settings.keys.cancel") : qsTrId("settings.keys.add_key")
                 onClicked: {
                     keymap.captured = ""
                     keymap.capturing = !keymap.capturing
@@ -72,7 +72,7 @@ Item {
                 }
             }
             Button {
-                text: qsTr("Default")
+                text: qsTrId("settings.keys.default")
                 flat: true
                 onClicked: actions.resetKeymap()
             }
@@ -112,7 +112,7 @@ Item {
                     }
                     Text {
                         visible: modelData.custom
-                        text: qsTr("changed")
+                        text: qsTrId("settings.keys.changed")
                         color: Theme.primary
                         font.pixelSize: Theme.fontSmall
                     }

@@ -60,7 +60,7 @@ QString MediaPlayer::registerAt(const QString& adapterPath)
     auto bus = QDBusConnection::systemBus();
     if(!bus.registerObject(cPath, this, QDBusConnection::ExportAllSlots | QDBusConnection::ExportAllProperties))
     {
-        return tr("D-Bus object %1 is taken").arg(cPath);
+        return qtTrId("bluetooth.d_bus_object_taken").arg(cPath);
     }
     const QString error = wireless::bluez::call(adapterPath, "org.bluez.Media1", "RegisterPlayer",
                                                 {QVariant::fromValue(QDBusObjectPath(cPath)), this->properties()});
