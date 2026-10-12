@@ -15,11 +15,13 @@
 *  along with openauto. If not, see <http://www.gnu.org/licenses/>.
 */
 
+#include <QDateTime>
 #include <QFile>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QNetworkInterface>
 #include <QProcess>
+#include <QTimeZone>
 #include <f1x/openauto/autoapp/System/SystemController.hpp>
 #include <f1x/openauto/autoapp/Core/EventBus.hpp>
 #include <f1x/openauto/Common/Log.hpp>
@@ -81,6 +83,7 @@ SystemController::SystemController(const QString& osVersion, QObject* parent, co
     connect(&progressTimer_, &QTimer::timeout, this, &SystemController::readUpdateState);
     this->readUpdateState();
     this->refreshSsh();
+    this->refreshTime();
 }
 
 void SystemController::readBootStatus()
@@ -317,6 +320,101 @@ void SystemController::setSsh(const QVariantMap& values)
     ssh_.insert("busy", false);
     emit sshChanged();
     core::EventBus::instance().publish("system.ssh", this->ssh());
+}
+
+void SystemController::refreshTime()
+{
+    if(!this->available())
+    {
+        return;
+    }
+    this->run("openhu-time", {"status"}, {}, [this](const QVariantMap& result) {
+        if(result.contains("error"))
+        {
+            time_ = {{"busy", false}, {"error", result.value("error")}};
+            emit timeChanged();
+            return;
+        }
+        this->setTimeState(result);
+    });
+}
+
+void SystemController::setTimeZone(const QString& zone)
+{
+    if(!this->available() || zone == time_.value("zone").toString())
+    {
+        return;
+    }
+    OPENAUTO_LOG(info) << "[SystemController] time zone " << zone.toStdString();
+    time_.insert("busy", true);
+    emit timeChanged();
+    this->run("openhu-time", {"zone", zone}, {}, [this](const QVariantMap& result) { this->setTimeState(result); });
+}
+
+void SystemController::setNtp(bool enabled)
+{
+    if(!this->available())
+    {
+        return;
+    }
+    OPENAUTO_LOG(info) << "[SystemController] time from the internet " << (enabled ? "on" : "off");
+    time_.insert("busy", true);
+    emit timeChanged();
+    this->run("openhu-time", {"ntp", enabled ? "on" : "off"}, {}, [this](const QVariantMap& result) {
+        this->setTimeState(result);
+    });
+}
+
+QString SystemController::setTime(qint64 seconds)
+{
+    if(!this->available())
+    {
+        return tr("Only on OpenHU OS");
+    }
+    if(time_.value("ntp").toBool())
+    {
+        return tr("Switch the time from the internet off first");
+    }
+    OPENAUTO_LOG(info) << "[SystemController] setting the time to "
+                       << QDateTime::fromSecsSinceEpoch(seconds, QTimeZone::UTC).toString(Qt::ISODate).toStdString();
+    time_.insert("busy", true);
+    emit timeChanged();
+    this->run("openhu-time", {"set", QString::number(seconds)}, {}, [this](const QVariantMap& result) {
+        this->setTimeState(result);
+    });
+    return {};
+}
+
+QStringList SystemController::timeZones()
+{
+    // Region/City; not Etc/GMT+1 & co. (inverted signs) and the old names without a region
+    QStringList zones;
+    for(const QByteArray& id: QTimeZone::availableTimeZoneIds())
+    {
+        if(id.contains('/') && !id.startsWith("Etc/"))
+        {
+            zones << QString::fromLatin1(id);
+        }
+    }
+    zones.sort();
+    zones << QStringLiteral("UTC");
+    return zones;
+}
+
+void SystemController::setTimeState(const QVariantMap& values)
+{
+    if(values.contains("error"))
+    {
+        emit timeError(values.value("error").toString());
+        this->refreshTime();  // the controls show what really is
+        return;
+    }
+    time_ = values;
+    time_.insert("busy", false);
+    const QTimeZone zone(values.value("zone").toByteArray());
+    time_.insert("offset", zone.isValid() ? zone.offsetFromUtc(QDateTime::currentDateTimeUtc()) : 0);
+    emit timeChanged();
+    core::EventBus::instance().publish("system.time", time_);
 }
 
 void SystemController::run(const QString& helper, const QStringList& args, const QByteArray& input,

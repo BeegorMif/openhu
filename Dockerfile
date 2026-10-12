@@ -71,6 +71,8 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
         qml6-module-qtmultimedia \
         # lrelease for the translations (translations/*.ts), lupdate for tests/translations.sh
         qt6-l10n-tools \
+        # time zones (QTimeZone, test_systemcontroller)
+        tzdata \
         # on-screen keyboard (Keyboard.qml): QML module and the input method plugin
         qml6-module-qtquick-virtualkeyboard \
         qt6-virtualkeyboard-plugin \

@@ -31,6 +31,15 @@ void requireOs(const SystemController& system)
     }
 }
 
+QVariant require(const QVariantMap& params, const QString& name)
+{
+    if(!params.contains(name))
+    {
+        throw api::ApiError("missing parameter: " + name.toStdString());
+    }
+    return params.value(name);
+}
+
 }
 
 void registerSystemMethods(api::ApiServer& server, SystemController& system)
@@ -72,6 +81,38 @@ void registerSystemMethods(api::ApiServer& server, SystemController& system)
     server.registerMethod("system.ssh.enable", [&system](const QVariantMap& params) -> QVariant {
         requireOs(system);
         system.setSshEnabled(params.value("enabled", true).toBool());
+        return QVariantMap{{"queued", true}};
+    });
+
+    server.registerMethod("system.time.state", [&system](const QVariantMap&) -> QVariant {
+        requireOs(system);
+        return system.time();
+    });
+    server.registerMethod("system.time.zones", [](const QVariantMap&) -> QVariant {
+        return SystemController::timeZones();
+    });
+    server.registerMethod("system.time.setZone", [&system](const QVariantMap& params) -> QVariant {
+        requireOs(system);
+        const QString zone = require(params, "zone").toString();
+        if(!SystemController::timeZones().contains(zone))
+        {
+            throw api::ApiError("unknown time zone: " + zone.toStdString());
+        }
+        system.setTimeZone(zone);
+        return QVariantMap{{"queued", true}};
+    });
+    server.registerMethod("system.time.setNtp", [&system](const QVariantMap& params) -> QVariant {
+        requireOs(system);
+        system.setNtp(params.value("enabled", true).toBool());
+        return QVariantMap{{"queued", true}};
+    });
+    server.registerMethod("system.time.set", [&system](const QVariantMap& params) -> QVariant {
+        requireOs(system);
+        const QString error = system.setTime(require(params, "time").toLongLong());
+        if(!error.isEmpty())
+        {
+            throw api::ApiError(error.toStdString());
+        }
         return QVariantMap{{"queued", true}};
     });
 }

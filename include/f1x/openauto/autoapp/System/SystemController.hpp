@@ -25,9 +25,9 @@
 namespace f1x::openauto::autoapp::system
 {
 
-// OpenHU OS: system update and ssh access (Settings -> System, system.* API). The helpers of OpenHU OS run as root
-// through pkexec (its polkit rule allows the openhu user exactly these programs) and answer in JSON:
-// openhu-update (status/check/start/cancel, progress in <runDir>/update.json) and openhu-ssh.
+// OpenHU OS: system update, ssh access, time zone and time (Settings -> System, system.* API). The helpers of
+// OpenHU OS run as root through pkexec (its polkit rule allows the openhu user exactly these programs) and answer in
+// JSON: openhu-update (status/check/start/cancel, progress in <runDir>/update.json), openhu-ssh and openhu-time.
 // Elsewhere (Docker, .deb on another system) available is false and nothing runs.
 class SystemController: public QObject
 {
@@ -42,6 +42,9 @@ class SystemController: public QObject
     Q_PROPERTY(QVariantMap update READ update NOTIFY updateChanged)
     // enabled, running, password, keys, busy, addresses (IPv4 of this device); error when the state is unknown
     Q_PROPERTY(QVariantMap ssh READ ssh NOTIFY sshChanged)
+    // zone ("Europe/Berlin"), offset (seconds east of UTC, now), ntp (time from the internet), synchronized, busy;
+    // error when the state is unknown
+    Q_PROPERTY(QVariantMap time READ time NOTIFY timeChanged)
 
 public:
     // osVersion: IMAGE_VERSION of OpenHU OS, empty elsewhere. The rest only changes for tests.
@@ -55,6 +58,7 @@ public:
     QVariantMap bootStatus() const { return bootStatus_; }
     QVariantMap update() const;
     QVariantMap ssh() const;
+    QVariantMap time() const { return time_; }
 
     Q_INVOKABLE void checkForUpdate();
     // empty when started, otherwise why not (Android Auto connected, nothing to install, ...)
@@ -68,12 +72,24 @@ public:
 
     static constexpr int cMinPasswordLength = 8;
 
+    Q_INVOKABLE void refreshTime();
+    // applies at once, also to the clock of the shell
+    Q_INVOKABLE void setTimeZone(const QString& zone);
+    Q_INVOKABLE void setNtp(bool enabled);
+    // seconds since 1970 (UTC), only while the time from the internet is off; empty when accepted
+    Q_INVOKABLE QString setTime(qint64 seconds);
+    // the zones to choose from: Region/City ("Europe/Berlin", "America/Argentina/Salta") and UTC
+    Q_INVOKABLE static QStringList timeZones();
+
 signals:
     void bootStatusChanged();
     void updateChanged();
     void sshChanged();
     // a switch or password change was refused (shown as a toast)
     void sshError(const QString& message);
+    void timeChanged();
+    // a time zone, time or switch was refused (shown as a toast)
+    void timeError(const QString& message);
 
 private:
     void run(const QString& helper, const QStringList& args, const QByteArray& input,
@@ -82,6 +98,7 @@ private:
     void readBootStatus();
     void setUpdate(const QVariantMap& values);
     void setSsh(const QVariantMap& values);
+    void setTimeState(const QVariantMap& values);
     bool updateRunning() const;
 
     QString osVersion_;
@@ -91,6 +108,7 @@ private:
     QVariantMap bootStatus_;
     QVariantMap update_;
     QVariantMap ssh_;
+    QVariantMap time_;
     bool aaConnected_ = false;
     QTimer progressTimer_;
     QTimer bootTimer_;
