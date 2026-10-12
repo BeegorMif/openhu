@@ -2,7 +2,6 @@ import QtQuick
 import QtQuick.Window
 import QtQuick.VirtualKeyboard
 import QtQuick.VirtualKeyboard.Settings
-import OpenHU 1.0
 
 // On-screen keyboard (Qt Virtual Keyboard) at the bottom, slides in when a text field gets focus. Loaded by
 // Main.qml only where the input method is active (autoapp.cpp), so the shell works without the module too.
@@ -15,10 +14,11 @@ InputPanel {
     // what the shell above has to leave free (read by Main.qml)
     readonly property real occupied: shown ? height : 0
 
-    // Everything right of the dock, which stays usable; the height follows the width (about 0.31 of it).
+    // The height follows the width (about 0.31 of it): at most 40 % of the screen, so the page keeps room for the
+    // field above; the keys stay large enough (about 75 px at 1280x720). Centred.
     // (sized by the window: the Loader in Main.qml has no size of its own, it would stretch the panel otherwise)
-    width: Window.width - Theme.dockWidth
-    x: Theme.dockWidth
+    width: Math.min(Window.width, Window.height * 0.4 / 0.31)
+    x: (Window.width - width) / 2
     y: shown ? Window.height - height : Window.height
     visible: y < Window.height
 
