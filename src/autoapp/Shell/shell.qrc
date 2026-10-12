@@ -26,6 +26,7 @@
         <file>qml/settings/SectionTitle.qml</file>
         <file>qml/settings/KeymapSettings.qml</file>
         <file>qml/settings/ConfirmButton.qml</file>
+        <file>qml/settings/SystemSettings.qml</file>
         <file>qml/StorePage.qml</file>
     </qresource>
 </RCC>

@@ -6,7 +6,9 @@ import OpenHU 1.0
 Rectangle {
     id: row
     width: parent ? parent.width : 0
-    implicitHeight: Math.max(Theme.fontNormal * 3.6, texts.implicitHeight + Theme.spacing * 1.4)
+    // as high as the text or the control on the right, whichever is higher (e.g. two password fields)
+    implicitHeight: Math.max(Theme.fontNormal * 3.6, texts.implicitHeight + Theme.spacing * 1.4,
+                             control.height + Theme.spacing)
     radius: Theme.radius / 2
     color: Theme.surface
 

@@ -54,6 +54,8 @@
 #include <f1x/openauto/autoapp/Shell/AaSurface.hpp>
 #include <f1x/openauto/autoapp/Shell/SettingsController.hpp>
 #include <f1x/openauto/autoapp/Shell/ShellController.hpp>
+#include <f1x/openauto/autoapp/System/SystemController.hpp>
+#include <f1x/openauto/autoapp/System/SystemMethods.hpp>
 #include <f1x/openauto/autoapp/Bluetooth/BluetoothManager.hpp>
 #include <f1x/openauto/autoapp/Bluetooth/CarAudio.hpp>
 #include <f1x/openauto/autoapp/Wireless/WirelessController.hpp>
@@ -176,6 +178,10 @@ int main(int argc, char* argv[])
     autoapp::bt::CarAudio carAudio(configuration, bluetoothManager, actionDispatcher, volumeController);
     autoapp::wireless::registerWirelessMethods(apiServer, wirelessController, bluetoothManager, carAudio);
 
+    // OpenHU OS: system update and ssh (Settings -> System)
+    autoapp::system::SystemController systemController(shellController.osVersion());
+    autoapp::system::registerSystemMethods(apiServer, systemController);
+
     // the wireless hotspot is for the phone; API devices there only when allowed
     apiServer.setClientFilter([configuration, &wirelessController](const QHostAddress& peer) {
         autoapp::api::HotspotNetwork hotspot;
@@ -209,6 +215,7 @@ int main(int argc, char* argv[])
     engine.rootContext()->setContextProperty("wireless", &wirelessController);
     engine.rootContext()->setContextProperty("bluetooth", &bluetoothManager);
     engine.rootContext()->setContextProperty("carAudio", &carAudio);
+    engine.rootContext()->setContextProperty("system", &systemController);
 
     // Clean up what outlives the process (hotspot, plugin processes), then end without running destructors:
     // exit() from inside the event loop tears down Qt's globals while the QML engine still exists (crash).

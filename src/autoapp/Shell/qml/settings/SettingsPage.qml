@@ -17,9 +17,8 @@ Item {
         { id: "bluetooth", label: "Kabellos" },
         { id: "keys", label: "Tasten" },
         { id: "apps", label: "Apps & Store" },
-        { id: "network", label: "Netzwerk & API" },
-        { id: "info", label: "Info" }
-    ]
+        { id: "network", label: "Netzwerk & API" }
+    ].concat(system.available ? [{ id: "system", label: "System" }] : [], [{ id: "info", label: "Info" }])
 
     // A new Android Auto connection applies the pending changes
     Connections {
@@ -132,6 +131,7 @@ Item {
                     case "keys": return keys
                     case "apps": return apps
                     case "network": return network
+                    case "system": return systemCategory
                     case "info": return info
                     default: return general
                     }
@@ -569,6 +569,11 @@ Item {
     }
 
     Component {
+        id: systemCategory
+        SystemSettings {}
+    }
+
+    Component {
         id: info
         Section {
             SettingRow {
@@ -587,35 +592,22 @@ Item {
                 title: "Daten, Plugins und Logs"
                 description: settings.info.dataDir
             }
-            // On OpenHU OS the whole device: systemd would start OpenHU again right after it quits
+            // On OpenHU OS: Settings -> System restarts and powers off the device (systemd would start OpenHU again
+            // right after it quits)
             SettingRow {
-                title: shell.osVersion !== "" ? "Neu starten" : "OpenHU neu starten"
-                description: shell.osVersion !== "" ? "Startet das Gerät neu" : ""
-                ConfirmButton {
-                    label: "Neu starten"
-                    confirmText: "Wirklich neu starten?"
-                    confirm: shell.osVersion !== ""
-                    onConfirmed: {
-                        if (shell.osVersion !== "")
-                            shell.reboot()
-                        else
-                            shell.restart()
-                    }
+                visible: !system.available
+                title: "OpenHU neu starten"
+                Button {
+                    text: "Neu starten"
+                    onClicked: shell.restart()
                 }
             }
             SettingRow {
-                title: shell.osVersion !== "" ? "Ausschalten" : "OpenHU beenden"
-                description: shell.osVersion !== "" ? "Fährt das Gerät herunter" : ""
-                ConfirmButton {
-                    label: shell.osVersion !== "" ? "Ausschalten" : "Beenden"
-                    confirmText: "Wirklich ausschalten?"
-                    confirm: shell.osVersion !== ""
-                    onConfirmed: {
-                        if (shell.osVersion !== "")
-                            shell.powerOff()
-                        else
-                            shell.quit()
-                    }
+                visible: !system.available
+                title: "OpenHU beenden"
+                Button {
+                    text: "Beenden"
+                    onClicked: shell.quit()
                 }
             }
             Text {
