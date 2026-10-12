@@ -44,6 +44,7 @@ Example: `websocat ws://127.0.0.1:5520` and then `{"type":"subscribe","topics":[
 | `caraudio.state` | `enabled`, `device`, `name`, `paired`, `connected`, `sink`, `error`, `status` – sound to the Bluetooth car radio |
 | `system.update` | OpenHU OS only: `state` (`idle`, `checking`, `installing`, `done`, `uptodate`, `error`, `cancelled`), `phase` (`root`, `kernel`), `percent`, `from`, `version`, `error`, after a check `checked`, `current`, `newest`, `available`, `checkError`; `busy`, `blocked` (Android Auto connected) |
 | `system.ssh` | OpenHU OS only: `enabled`, `running`, `password` (set), `keys`, `busy`, `addresses` |
+| `system.time` | OpenHU OS only: `zone` (`Europe/Berlin`, `UTC`), `offset` (seconds east of UTC), `ntp` (time from the internet), `synchronized`, `time` (seconds since 1970), `busy` |
 
 Plugins publish their own topics with `bus.publish` (e.g. `vehicle.speed`).
 
@@ -97,6 +98,11 @@ API clients on the wireless hotspot network are refused unless "API auch im WLAN
 | `system.update.cancel` | – | `{}` – the running version stays |
 | `system.ssh.state` | – | like the topic `system.ssh` |
 | `system.ssh.enable` | `enabled` (default `true`) | `{queued}` – needs a root password, which is set in the shell only (Settings → System) |
+| `system.time.state` | – | like the topic `system.time` |
+| `system.time.zones` | – | the time zones to choose from (`Africa/Abidjan`, …, `UTC`) |
+| `system.time.setZone` | `zone` | `{queued}` – applies at once |
+| `system.time.setNtp` | `enabled` (default `true`) | `{queued}` – time from the internet on or off |
+| `system.time.set` | `time` (seconds since 1970, UTC) | `{queued}` – only while the time from the internet is off; also sets the hardware clock |
 | `caraudio.state` | – | like the topic `caraudio.state` |
 | `caraudio.select` | `address` | car audio state – use this radio (pairs it), switches car audio on |
 | `caraudio.forget` | – | car audio state – unpairs the radio, switches car audio off |

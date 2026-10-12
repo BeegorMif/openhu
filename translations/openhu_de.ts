@@ -829,6 +829,58 @@
 <context>
     <name>SystemSettings</name>
     <message>
+        <source>Africa</source>
+        <translation>Afrika</translation>
+    </message>
+    <message>
+        <source>America</source>
+        <translation>Amerika</translation>
+    </message>
+    <message>
+        <source>Antarctica</source>
+        <translation>Antarktis</translation>
+    </message>
+    <message>
+        <source>Arctic</source>
+        <translation>Arktis</translation>
+    </message>
+    <message>
+        <source>Asia</source>
+        <translation>Asien</translation>
+    </message>
+    <message>
+        <source>Atlantic Ocean</source>
+        <translation>Atlantik</translation>
+    </message>
+    <message>
+        <source>Australia</source>
+        <translation>Australien</translation>
+    </message>
+    <message>
+        <source>Europe</source>
+        <translation>Europa</translation>
+    </message>
+    <message>
+        <source>Indian Ocean</source>
+        <translation>Indischer Ozean</translation>
+    </message>
+    <message>
+        <source>Pacific Ocean</source>
+        <translation>Pazifik</translation>
+    </message>
+    <message>
+        <source>Off: set the date and time by hand below.</source>
+        <translation>Aus: Datum und Uhrzeit unten von Hand einstellen.</translation>
+    </message>
+    <message>
+        <source>Synchronized with a time server.</source>
+        <translation>Mit einem Zeitserver abgeglichen.</translation>
+    </message>
+    <message>
+        <source>Not synchronized yet – needs an internet connection.</source>
+        <translation>Noch nicht abgeglichen – braucht eine Internetverbindung.</translation>
+    </message>
+    <message>
         <source>Update to %1 installed.</source>
         <translation>Update auf %1 installiert.</translation>
     </message>
@@ -943,6 +995,26 @@
     <message>
         <source>Version %1</source>
         <translation>Version %1</translation>
+    </message>
+    <message>
+        <source>Date and time</source>
+        <translation>Datum und Uhrzeit</translation>
+    </message>
+    <message>
+        <source>Time zone</source>
+        <translation>Zeitzone</translation>
+    </message>
+    <message>
+        <source>Time from the internet</source>
+        <translation>Uhrzeit aus dem Internet</translation>
+    </message>
+    <message>
+        <source>In the time zone above. Also sets the hardware clock.</source>
+        <translation>In der Zeitzone oben. Stellt auch die Hardware-Uhr.</translation>
+    </message>
+    <message>
+        <source>Set</source>
+        <translation>Stellen</translation>
     </message>
     <message>
         <source>Update</source>
@@ -1402,6 +1474,10 @@
     <message>
         <source>No line break in the password</source>
         <translation>Kein Zeilenumbruch im Passwort</translation>
+    </message>
+    <message>
+        <source>Switch the time from the internet off first</source>
+        <translation>Zuerst die Uhrzeit aus dem Internet ausschalten</translation>
     </message>
     <message>
         <source>%1: error %2</source>

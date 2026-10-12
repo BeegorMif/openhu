@@ -34,6 +34,19 @@ case "$1" in
 esac
 )";
 
+const char* cFakeTime = R"(
+zone=$(cat "$FAKE_RUN/zone" 2>/dev/null || echo Europe/Berlin)
+ntp=$(cat "$FAKE_RUN/ntp" 2>/dev/null || echo true)
+case "$1" in
+    zone) [ -f "/usr/share/zoneinfo/$2" ] || { echo '{"error": "unknown time zone"}'; exit 1; }
+          zone=$2; echo "$zone" > "$FAKE_RUN/zone" ;;
+    ntp) [ "$2" = on ] && ntp=true || ntp=false; echo $ntp > "$FAKE_RUN/ntp" ;;
+    set) [ $ntp = false ] || { echo '{"error": "switch the time from the internet off first"}'; exit 1; }
+         echo "$2" > "$FAKE_RUN/set-time" ;;
+esac
+printf '{"zone": "%s", "ntp": %s, "synchronized": false, "time": 0}\n' "$zone" "$ntp"
+)";
+
 }
 
 class TestSystemController: public QObject
@@ -46,9 +59,14 @@ private slots:
         QVERIFY(helpers_.isValid() && run_.isValid());
         write(helpers_.filePath("openhu-update"), cFakeUpdate);
         write(helpers_.filePath("openhu-ssh"), cFakeSsh);
+        write(helpers_.filePath("openhu-time"), cFakeTime);
         QFile::remove(run_.filePath("update.json"));
         QFile::remove(run_.filePath("ssh.json"));
         QFile::remove(run_.filePath("password"));
+        for(const char* name: {"zone", "ntp", "set-time"})
+        {
+            QFile::remove(run_.filePath(name));
+        }
         qputenv("FAKE_RUN", run_.path().toLocal8Bit());
         EventBus::instance().publish("projection.state", {{"connected", false}});
     }
@@ -61,6 +79,8 @@ private slots:
         QCOMPARE(system.update().value("state").toString(), QString("idle"));
         QVERIFY(!system.installUpdate().isEmpty());
         QVERIFY(!system.setSshPassword("long-enough").isEmpty());
+        QVERIFY(!system.setTime(1791820800).isEmpty());
+        QVERIFY(system.time().isEmpty());
     }
 
     void bootStatus()
@@ -148,6 +168,44 @@ private slots:
         system.setSshEnabled(true);
         QTRY_VERIFY(system.ssh().value("enabled").toBool());
         QVERIFY(system.ssh().value("addresses").canConvert<QStringList>());
+    }
+
+    void timeZones()
+    {
+        const QStringList zones = SystemController::timeZones();
+        QVERIFY(zones.contains("Europe/Berlin"));
+        QVERIFY(zones.contains("America/Argentina/Salta"));
+        QCOMPARE(zones.last(), QString("UTC"));
+        QVERIFY(!zones.contains("Etc/GMT+1"));
+        QVERIFY(!zones.contains("CET"));
+    }
+
+    void timeZoneAndClock()
+    {
+        SystemController system("1", nullptr, "/bin/sh", helpers_.path(), run_.path());
+        QSignalSpy errors(&system, &SystemController::timeError);
+        QTRY_COMPARE(system.time().value("zone").toString(), QString("Europe/Berlin"));
+        QVERIFY(system.time().value("ntp").toBool());
+        // Berlin is UTC+1 or UTC+2
+        QVERIFY(system.time().value("offset").toInt() == 3600 || system.time().value("offset").toInt() == 7200);
+
+        system.setTimeZone("Asia/Tokyo");
+        QTRY_COMPARE(system.time().value("zone").toString(), QString("Asia/Tokyo"));
+        QCOMPARE(system.time().value("offset").toInt(), 9 * 3600);
+        QVERIFY(!system.time().value("busy").toBool());
+
+        // refused by the helper: a toast, the zone stays
+        system.setTimeZone("Nowhere/Atlantis");
+        QTRY_COMPARE(errors.count(), 1);
+        QTRY_VERIFY(!system.time().value("busy").toBool());
+        QCOMPARE(system.time().value("zone").toString(), QString("Asia/Tokyo"));
+
+        // by hand only without the time from the internet
+        QVERIFY(!system.setTime(1791820800).isEmpty());
+        system.setNtp(false);
+        QTRY_VERIFY(!system.time().value("ntp").toBool());
+        QCOMPARE(system.setTime(1791820800), QString());
+        QTRY_COMPARE(read(run_.filePath("set-time")).trimmed(), QByteArray("1791820800"));
     }
 
 private:

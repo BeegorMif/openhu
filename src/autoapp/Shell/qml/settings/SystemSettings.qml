@@ -2,14 +2,17 @@ import QtQuick
 import QtQuick.Controls
 import OpenHU 1.0
 
-// OpenHU OS: version, system update, ssh access, restart and power off of the device (only on OpenHU OS, see
-// SystemController).
+// OpenHU OS: version, time zone and time, system update, ssh access, restart and power off of the device (only on
+// OpenHU OS, see SystemController).
 Flickable {
     id: page
 
     // not "update"/"ssh": inside child items "update" would be Item.update()
     readonly property var updateInfo: system.update
     readonly property var sshInfo: system.ssh
+    readonly property var timeInfo: system.time
+    // "Europe/Berlin", ... sorted by region, so the drop-down keeps the regions together
+    readonly property var zones: system.timeZones()
     readonly property bool installing: updateInfo.state === "checking" || updateInfo.state === "installing"
 
     contentWidth: width
@@ -21,6 +24,87 @@ Flickable {
     Connections {
         target: system
         function onSshError(message) { shell.toast(message, 5000) }
+        function onTimeError(message) { shell.toast(message, 5000) }
+    }
+    // synchronized changes on its own
+    Component.onCompleted: system.refreshTime()
+
+    function regionOf(zone) {
+        const slash = zone.indexOf("/")
+        return slash > 0 ? zone.slice(0, slash) : zone
+    }
+    function cityOf(zone) {
+        const slash = zone.indexOf("/")
+        return (slash > 0 ? zone.slice(slash + 1) : zone).replace(/_/g, " ")
+    }
+    // "Europe / Berlin", "America / Argentina/Salta", "UTC"
+    function zoneLabel(zone) {
+        const region = regionOf(zone)
+        return region === zone ? zone : regionName(region) + " / " + cityOf(zone)
+    }
+    function regionName(region) {
+        switch (region) {
+        case "Africa": return qsTr("Africa")
+        case "America": return qsTr("America")
+        case "Antarctica": return qsTr("Antarctica")
+        case "Arctic": return qsTr("Arctic")
+        case "Asia": return qsTr("Asia")
+        case "Atlantic": return qsTr("Atlantic Ocean")
+        case "Australia": return qsTr("Australia")
+        case "Europe": return qsTr("Europe")
+        case "Indian": return qsTr("Indian Ocean")
+        case "Pacific": return qsTr("Pacific Ocean")
+        }
+        return region
+    }
+    // "UTC+02:00"
+    function offsetText(seconds) {
+        const minutes = Math.abs(seconds) / 60
+        const pad = n => String(Math.floor(n)).padStart(2, "0")
+        return "UTC" + (seconds < 0 ? "−" : "+") + pad(minutes / 60) + ":" + pad(minutes % 60)
+    }
+    function zoneText() {
+        if (page.timeInfo.error)
+            return page.timeInfo.error
+        if (!page.timeInfo.zone)
+            return ""
+        return page.timeInfo.zone === "UTC" ? "UTC"
+             : page.cityOf(page.timeInfo.zone) + " (" + page.offsetText(page.timeInfo.offset || 0) + ")"
+    }
+    function ntpText() {
+        if (!page.timeInfo.ntp)
+            return qsTr("Off: set the date and time by hand below.")
+        return page.timeInfo.synchronized ? qsTr("Synchronized with a time server.")
+                                          : qsTr("Not synchronized yet – needs an internet connection.")
+    }
+    // the date and time pickers start at the current time
+    function loadNow() {
+        const now = new Date()
+        year.currentIndex = now.getFullYear() - year.first
+        month.currentIndex = now.getMonth()
+        day.currentIndex = now.getDate() - 1
+        hour.currentIndex = now.getHours()
+        minute.currentIndex = now.getMinutes()
+    }
+
+    // a column of numbers to spin through (01, 02, ...), or of names
+    component NumberTumbler: Tumbler {
+        id: tumbler
+        property int first: 0
+        property int digits: 2
+        property var names: null
+        width: Theme.fontNormal * (digits + 1.6)
+        height: Theme.fontNormal * 5
+        visibleItemCount: 3
+        delegate: Text {
+            required property int index
+            text: tumbler.names ? tumbler.names[index] : String(index + tumbler.first).padStart(tumbler.digits, "0")
+            color: Theme.text
+            opacity: 1.0 - Math.abs(Tumbler.displacement) / (tumbler.visibleItemCount / 2)
+            font.pixelSize: Theme.fontNormal
+            horizontalAlignment: Text.AlignHCenter
+            verticalAlignment: Text.AlignVCenter
+        }
     }
 
     function bootText() {
@@ -92,6 +176,88 @@ Flickable {
         SettingRow {
             title: qsTr("Version %1").arg(system.osVersion)
             description: page.bootText()
+        }
+
+        SectionTitle { text: qsTr("Date and time") }
+        SettingRow {
+            title: qsTr("Time zone")
+            description: page.zoneText()
+            ComboBox {
+                width: Theme.dockWidth * 4
+                enabled: !page.timeInfo.busy && !page.timeInfo.error
+                model: page.zones.map(page.zoneLabel)
+                currentIndex: page.zones.indexOf(page.timeInfo.zone)
+                onActivated: index => system.setTimeZone(page.zones[index])
+            }
+        }
+        SettingRow {
+            title: qsTr("Time from the internet")
+            description: page.ntpText()
+            Switch {
+                checked: !!page.timeInfo.ntp
+                enabled: !page.timeInfo.busy && !page.timeInfo.error
+                onToggled: system.setNtp(checked)
+            }
+        }
+        SettingRow {
+            visible: !page.timeInfo.ntp && !page.timeInfo.error && page.timeInfo.zone !== undefined
+            // after the tumblers are set up (an index set before is reset), also when visible from the start
+            Component.onCompleted: Qt.callLater(page.loadNow)
+            onVisibleChanged: if (visible) Qt.callLater(page.loadNow)
+            title: qsTr("Date and time")
+            description: qsTr("In the time zone above. Also sets the hardware clock.")
+            Row {
+                spacing: Theme.spacing / 4
+                NumberTumbler {
+                    id: day
+                    first: 1
+                    // always 31: a model that follows the month would reset the day (Set keeps it in the month)
+                    model: 31
+                }
+                // the month by its name: day, month and year are clear in every language
+                NumberTumbler {
+                    id: month
+                    width: Theme.fontNormal * 4
+                    model: 12
+                    names: [...Array(12).keys()].map(index => Qt.locale(settings.values["general.language"])
+                                                                .standaloneMonthName(index, Locale.ShortFormat))
+                }
+                NumberTumbler {
+                    id: year
+                    first: 2024
+                    digits: 4
+                    model: 30
+                }
+                Item { width: Theme.spacing / 2; height: 1 }
+                NumberTumbler {
+                    id: hour
+                    model: 24
+                }
+                Text {
+                    anchors.verticalCenter: parent.verticalCenter
+                    text: ":"
+                    color: Theme.text
+                    font.pixelSize: Theme.fontNormal
+                }
+                NumberTumbler {
+                    id: minute
+                    model: 60
+                }
+                Button {
+                    anchors.verticalCenter: parent.verticalCenter
+                    enabled: !page.timeInfo.busy
+                    text: qsTr("Set")
+                    onClicked: {
+                        const y = year.currentIndex + year.first
+                        const lastDay = new Date(y, month.currentIndex + 1, 0).getDate()
+                        const time = new Date(y, month.currentIndex, Math.min(day.currentIndex + 1, lastDay),
+                                              hour.currentIndex, minute.currentIndex)
+                        const error = system.setTime(Math.floor(time.getTime() / 1000))
+                        if (error)
+                            shell.toast(error, 4000)
+                    }
+                }
+            }
         }
 
         SectionTitle { text: qsTr("Update") }
