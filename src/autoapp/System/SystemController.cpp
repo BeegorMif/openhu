@@ -22,6 +22,7 @@
 #include <QNetworkInterface>
 #include <QProcess>
 #include <QTimeZone>
+#include <QVersionNumber>
 #include <f1x/openauto/autoapp/System/SystemController.hpp>
 #include <f1x/openauto/autoapp/Core/EventBus.hpp>
 #include <f1x/openauto/Common/Log.hpp>
@@ -82,6 +83,11 @@ SystemController::SystemController(const QString& osVersion, QObject* parent, co
     progressTimer_.setInterval(500);
     connect(&progressTimer_, &QTimer::timeout, this, &SystemController::readUpdateState);
     this->readUpdateState();
+
+    // a stick plugged in before OpenHU started counts too
+    runWatcher_.addPath(runDir_);
+    connect(&runWatcher_, &QFileSystemWatcher::directoryChanged, this, &SystemController::readUsbUpdate);
+    this->readUsbUpdate();
     this->refreshSsh();
     this->refreshTime();
 }
@@ -106,10 +112,31 @@ void SystemController::readBootStatus()
     }
 }
 
+QVariantMap SystemController::offer() const
+{
+    QVariantMap offer;
+    if(update_.value("checked").toBool() && update_.value("available").toBool())
+    {
+        offer = {{"version", update_.value("newest")}, {"source", update_.value("source")}};
+    }
+    const QVariantMap usb = update_.value("usb").toMap();
+    if(usb.value("newer").toBool() && QVersionNumber::fromString(usb.value("version").toString())
+                                          > QVersionNumber::fromString(offer.value("version").toString()))
+    {
+        offer = {{"version", usb.value("version")}, {"source", "usb"}};
+    }
+    return offer;
+}
+
 QVariantMap SystemController::update() const
 {
     QVariantMap update = update_;
     update.insert("blocked", aaConnected_);
+    const QVariantMap offer = this->offer();
+    if(!offer.isEmpty())
+    {
+        update.insert("offer", offer);
+    }
     if(!update.contains("state"))
     {
         update.insert("state", "idle");
@@ -152,7 +179,8 @@ void SystemController::checkForUpdate()
             return;
         }
         this->setUpdate({{"busy", false}, {"checked", true}, {"current", result.value("current")},
-                         {"newest", result.value("newest")}, {"available", result.value("available")}});
+                         {"newest", result.value("newest")}, {"available", result.value("available")},
+                         {"source", result.value("source")}});
     });
 }
 
@@ -172,7 +200,7 @@ QString SystemController::installUpdate()
     }
 
     QStringList args{"start"};
-    const QString newest = update_.value("newest").toString();
+    const QString newest = this->offer().value("version").toString();
     if(!newest.isEmpty())
     {
         args << "--version" << newest;
@@ -227,6 +255,38 @@ void SystemController::readUpdateState()
     else
     {
         progressTimer_.stop();
+    }
+}
+
+void SystemController::readUsbUpdate()
+{
+    const QVariantMap state = readJson(runDir_ + "/usb-update.json");
+    const QVariantMap usb = state.value("version").toString().isEmpty() ? QVariantMap() : QVariantMap{
+        {"version", state.value("version")}, {"newer", state.value("newer")}, {"path", state.value("path")}};
+    const QVariantMap before = update_.value("usb").toMap();
+    // the first read (stick plugged in before OpenHU started) without a toast
+    const bool first = !usbRead_;
+    usbRead_ = true;
+    if(usb == before)
+    {
+        return;
+    }
+    this->setUpdate({{"usb", usb.isEmpty() ? QVariant() : QVariant(usb)}});
+    // the checked version was on the stick that is gone: search again
+    if(usb.isEmpty() && update_.value("source").toString() == "usb" && !this->updateRunning())
+    {
+        this->setUpdate({{"checked", QVariant()}, {"available", QVariant()}, {"newest", QVariant()}, {"source", QVariant()}});
+    }
+    if(!first && usb.value("newer").toBool() && usb.value("version") != before.value("version"))
+    {
+        // a new stick starts over: the failed or cancelled update before is no longer shown
+        const QString state = update_.value("state").toString();
+        if(state == "error" || state == "cancelled" || state == "uptodate")
+        {
+            this->setUpdate({{"state", "idle"}, {"error", QVariant()}});
+        }
+        OPENAUTO_LOG(info) << "[SystemController] update on a USB stick: " << usb.value("version").toString().toStdString();
+        emit usbUpdateFound(usb.value("version").toString());
     }
 }
 

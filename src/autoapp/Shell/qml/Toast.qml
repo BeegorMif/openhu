@@ -1,19 +1,24 @@
 import QtQuick
 import OpenHU 1.0
 
-// Short message at the bottom of the screen (API: ui.toast).
+// Short message at the bottom of the screen (API: ui.toast). With a target page it can be tapped (opens it).
 Rectangle {
     id: toast
+    // ui.navigate page, e.g. "settings/system"; empty: not tappable
+    property string target
+    signal opened(string page)
+
     width: Math.min(label.implicitWidth + Theme.spacing * 3, parent ? parent.width * 0.8 : 600)
     height: label.implicitHeight + Theme.spacing * 1.5
     radius: height / 2
     color: Theme.surfaceHigh
-    border.color: Theme.outline
+    border.color: target ? Theme.primary : Theme.outline
     opacity: 0
     visible: opacity > 0
 
-    function show(text, duration) {
+    function show(text, duration, target) {
         label.text = text
+        toast.target = target || ""
         hideTimer.interval = duration > 0 ? duration : 3000
         opacity = 1
         hideTimer.restart()
@@ -33,5 +38,14 @@ Rectangle {
         elide: Text.ElideRight
         color: Theme.text
         font.pixelSize: Theme.fontNormal
+    }
+
+    MouseArea {
+        anchors.fill: parent
+        enabled: toast.visible && toast.target !== ""
+        onClicked: {
+            toast.opacity = 0
+            toast.opened(toast.target)
+        }
     }
 }

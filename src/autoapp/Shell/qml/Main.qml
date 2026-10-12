@@ -101,6 +101,14 @@ Window {
         function onToastRequested(text, durationMs) { toast.show(text, durationMs) }
     }
 
+    // A USB stick with a newer OpenHU OS: tap opens Settings -> System with the Install button
+    Connections {
+        target: system
+        function onUsbUpdateFound(version) {
+            toast.show(qsTrId("shell.usb_update_found").arg(version), 8000, "settings/system")
+        }
+    }
+
     // Height of the on-screen keyboard while it is shown: the page area gets smaller, so the pages can scroll the
     // focused field into view (revealFocus)
     // Keyboard.qml is loaded by file name, so the shell starts without the module; qmllint only sees a QObject
@@ -276,6 +284,7 @@ Window {
 
     Toast {
         id: toast
+        onOpened: page => root.navigate(page)
         anchors.horizontalCenter: parent.horizontalCenter
         anchors.bottom: parent.bottom
         anchors.bottomMargin: Theme.spacing * 2 + root.keyboardHeight

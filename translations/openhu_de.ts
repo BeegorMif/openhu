@@ -43,6 +43,10 @@
         <source></source>
         <translation>Verbinden: %1</translation>
     </message>
+    <message id="shell.usb_update_found">
+        <source></source>
+        <translation>OpenHU OS %1 auf dem USB-Stick – zum Installieren tippen</translation>
+    </message>
     <message id="shell.page_cannot_loaded_log">
         <source></source>
         <translation>%1: Seite kann nicht geladen werden (Log: data/logs)</translation>
@@ -875,13 +879,25 @@
         <source></source>
         <translation>Etwa 500 MB Download.</translation>
     </message>
+    <message id="settings.system.usb_update">
+        <source></source>
+        <translation>Update auf dem USB-Stick: %1</translation>
+    </message>
+    <message id="settings.system.keep_stick_plugged">
+        <source></source>
+        <translation>USB-Stick stecken lassen</translation>
+    </message>
+    <message id="settings.system.usb_no_download">
+        <source></source>
+        <translation>Auf dem USB-Stick, kein Download. Den Stick stecken lassen, bis das Update installiert ist.</translation>
+    </message>
     <message id="settings.system.not_android_auto_connected">
         <source></source>
         <translation>Nicht während Android Auto verbunden ist.</translation>
     </message>
     <message id="settings.system.online_github_releases_needs">
         <source></source>
-        <translation>Online über GitHub-Releases (Internetverbindung nötig).</translation>
+        <translation>Online über GitHub-Releases (Internetverbindung nötig) oder von einem USB-Stick mit den Release-Dateien.</translation>
     </message>
     <message id="settings.system.off">
         <source></source>

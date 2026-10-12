@@ -61,6 +61,8 @@ private slots:
         write(helpers_.filePath("openhu-ssh"), cFakeSsh);
         write(helpers_.filePath("openhu-time"), cFakeTime);
         QFile::remove(run_.filePath("update.json"));
+        QFile::remove(run_.filePath("usb-update.json"));
+        QFile::remove(run_.filePath("start-args"));
         QFile::remove(run_.filePath("ssh.json"));
         QFile::remove(run_.filePath("password"));
         for(const char* name: {"zone", "ntp", "set-time"})
@@ -145,6 +147,49 @@ private slots:
         QVERIFY(!system.update().value("blocked").toBool());
     }
 
+    // a stick plugged in before OpenHU started: offered without a toast
+    void usbUpdateAtStart()
+    {
+        replace(run_.filePath("usb-update.json"), R"({"current": "1", "version": "3", "newer": true, "path": "/run/media/sda1"})");
+        SystemController system("1", nullptr, "/bin/sh", helpers_.path(), run_.path());
+        QSignalSpy found(&system, &SystemController::usbUpdateFound);
+        QCOMPARE(system.update().value("usb").toMap().value("version").toString(), QString("3"));
+        QCOMPARE(system.update().value("offer").toMap().value("source").toString(), QString("usb"));
+        QCOMPARE(found.count(), 0);
+    }
+
+    // openhu-update scan writes usb-update.json when a stick comes or goes
+    void usbUpdatePluggedIn()
+    {
+        SystemController system("1", nullptr, "/bin/sh", helpers_.path(), run_.path());
+        QSignalSpy found(&system, &SystemController::usbUpdateFound);
+        QVERIFY(!system.update().contains("offer"));
+
+        // an older version on the stick: shown, not offered
+        replace(run_.filePath("usb-update.json"), R"({"current": "1", "version": "0.9", "newer": false, "path": "/run/media/sda1"})");
+        QTRY_VERIFY(system.update().contains("usb"));
+        QVERIFY(!system.update().contains("offer"));
+        QCOMPARE(found.count(), 0);
+
+        replace(run_.filePath("usb-update.json"), R"({"current": "1", "version": "3", "newer": true, "path": "/run/media/sdb1"})");
+        QTRY_COMPARE(found.count(), 1);
+        QCOMPARE(found.first().first().toString(), QString("3"));
+
+        // newer than the version online: the stick's is installed
+        system.checkForUpdate();
+        QTRY_VERIFY(system.update().value("checked").toBool());
+        QCOMPARE(system.update().value("offer").toMap().value("version").toString(), QString("3"));
+        QCOMPARE(system.installUpdate(), QString());
+        QTRY_COMPARE(read(run_.filePath("start-args")).trimmed(), QByteArray("start --version 3 --json"));
+        system.cancelUpdate();
+        QTRY_COMPARE(system.update().value("state").toString(), QString("cancelled"));
+
+        // pulled out: the online version is offered again
+        QFile::remove(run_.filePath("usb-update.json"));
+        QTRY_VERIFY(!system.update().contains("usb"));
+        QCOMPARE(system.update().value("offer").toMap().value("version").toString(), QString("2"));
+    }
+
     void ssh()
     {
         SystemController system("1", nullptr, "/bin/sh", helpers_.path(), run_.path());
@@ -214,6 +259,14 @@ private:
         QFile file(path);
         QVERIFY(file.open(QIODevice::WriteOnly));
         file.write(content);
+    }
+
+    // like openhu-update: a new file renamed over the old one (the directory watcher sees it)
+    static void replace(const QString& path, const QByteArray& content)
+    {
+        write(path + ".new", content);
+        QFile::remove(path);
+        QVERIFY(QFile::rename(path + ".new", path));
     }
 
     static QByteArray read(const QString& path)
