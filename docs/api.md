@@ -31,7 +31,8 @@ Example: `websocat ws://127.0.0.1:5520` and then `{"type":"subscribe","topics":[
 | `media.status` | `state` (`playing`, `paused`, `stopped`), `app`, `position` (s), `shuffle`, `repeat`, `repeatOne`, `source` |
 | `phone.status` | `callState` (`idle`, `incoming`, `in_call`, `on_hold`, …), `calls` (`[{state, duration, number, name, numberType, thumbnail}]`), `signal` |
 | `audio.volume` | `volume` (0–100), `muted` |
-| `system.daynight` | `night` (bool) – also switches Android Auto to night mode |
+| `system.daynight` | `night` (bool) – switches Android Auto to night mode while Settings → Android Auto → Night mode is "Automatic" |
+| `system.nightMode` | `mode` (`auto`, `day`, `night`) – that setting (`General.NightMode`) |
 | `input.action` | `action`, `phase` (`click`, `press`, `release`) – every triggered action (one-shot event, no stored value) |
 | `ui.page` | `page` – page shown in the shell (`home`, `aa`, `settings`, `plugin:<id>`) |
 | `ui.language` | `language` (`de`, `en`), `available` – language of the shell; texts of plugin processes can follow it |
@@ -66,7 +67,7 @@ API clients on the wireless hotspot network are refused unless "API auch im WLAN
 | `volume.set` | `value` (0–100) | `{volume, muted}` |
 | `volume.change` | `delta` (e.g. `5`, `-5`) | `{volume, muted}` |
 | `volume.mute` | `muted` (optional, toggles without) | `{volume, muted}` |
-| `ui.navigate` | `page` (`home`, `aa`, `settings`, `store` = settings/apps, `plugin:<id>`) | `{}` |
+| `ui.navigate` | `page` (`home`, `aa`, `settings`, `settings/<category>`, `store` = `settings/apps`, `plugin:<id>`); categories: `general`, `aa`, `audio`, `wifi`, `bluetooth`, `network`, `keys`, `apps`, `system`, `info` (one that is not there, e.g. without its adapter, shows General) | `{}` |
 | `ui.toast` | `text`, `duration` (ms, default 3000) | `{}` |
 | `daynight.set` | `night` (bool) | `{}` |
 | `projection.reconnect` | – | `{reset:[...]}` – USB reset of the phone, Android Auto reconnects |

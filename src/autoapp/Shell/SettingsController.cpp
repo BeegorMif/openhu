@@ -23,6 +23,7 @@
 #include <QRegularExpression>
 #include <QGuiApplication>
 #include <f1x/openauto/autoapp/Shell/SettingsController.hpp>
+#include <f1x/openauto/autoapp/Core/EventBus.hpp>
 #include <f1x/openauto/autoapp/Plugins/PluginManager.hpp>
 #include <f1x/openauto/autoapp/Shell/AaBridge.hpp>
 #include <f1x/openauto/autoapp/Shell/Translations.hpp>
@@ -79,6 +80,13 @@ SettingsController::SettingsController(configuration::IConfiguration::Pointer co
     {
         arguments_.append(QString::fromLocal8Bit(argv[i]));
     }
+    this->publishNightMode();
+}
+
+void SettingsController::publishNightMode() const
+{
+    core::EventBus::instance().publish("system.nightMode",
+                                       {{"mode", QString::fromStdString(configuration_->getNightMode())}});
 }
 
 QVariantMap SettingsController::values() const
@@ -97,6 +105,7 @@ QVariantMap SettingsController::values() const
         {"aa.resolution", configuration_->getVideoResolutionAuto() ? QString("auto")
                                                                     : resolutionName(configuration_->getVideoResolution())},
         {"aa.activeResolution", resolutionName(AaBridge::instance().resolution())},
+        {"aa.nightMode", QString::fromStdString(configuration_->getNightMode())},
         {"aa.fps", configuration_->getVideoFPS() == FrameRate::VIDEO_FPS_60 ? 60 : 30},
         {"aa.dpi", static_cast<int>(configuration_->getScreenDPI())},
         {"aa.marginWidth", margins.width()},
@@ -206,6 +215,12 @@ QString SettingsController::set(const QString& key, const QVariant& value)
                                                                     : Resolution::VIDEO_800x480);
         }
         this->markPending(cReconnect);
+    }
+    else if(key == "aa.nightMode")
+    {
+        const QString mode = value.toString();
+        configuration_->setNightMode(mode == "day" || mode == "night" ? mode.toStdString() : "auto");
+        this->publishNightMode();
     }
     else if(key == "aa.fps")
     {

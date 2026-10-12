@@ -20,6 +20,14 @@
         <file>qml/WifiIcon.qml</file>
         <file>qml/SignalBars.qml</file>
         <file>qml/settings/SettingsPage.qml</file>
+        <file>qml/settings/SettingsSection.qml</file>
+        <file>qml/settings/GeneralSettings.qml</file>
+        <file>qml/settings/AndroidAutoSettings.qml</file>
+        <file>qml/settings/AudioSettings.qml</file>
+        <file>qml/settings/WifiSettings.qml</file>
+        <file>qml/settings/BluetoothSettings.qml</file>
+        <file>qml/settings/NetworkSettings.qml</file>
+        <file>qml/settings/InfoSettings.qml</file>
         <file>qml/settings/SettingRow.qml</file>
         <file>qml/settings/SettingSwitch.qml</file>
         <file>qml/settings/SettingChoice.qml</file>

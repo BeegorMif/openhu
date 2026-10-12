@@ -23,6 +23,17 @@ the container).
 
 ## openhu.ini
 
+Where the keys are in the settings:
+
+| Settings | Keys |
+|---|---|
+| General | `[General]` Language, HandednessOfTrafficType, NameSuffix, ShowCursor; `[Input]` OnScreenKeyboard |
+| Android Auto | `[Video]`, `[General]` NightMode, `[Input]` EnableTouchscreen, `[AudioChannel]`; wireless Android Auto: `[Bluetooth]` WirelessProjectionEnabled, `[Wireless]` Priority |
+| Audio | `[Audio]`, `[CarAudio]` |
+| WiFi | `[Wireless]` (WiFi networks, hotspot) |
+| Bluetooth | `[Bluetooth]` AdapterType, AdapterAddress |
+| Network | `[Api]` |
+
 ### [General]
 
 | Key | Default | |
@@ -30,6 +41,7 @@ the container).
 | `Language` | empty | language of the shell and the on-screen keyboard: `de`, `en`. Empty: from the system locale if there is a translation for it, otherwise English (also without a locale, e.g. `C.UTF-8`). See [translations.md](translations.md) |
 | `HandednessOfTrafficType` | `0` | driver side: `0` left-hand drive, `1` right-hand drive (Android Auto puts its controls on the driver's side) |
 | `ShowCursor` | `false` | mouse cursor (for mouse instead of touchscreen) |
+| `NightMode` | `auto` | night mode of Android Auto: `auto` (from plugins or the API, `daynight.set`), `day`, `night` |
 | `NameSuffix` | empty | the phone shows "OpenHU *suffix*". The vehicle id is derived from it, so differently named head units are separate cars on the phone (own settings), the same name stays the same car |
 
 ### [Video]
@@ -57,13 +69,13 @@ the container).
 | `MediaEnabled`, `GuidanceEnabled`, `SystemEnabled`, `TelephonyEnabled` | `true` | Android Auto audio channels played by OpenHU |
 | `Audio.OutputBackendType` | `0` | `0` RtAudio (lower latency), `1` Qt Multimedia |
 
-### [Bluetooth]
+### [CarAudio]
 
 | Key | Default | |
 |---|---|---|
-| `WirelessProjectionEnabled` | `false` | wireless Android Auto (makes the WiFi card a hotspot) |
-| `AdapterType` | `0` | `1`: offer pairing over the USB cable also without wireless Android Auto |
-| `AdapterAddress` | empty | Bluetooth adapter to use, empty = the first one |
+| `Enabled` | `false` | sound to the Bluetooth car radio |
+| `Device` | set by OpenHU | Bluetooth address of the radio (chosen on the settings page) |
+| `Pin` | `0000` | PIN for legacy pairing of old radios |
 
 ### [Wireless]
 
@@ -75,7 +87,7 @@ the container).
 | `Channel` | `0` | `0` = 36 (5 GHz) / 6 (2.4 GHz); a fixed channel needs a fixed band |
 | `Country` | `DE` | regulatory domain, set with `iw reg set` (5 GHz access points need it) |
 | `Interface` | empty | WiFi card of the hotspot, empty = the first one NetworkManager knows |
-| `Client` | `true` | join saved WiFi networks (Settings → Network & API → WiFi networks) whenever the hotspot does not need the card, see [installation.md](installation.md#wifi-networks) |
+| `Client` | `true` | join saved WiFi networks (Settings → WiFi) whenever the hotspot does not need the card, see [installation.md](installation.md#wifi-networks) |
 | `ClientInterface` | empty | WiFi card for those networks, empty = any free one; a card other than the hotspot's keeps both running |
 | `Address` | `10.42.0.1/24` | OpenHU in the hotspot network (gateway and DNS for the phone) |
 | `DhcpRange` | empty | e.g. `10.42.0.50-10.42.0.60`, empty = NetworkManager default (needs NetworkManager ≥ 1.42) |
@@ -83,13 +95,13 @@ the container).
 | `Priority` | `usb` | phone on the cable while wireless is possible: `usb` (cable wins, no WiFi credentials for it) or `wifi` |
 | `LastDevice` | set by OpenHU | Bluetooth address of the phone that is connected first |
 
-### [CarAudio]
+### [Bluetooth]
 
 | Key | Default | |
 |---|---|---|
-| `Enabled` | `false` | sound to the Bluetooth car radio |
-| `Device` | set by OpenHU | Bluetooth address of the radio (chosen on the settings page) |
-| `Pin` | `0000` | PIN for legacy pairing of old radios |
+| `WirelessProjectionEnabled` | `false` | wireless Android Auto (makes the WiFi card a hotspot) |
+| `AdapterType` | `0` | `1`: offer pairing over the USB cable also without wireless Android Auto |
+| `AdapterAddress` | empty | Bluetooth adapter to use, empty = the first one |
 
 ### [Api]
 

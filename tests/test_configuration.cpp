@@ -36,6 +36,7 @@ private slots:
         QCOMPARE(config.getVideoDecoder(), std::string("auto"));
         QVERIFY(config.onScreenKeyboard());
         QCOMPARE(config.getLanguage(), std::string());  // follows the system locale
+        QCOMPARE(config.getNightMode(), std::string("auto"));
         // without name suffix the vehicle id of OpenAuto, so paired phones keep recognizing the head unit
         QCOMPARE(config.getVehicleId(), std::string("2024110822150988"));
         QVERIFY(!QFile::exists(home.path("openhu.ini")));
@@ -52,6 +53,7 @@ private slots:
             config.showCursor(true);
             config.setOnScreenKeyboard(false);
             config.setLanguage("en");
+            config.setNightMode("night");
             config.setVideoMargins(QRect(0, 0, 40, 20));
             config.setVideoDecoder("h264_v4l2m2m");
             auto wireless = config.getWirelessSettings();
@@ -73,6 +75,7 @@ private slots:
         QVERIFY(config.showCursor());
         QVERIFY(!config.onScreenKeyboard());
         QCOMPARE(config.getLanguage(), std::string("en"));
+        QCOMPARE(config.getNightMode(), std::string("night"));
         QCOMPARE(config.getVideoMargins(), QRect(0, 0, 40, 20));
         QCOMPARE(config.getVideoDecoder(), std::string("h264_v4l2m2m"));
         QCOMPARE(config.getWirelessSettings().ssid, std::string("Car"));

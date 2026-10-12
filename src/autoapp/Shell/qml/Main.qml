@@ -16,8 +16,11 @@ Window {
     property string settingsCategory: "general"
 
     function navigate(name) {
-        // Apps and store live in the settings
-        if (name === "apps" || name === "store") {
+        // a category of the settings: "settings/wifi"; apps and store live in the settings
+        if (name.startsWith("settings/")) {
+            settingsCategory = name.slice(9)
+            name = "settings"
+        } else if (name === "apps" || name === "store") {
             settingsCategory = "apps"
             name = "settings"
         }

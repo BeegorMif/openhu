@@ -131,10 +131,6 @@
         <source></source>
         <translation>Audio</translation>
     </message>
-    <message id="settings.page.wireless">
-        <source></source>
-        <translation>Wireless</translation>
-    </message>
     <message id="settings.page.keys">
         <source></source>
         <translation>Keys</translation>
@@ -143,9 +139,17 @@
         <source></source>
         <translation>Apps &amp; Store</translation>
     </message>
-    <message id="settings.page.network_api">
+    <message id="settings.page.wifi">
         <source></source>
-        <translation>Network &amp; API</translation>
+        <translation>WiFi</translation>
+    </message>
+    <message id="settings.page.bluetooth">
+        <source></source>
+        <translation>Bluetooth</translation>
+    </message>
+    <message id="settings.page.network">
+        <source></source>
+        <translation>Network</translation>
     </message>
     <message id="settings.page.system">
         <source></source>
@@ -271,6 +275,26 @@
         <source></source>
         <translation>Margin top/bottom (pixels)</translation>
     </message>
+    <message id="settings.aa.night_mode">
+        <source></source>
+        <translation>Night mode</translation>
+    </message>
+    <message id="settings.aa.night_mode_description">
+        <source></source>
+        <translation>Dark colours in Android Auto. Automatic: from a plugin or the API (e.g. a light sensor or the headlights).</translation>
+    </message>
+    <message id="settings.aa.night_auto">
+        <source></source>
+        <translation>Automatic</translation>
+    </message>
+    <message id="settings.aa.night_day">
+        <source></source>
+        <translation>Day</translation>
+    </message>
+    <message id="settings.aa.night_night">
+        <source></source>
+        <translation>Night</translation>
+    </message>
     <message id="settings.aa.controls_sound">
         <source></source>
         <translation>Controls and sound</translation>
@@ -298,22 +322,6 @@
     <message id="settings.aa.connection">
         <source></source>
         <translation>Connection</translation>
-    </message>
-    <message id="settings.aa.wireless_wifi">
-        <source></source>
-        <translation>Wireless (WiFi)</translation>
-    </message>
-    <message id="settings.aa.on">
-        <source></source>
-        <translation>On</translation>
-    </message>
-    <message id="settings.aa.off">
-        <source></source>
-        <translation>Off</translation>
-    </message>
-    <message id="settings.aa.set_up">
-        <source></source>
-        <translation>Set up</translation>
     </message>
     <message id="settings.aa.reconnect_phone">
         <source></source>
@@ -407,245 +415,249 @@
         <source></source>
         <translation>Only for older radios that ask for a PIN instead of confirming a code.</translation>
     </message>
-    <message id="settings.page.wifi_hotspot_starting">
+    <message id="settings.aa.hotspot_starting">
         <source></source>
         <translation>WiFi hotspot is starting …</translation>
     </message>
-    <message id="settings.page.ready_wifi_hotspot_starts">
+    <message id="settings.aa.ready_hotspot_on_demand">
         <source></source>
         <translation>Ready · the WiFi hotspot starts as soon as the phone shows up</translation>
     </message>
-    <message id="settings.page.ready_wifi">
+    <message id="settings.aa.ready_wifi">
         <source></source>
         <translation>Ready · WiFi “%1” on %2</translation>
     </message>
-    <message id="settings.wireless.wireless_android_auto">
+    <message id="settings.aa.wireless_android_auto">
         <source></source>
         <translation>Wireless Android Auto</translation>
     </message>
-    <message id="settings.wireless.no_wifi_adapter_found">
+    <message id="settings.aa.no_wifi_adapter_found">
         <source></source>
         <translation>No WiFi adapter found.</translation>
     </message>
-    <message id="settings.wireless.no_bluetooth_adapter_found">
+    <message id="settings.aa.no_bluetooth_adapter_found">
         <source></source>
         <translation>No Bluetooth adapter found.</translation>
     </message>
-    <message id="settings.wireless.wireless_android_auto_needs">
+    <message id="settings.aa.wireless_needs_both">
         <source></source>
         <translation>Wireless Android Auto needs both.</translation>
     </message>
-    <message id="settings.wireless.phone_paired_once_via">
+    <message id="settings.aa.wireless_description">
         <source></source>
         <translation>The phone is paired once via Bluetooth and then connects automatically through the WiFi hotspot of OpenHU.</translation>
     </message>
-    <message id="settings.wireless.status">
+    <message id="settings.aa.wireless_status">
         <source></source>
         <translation>Status</translation>
     </message>
-    <message id="settings.wireless.switch_wifi">
+    <message id="settings.aa.switch_wifi_on">
         <source></source>
         <translation>Switch WiFi on</translation>
     </message>
-    <message id="settings.wireless.phones">
+    <message id="settings.bluetooth.phones">
         <source></source>
         <translation>Phones</translation>
     </message>
-    <message id="settings.wireless.visible">
+    <message id="settings.bluetooth.visible_as">
         <source></source>
         <translation>Visible as “%1”</translation>
     </message>
-    <message id="settings.wireless.pair_new_phone">
+    <message id="settings.bluetooth.pair_new_phone">
         <source></source>
         <translation>Pair a new phone</translation>
     </message>
-    <message id="settings.wireless.phone_choose_under_bluetooth">
+    <message id="settings.bluetooth.choose_on_phone">
         <source></source>
         <translation>On the phone, choose “%1” under Bluetooth and confirm the code here.</translation>
     </message>
-    <message id="settings.wireless.visible_2_minutes">
+    <message id="settings.bluetooth.visible_2_minutes">
         <source></source>
         <translation>OpenHU is then visible to phones for 2 minutes.</translation>
     </message>
-    <message id="settings.wireless.cancel">
+    <message id="settings.bluetooth.cancel">
         <source></source>
         <translation>Cancel</translation>
     </message>
-    <message id="settings.wireless.pair">
+    <message id="settings.bluetooth.pair">
         <source></source>
         <translation>Pair</translation>
     </message>
-    <message id="settings.wireless.connected">
+    <message id="settings.bluetooth.connected">
         <source></source>
         <translation>connected</translation>
     </message>
-    <message id="settings.wireless.connect">
+    <message id="settings.bluetooth.connect">
         <source></source>
         <translation>Connect</translation>
     </message>
-    <message id="settings.wireless.remove">
+    <message id="settings.bluetooth.remove">
         <source></source>
         <translation>Remove</translation>
     </message>
-    <message id="settings.wireless.priority_cable">
+    <message id="settings.aa.priority_cable">
         <source></source>
         <translation>Priority with cable</translation>
     </message>
-    <message id="settings.wireless.phone_may_connect_wirelessly">
+    <message id="settings.aa.priority_wifi_description">
         <source></source>
         <translation>The phone may connect wirelessly also with a cable (the cable only charges then).</translation>
     </message>
-    <message id="settings.wireless.cable_android_auto_runs">
+    <message id="settings.aa.priority_usb_description">
         <source></source>
         <translation>With a cable Android Auto runs over USB (more stable, charges). Wireless takes over after unplugging.</translation>
     </message>
-    <message id="settings.wireless.wifi">
+    <message id="settings.aa.priority_wifi">
         <source></source>
         <translation>WiFi</translation>
     </message>
-    <message id="settings.wireless.wifi_hotspot">
+    <message id="settings.wifi.hotspot_title">
         <source></source>
         <translation>WiFi hotspot</translation>
     </message>
-    <message id="settings.wireless.hotspot">
+    <message id="settings.wifi.hotspot_mode">
         <source></source>
         <translation>Hotspot</translation>
     </message>
-    <message id="settings.wireless.starts_only_paired_phone">
+    <message id="settings.wifi.hotspot_demand_description">
         <source></source>
         <translation>Starts only when a paired phone shows up (a few seconds longer) and goes off after 2 minutes without a wireless session.</translation>
     </message>
-    <message id="settings.wireless.runs_all_time_wireless">
+    <message id="settings.wifi.hotspot_always_description">
         <source></source>
         <translation>Runs all the time while wireless Android Auto is on (fastest connection).</translation>
     </message>
-    <message id="settings.wireless.always">
+    <message id="settings.wifi.hotspot_always">
         <source></source>
         <translation>Always on</translation>
     </message>
-    <message id="settings.wireless.demand">
+    <message id="settings.wifi.hotspot_demand">
         <source></source>
         <translation>On demand</translation>
     </message>
-    <message id="settings.wireless.name_ssid">
+    <message id="settings.wifi.hotspot_name">
         <source></source>
         <translation>Name (SSID)</translation>
     </message>
-    <message id="settings.wireless.leave_empty">
+    <message id="settings.wifi.hotspot_name_description">
         <source></source>
         <translation>Leave empty for “%1”.</translation>
     </message>
-    <message id="settings.wireless.password">
+    <message id="settings.wifi.hotspot_password">
         <source></source>
         <translation>Password</translation>
     </message>
-    <message id="settings.wireless.never_needs_typed_phone">
+    <message id="settings.wifi.hotspot_password_description">
         <source></source>
         <translation>Never needs to be typed in: the phone gets it via Bluetooth.</translation>
     </message>
-    <message id="settings.wireless.frequency_band">
+    <message id="settings.wifi.band">
         <source></source>
         <translation>Frequency band</translation>
     </message>
-    <message id="settings.wireless.android_auto_runs_best">
+    <message id="settings.wifi.band_description">
         <source></source>
         <translation>Android Auto runs best with 5 GHz. “Auto” takes 5 GHz and falls back to 2.4 GHz when 5 GHz does not start. A WiFi card cannot do both at once.</translation>
     </message>
-    <message id="settings.wireless.currently_channel">
+    <message id="settings.wifi.current_channel">
         <source></source>
         <translation>Currently channel %1.</translation>
     </message>
-    <message id="settings.wireless.auto">
+    <message id="settings.wifi.band_auto">
         <source></source>
         <translation>Auto</translation>
     </message>
-    <message id="settings.wireless.2_4_ghz">
+    <message id="settings.wifi.band_2_4">
         <source></source>
         <translation>2.4 GHz</translation>
     </message>
-    <message id="settings.wireless.country">
+    <message id="settings.wifi.country">
         <source></source>
         <translation>Country</translation>
     </message>
-    <message id="settings.wireless.sets_allowed_wifi_channels">
+    <message id="settings.wifi.country_description">
         <source></source>
         <translation>Sets the allowed WiFi channels (needed for 5 GHz).</translation>
     </message>
-    <message id="settings.wireless.advanced_settings">
+    <message id="settings.wifi.advanced">
         <source></source>
         <translation>Advanced settings</translation>
     </message>
-    <message id="settings.wireless.channel_address_dhcp_range">
+    <message id="settings.wifi.advanced_description">
         <source></source>
         <translation>Channel, address, DHCP range</translation>
     </message>
-    <message id="settings.wireless.hide">
+    <message id="settings.wifi.hide">
         <source></source>
         <translation>Hide</translation>
     </message>
-    <message id="settings.wireless.show">
+    <message id="settings.wifi.show">
         <source></source>
         <translation>Show</translation>
     </message>
-    <message id="settings.wireless.channel">
+    <message id="settings.wifi.channel">
         <source></source>
         <translation>Channel</translation>
     </message>
-    <message id="settings.wireless.auto_openhu_chooses_itself">
+    <message id="settings.wifi.channel_auto_description">
         <source></source>
         <translation>With “Auto” OpenHU chooses by itself (36 or 6). Choose a fixed band for a fixed channel.</translation>
     </message>
-    <message id="settings.wireless.empty_default_5_ghz">
+    <message id="settings.wifi.channel_description">
         <source></source>
         <translation>Empty = default (%1). 5 GHz: 36–48 without radar detection.</translation>
     </message>
-    <message id="settings.wireless.automatic">
+    <message id="settings.wifi.channel_automatic">
         <source></source>
         <translation>automatic</translation>
     </message>
-    <message id="settings.wireless.address_gateway">
+    <message id="settings.wifi.address">
         <source></source>
         <translation>Address (gateway)</translation>
     </message>
-    <message id="settings.wireless.openhu_hotspot_network_netmask">
+    <message id="settings.wifi.address_description">
         <source></source>
         <translation>OpenHU in the hotspot network, with netmask. The phone uses it as gateway and DNS.</translation>
     </message>
-    <message id="settings.wireless.dhcp_range">
+    <message id="settings.wifi.dhcp_range">
         <source></source>
         <translation>DHCP range</translation>
     </message>
-    <message id="settings.wireless.empty_automatic">
+    <message id="settings.wifi.dhcp_range_description">
         <source></source>
         <translation>Empty = automatic.</translation>
     </message>
-    <message id="settings.wireless.phone_calls_via_bluetooth">
+    <message id="settings.bluetooth.phone_calls">
         <source></source>
         <translation>Phone calls via Bluetooth</translation>
     </message>
-    <message id="settings.wireless.bluetooth_adapter">
+    <message id="settings.bluetooth.adapter">
         <source></source>
         <translation>Bluetooth adapter</translation>
     </message>
-    <message id="settings.wireless.pair_phone_via_bluetooth">
+    <message id="settings.bluetooth.adapter_description">
         <source></source>
         <translation>Pair the phone via Bluetooth through the USB cable (always active with wireless Android Auto).</translation>
     </message>
-    <message id="settings.wireless.none">
+    <message id="settings.bluetooth.adapter_none">
         <source></source>
         <translation>None</translation>
     </message>
-    <message id="settings.wireless.local">
+    <message id="settings.bluetooth.adapter_local">
         <source></source>
         <translation>Local</translation>
     </message>
-    <message id="settings.wireless.adapter_address">
+    <message id="settings.bluetooth.adapter_address">
         <source></source>
         <translation>Adapter address</translation>
     </message>
-    <message id="settings.wireless.mac_address_e_g">
+    <message id="settings.bluetooth.adapter_address_description">
         <source></source>
         <translation>MAC address, e.g. from “bluetoothctl list”. Empty: first adapter.</translation>
+    </message>
+    <message id="settings.network.api">
+        <source></source>
+        <translation>API</translation>
     </message>
     <message id="settings.network.api_port">
         <source></source>
@@ -857,7 +869,7 @@
     </message>
     <message id="settings.system.wifi_card_runs_hotspot">
         <source></source>
-        <translation>The WiFi card runs the hotspot: connect to a WiFi network under Network &amp; API.</translation>
+        <translation>The WiFi card runs the hotspot: connect to a WiFi network under Settings → WiFi.</translation>
     </message>
     <message id="settings.system.about_500_mb_download">
         <source></source>

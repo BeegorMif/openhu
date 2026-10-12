@@ -35,7 +35,9 @@ import json, time
 from websockets.sync.client import connect
 
 with connect("ws://127.0.0.1:5520") as ws:
-    for i, page in enumerate(["settings", "store", "aa", "home"], 1):
+    # every settings category once (one QML file each); missing hardware falls back to General
+    categories = ["general", "aa", "audio", "wifi", "bluetooth", "network", "keys", "system", "info"]
+    for i, page in enumerate([f"settings/{c}" for c in categories] + ["store", "aa", "home"], 1):
         ws.send(json.dumps({"type": "request", "id": i, "method": "ui.navigate", "params": {"page": page}}))
         reply = json.loads(ws.recv(timeout=5))
         if "error" in reply:

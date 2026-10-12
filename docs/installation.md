@@ -112,7 +112,7 @@ Phones need to be accessible for that user (the udev rule allows it).
 
 ## Wireless Android Auto
 
-Switch it on under **Settings → Wireless**, then pair the phone once: **Pair** (OpenHU is visible for
+Switch it on under **Settings → Android Auto → Wireless Android Auto**, then pair the phone once under **Settings → Bluetooth**: **Pair** (OpenHU is visible for
 2 minutes, confirm the code on both sides) or simply plug the phone in once with the cable – OpenHU pairs it over
 Android Auto by itself. Afterwards the phone connects without cable whenever it is in range.
 
@@ -122,7 +122,7 @@ What has to be in place:
 - **NetworkManager** manages the WiFi card (`nmcli device` shows it), the card supports access point mode
   (`iw list` → "Supported interface modes: AP"). WiFi switched off is shown on the settings page with a button
   to switch it on.
-- **Country** set correctly (Settings → Wireless → Country): without it 5 GHz access points are not allowed.
+- **Country** set correctly (Settings → WiFi → Country): without it 5 GHz access points are not allowed.
   If 5 GHz does not work at all, use band "Auto" or "2.4 GHz" – many phones need 5 GHz for Android Auto, though.
 - OpenHU creates the NetworkManager connection `openhu-hotspot` (IPv4 shared, DHCP for the phone) and only
   activates it while wireless Android Auto is on ("On demand": only while a phone needs it).
@@ -131,7 +131,7 @@ With the phone on the cable USB wins by default ("Priority with cable"); unplugg
 
 ## WiFi networks
 
-Under **Settings → Network & API → WiFi networks** OpenHU saves WiFi networks it goes online through (home WiFi in
+Under **Settings → WiFi** OpenHU saves WiFi networks it goes online through (home WiFi in
 the garage, a workshop, a phone's tethering): for online updates of OpenHU OS, remote management (ssh, the API) and
 plugins. They are NetworkManager profiles named `openhu-wifi-<name>`; only these are listed and changed, so in the
 container the host's own networks stay untouched. **Connect to WiFi networks** switches all of it off.
