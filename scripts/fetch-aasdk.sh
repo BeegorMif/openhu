@@ -17,10 +17,12 @@ want="$(sed -nE 's/^set\(OPENHU_AASDK_VERSION ([0-9]+\.[0-9]+)\)/\1/p' "$root/CM
 
 auth=()
 [ -n "${GH_TOKEN:-}" ] && auth=(-H "Authorization: Bearer $GH_TOKEN")
+# GitHub answers 502/503 now and then: try again instead of failing the build
+retry=(--retry 5 --retry-delay 5 --retry-all-errors)
 
 # Line 1: version, then one download URL per package
 mapfile -t release < <(
-  curl -fsSL "${auth[@]}" -H "Accept: application/vnd.github+json" \
+  curl -fsSL "${retry[@]}" "${auth[@]}" -H "Accept: application/vnd.github+json" \
       "https://api.github.com/repos/$repo/releases?per_page=100" |
   python3 -c '
 import json, re, sys
@@ -51,6 +53,6 @@ fi
 
 mkdir -p "$dest"
 for url in "${release[@]:1}"; do
-  curl -fsSL -o "$dest/$(basename "$url")" "$url"
+  curl -fsSL "${retry[@]}" -o "$dest/$(basename "$url")" "$url"
 done
 echo "${release[0]}"
