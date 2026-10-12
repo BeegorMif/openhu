@@ -55,9 +55,9 @@ public:
         core::EventBus::instance().publish("ui.page", {{"page", page}});
     }
 
-    // Requested through the API (ui.navigate, ui.toast), handled in Main.qml.
+    // Requested through the API (ui.navigate, ui.toast) and the settings (errors), handled in Main.qml.
     Q_INVOKABLE void navigate(const QString& page) { emit navigateRequested(page); }
-    void toast(const QString& text, int durationMs) { emit toastRequested(text, durationMs); }
+    Q_INVOKABLE void toast(const QString& text, int durationMs) { emit toastRequested(text, durationMs); }
 
 signals:
     void quitRequested();
