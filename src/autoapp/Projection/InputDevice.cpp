@@ -137,10 +137,13 @@ void InputDevice::handleSurfaceEvent(QEvent* event, const QSizeF& surfaceSize, c
 
 void InputDevice::mapToVideo(const QPointF& pos, uint32_t& x, uint32_t& y) const
 {
+    // The surface shows the content rect of the video (the frame minus the margins announced to the phone).
+    // Touch coordinates are relative to that content: the phone adds the margins itself, adding them here as
+    // well shifted every touch by half the margins (74 px right on a 1280x800 display).
     const double fx = std::clamp(pos.x() / surfaceSize_.width(), 0.0, 1.0);
     const double fy = std::clamp(pos.y() / surfaceSize_.height(), 0.0, 1.0);
-    x = static_cast<uint32_t>(surfaceContentRect_.x() + fx * (surfaceContentRect_.width() - 1));
-    y = static_cast<uint32_t>(surfaceContentRect_.y() + fy * (surfaceContentRect_.height() - 1));
+    x = static_cast<uint32_t>(fx * (surfaceContentRect_.width() - 1));
+    y = static_cast<uint32_t>(fy * (surfaceContentRect_.height() - 1));
 }
 
 void InputDevice::handleMouseEvent(QEvent* event)
