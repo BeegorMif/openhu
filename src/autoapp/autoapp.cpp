@@ -220,16 +220,6 @@ int main(int argc, char* argv[])
     };
     QObject::connect(&shellController, &autoapp::shell::ShellController::quitRequested, shutdown);
 
-    // Qt ends the process with exit() when the display goes away (window closed): hotspot down there too
-    static autoapp::wireless::WirelessController* wirelessAtExit = nullptr;
-    static autoapp::bt::CarAudio* carAudioAtExit = nullptr;
-    wirelessAtExit = &wirelessController;
-    carAudioAtExit = &carAudio;
-    std::atexit([]() {
-        if(carAudioAtExit) carAudioAtExit->stop();
-        if(wirelessAtExit) wirelessAtExit->stop();
-    });
-
     // SIGTERM (systemd, docker stop) and SIGINT: same clean shutdown, handled in the GUI thread
     static int signalPipe[2];
     ::socketpair(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC, 0, signalPipe);
@@ -291,6 +281,26 @@ int main(int argc, char* argv[])
     app->waitForUSBDevice();
     wirelessController.apply();
     carAudio.apply();
+
+    // Qt ends the process with exit() from its event thread when the display goes away (window closed, X11/Wayland
+    // server gone). The hotspot goes down there too, then the process ends without static destructors: the threads
+    // of an Android Auto session still log and crashed in the destroyed boost::log core (SIGSEGV), and QML read
+    // destroyed context objects. Registered last, so it runs before every static destructor; systemd/cage restart
+    // OpenHU.
+    static autoapp::wireless::WirelessController* wirelessAtExit = nullptr;
+    static autoapp::bt::CarAudio* carAudioAtExit = nullptr;
+    wirelessAtExit = &wirelessController;
+    carAudioAtExit = &carAudio;
+    std::atexit([]() {
+        if(wirelessAtExit == nullptr)
+        {
+            return;  // regular end of main()
+        }
+        if(carAudioAtExit) carAudioAtExit->stop();
+        wirelessAtExit->stop();
+        std::fflush(nullptr);
+        std::_Exit(1);
+    });
 
     auto result = application.exec();
     carAudio.stop();
