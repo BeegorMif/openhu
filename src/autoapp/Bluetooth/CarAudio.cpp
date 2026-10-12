@@ -101,7 +101,8 @@ CarAudio::~CarAudio()
 void CarAudio::apply()
 {
     const auto settings = configuration_->getCarAudioSettings();
-    if(!settings.enabled || settings.device.empty())
+    // no adapter (removed, or not there at all): off until one is plugged in (presenceChanged)
+    if(!settings.enabled || settings.device.empty() || !bluetooth_.present())
     {
         this->stop();
         this->publish();

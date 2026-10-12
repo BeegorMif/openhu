@@ -100,6 +100,9 @@ WirelessController::WirelessController(configuration::IConfiguration::Pointer co
         }
         this->endRoom();
     });
+    // an adapter plugged in or removed: wireless Android Auto starts or stops with it
+    connect(&wifi_, &WifiClient::devicesChanged, this, &WirelessController::apply);
+    connect(&bluetooth_, &bt::BluetoothManager::presenceChanged, this, &WirelessController::apply);
     connect(&wifi_, &WifiClient::clientChanged, this, [this](bool connected) {
         if(connected && roomFor_ == "search")
         {
@@ -182,6 +185,23 @@ void WirelessController::apply()
     if(!configuration_->getWirelessProjectionEnabled())
     {
         this->stop();
+        this->publish();  // wifiAvailable/bluetoothAvailable also while off
+        return;
+    }
+    // without the hardware: off without errors (the settings hide it), back when it is plugged in
+    if(!wifi_.ready())
+    {
+        return;  // devicesChanged follows
+    }
+    if(!this->wifiPresent() || !bluetooth_.present())
+    {
+        if(running_)
+        {
+            OPENAUTO_LOG(info) << "[WirelessController] no " << (this->wifiPresent() ? "Bluetooth adapter" : "WiFi card")
+                               << ", wireless Android Auto off";
+        }
+        this->stop();
+        this->publish();
         return;
     }
 
@@ -610,6 +630,11 @@ void WirelessController::enableWifi()
     this->apply();
 }
 
+bool WirelessController::wifiPresent() const
+{
+    return !wifi_.ready() || !wifi_.devices().isEmpty();
+}
+
 bool WirelessController::sharedCard() const
 {
     const auto settings = configuration_->getWirelessSettings();
@@ -756,6 +781,10 @@ QVariantMap WirelessController::state() const
 
     return {
         {"enabled", configuration_->getWirelessProjectionEnabled()},
+        // the hardware wireless Android Auto needs; the settings show only what is there
+        {"wifiAvailable", this->wifiPresent()},
+        {"wifiInterface", hotspot_.interface().isEmpty() ? wifi_.devices().value(0) : hotspot_.interface()},
+        {"bluetoothAvailable", bluetooth_.present()},
         {"running", running_},
         {"hotspot", hotspot_.stateName()},
         {"hotspotMode", this->hotspotOnDemand() ? "demand" : "always"},

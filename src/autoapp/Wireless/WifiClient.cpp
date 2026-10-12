@@ -17,6 +17,7 @@
 
 
 #include <algorithm>
+#include <QDir>
 #include <QStandardPaths>
 #include <f1x/openauto/autoapp/Wireless/WifiClient.hpp>
 #include <f1x/openauto/autoapp/Core/EventBus.hpp>
@@ -105,11 +106,15 @@ WifiClient::WifiClient(const QString& nmcli, QObject* parent)
         QTimer::singleShot(5000, this, &WifiClient::startMonitor);  // NetworkManager restarted
     });
 
+    pollTimer_.start();
     if(nmcliFound_)
     {
         this->startMonitor();
-        pollTimer_.start();
         this->refresh();
+    }
+    else
+    {
+        QTimer::singleShot(0, this, &WifiClient::readSysfs);
     }
 }
 
@@ -133,7 +138,7 @@ void WifiClient::startMonitor()
 
 QVariantMap WifiClient::state() const
 {
-    return {{"available", available_}, {"enabled", enabled_}, {"devices", devices_}, {"client", client_},
+    return {{"available", available_}, {"ready", ready_}, {"enabled", enabled_}, {"devices", devices_}, {"client", client_},
             {"internet", internet_}, {"networks", networks_}, {"found", found_}, {"scanning", scanning_},
             {"busy", busy_}, {"message", message_}, {"hotspotDevice", hotspotDevice_}};
 }
@@ -199,10 +204,40 @@ QStringList WifiClient::splitTerse(const QString& line)
     return fields;
 }
 
+void WifiClient::readSysfs()
+{
+    QStringList devices;
+    const QDir net("/sys/class/net");
+    for(const QString& name: net.entryList(QDir::Dirs | QDir::NoDotAndDotDot))
+    {
+        if(QDir(net.filePath(name + "/wireless")).exists())
+        {
+            devices << name;
+        }
+    }
+    this->setDevices(devices);
+}
+
+void WifiClient::setDevices(const QStringList& devices)
+{
+    const bool changed = !ready_ || devices != devices_;
+    devices_ = devices;
+    available_ = !devices.isEmpty();
+    ready_ = true;
+    if(changed)
+    {
+        OPENAUTO_LOG(info) << "[WifiClient] WiFi cards: "
+                           << (devices.isEmpty() ? std::string("none") : devices.join(", ").toStdString());
+        this->publish();
+        emit devicesChanged();
+    }
+}
+
 void WifiClient::refresh()
 {
     if(!nmcliFound_)
     {
+        this->readSysfs();
         return;
     }
     if(refreshing_)
@@ -282,7 +317,7 @@ void WifiClient::parseState(const QString& output)
     }
 
     const bool changed = client != client_ || networks != networks_ || internet != internet_
-                         || hotspotDevice != hotspotDevice_ || devices != devices_;
+                         || hotspotDevice != hotspotDevice_;
     const bool joinedOrLeft = client.isEmpty() != client_.isEmpty();
     if(client.value("ssid") != client_.value("ssid"))
     {
@@ -295,8 +330,7 @@ void WifiClient::parseState(const QString& output)
     networks_ = networks;
     internet_ = internet;
     hotspotDevice_ = hotspotDevice;
-    devices_ = devices;
-    available_ = !devices.isEmpty();
+    this->setDevices(devices);
     if(joinedOrLeft)
     {
         emit clientChanged(!client_.isEmpty());

@@ -8,9 +8,11 @@ Column {
     id: networks
     width: parent ? parent.width : 0
     spacing: Theme.spacing / 2
-    visible: !!wifi.state.available
+    // once the cards are known: the settings, or why there are none
+    visible: !!wifi.state.ready
 
-    readonly property bool clientOn: !!settings.values["wireless.client"]
+    readonly property bool hasCard: !!wifi.state.available
+    readonly property bool clientOn: hasCard && !!settings.values["wireless.client"]
     readonly property var client: wifi.state.client || {}
     readonly property string room: wireless.state.hotspotRoom || ""
     readonly property bool hotspotOnCard: !!wifi.state.hotspotDevice
@@ -69,7 +71,14 @@ Column {
 
     SectionTitle { text: qsTr("WiFi networks") }
 
+    SettingRow {
+        visible: !networks.hasCard
+        title: qsTr("Connect to WiFi networks")
+        description: qsTr("No WiFi adapter found.")
+    }
+
     SettingSwitch {
+        visible: networks.hasCard
         title: qsTr("Connect to WiFi networks")
         description: qsTr("OpenHU goes online through saved WiFi networks (home, workshop, a phone's hotspot) for updates, remote access and plugins, whenever the hotspot does not need the WiFi card.")
         key: "wireless.client"

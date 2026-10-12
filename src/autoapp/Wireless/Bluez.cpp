@@ -17,6 +17,7 @@
 
 #include <unistd.h>
 #include <QDBusConnection>
+#include <QDBusConnectionInterface>
 #include <QDBusMetaType>
 #include <QDBusPendingCallWatcher>
 #include <QDBusReply>
@@ -47,6 +48,12 @@ void registerTypes()
 
 BluezObjects managedObjects()
 {
+    // without an adapter bluetoothd does not run; a call would start it through D-Bus and wait for the timeout
+    QDBusConnectionInterface* bus = QDBusConnection::systemBus().interface();
+    if(bus == nullptr || !bus->isServiceRegistered(cService).value())
+    {
+        return {};
+    }
     QDBusMessage message = QDBusMessage::createMethodCall(cService, "/", "org.freedesktop.DBus.ObjectManager",
                                                           "GetManagedObjects");
     QDBusReply<BluezObjects> reply = QDBusConnection::systemBus().call(message, QDBus::Block, 5000);

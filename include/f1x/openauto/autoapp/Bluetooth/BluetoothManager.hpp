@@ -52,6 +52,8 @@ public:
 
     // Finds the adapter (configured address or the first one) and switches it on. False with error() set.
     bool ensureAdapter();
+    // BlueZ has an adapter (also before ensureAdapter, follows adapters plugged in and removed)
+    bool present() const { return present_; }
     QString adapterPath() const;
     QStringList adapterUuids() const;
     QString error() const;
@@ -83,13 +85,18 @@ signals:
     // pairing finished (also pairings confirmed in the shell)
     void devicePaired(const QString& address);
     void deviceRemoved(const QString& address);
+    // an adapter came or went (present())
+    void presenceChanged(bool present);
 
 private slots:
     // BlueZ object/property changes (connected by name, needs a slot)
     void onBluezSignal();
+    // objects added or removed: maybe an adapter
+    void onBluezObjects();
 
 private:
     void refresh();
+    void checkPresence();
     void updateAgent();
     void continuePairWith();
     void onConfirmation(const QString& device, const QString& passkey);
@@ -120,6 +127,8 @@ private:
     QTimer searchTimer_;
 
     QTimer refreshTimer_;
+    QTimer presenceTimer_;
+    bool present_ = false;
     QVariantList devices_;
     QVariantList discovered_;
     QSet<QString> paired_;

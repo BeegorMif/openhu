@@ -9,16 +9,19 @@ Item {
     id: page
 
     property string category: "general"
+    // the hardware: settings for WiFi and Bluetooth only when there is an adapter (also plugged in later)
+    readonly property bool hasWifi: wireless.state.wifiAvailable !== false
+    readonly property bool hasBluetooth: !!bluetooth.state.available
 
     readonly property var categories: [
         { id: "general", label: qsTr("General") },
         { id: "aa", label: "Android Auto" },
         { id: "audio", label: qsTr("Audio") },
-        { id: "bluetooth", label: qsTr("Wireless") },
+    ].concat(hasWifi || hasBluetooth ? [{ id: "bluetooth", label: qsTr("Wireless") }] : [], [
         { id: "keys", label: qsTr("Keys") },
         { id: "apps", label: qsTr("Apps & Store") },
         { id: "network", label: qsTr("Network & API") }
-    ].concat(system.available ? [{ id: "system", label: qsTr("System") }] : [], [{ id: "info", label: qsTr("Info") }])
+    ]).concat(system.available ? [{ id: "system", label: qsTr("System") }] : [], [{ id: "info", label: qsTr("Info") }])
 
     // A new Android Auto connection applies the pending changes
     Connections {
@@ -270,6 +273,7 @@ Item {
 
             SectionTitle { text: qsTr("Connection") }
             SettingRow {
+                visible: page.hasWifi && page.hasBluetooth
                 title: qsTr("Wireless (WiFi)")
                 description: settings.values["aa.wireless"] ? qsTr("On") : qsTr("Off")
                 Button {
@@ -318,59 +322,64 @@ Item {
                 options: [{ value: "rtaudio", label: "RtAudio" }, { value: "qt", label: "Qt Multimedia" }]
             }
 
-            SectionTitle { text: qsTr("Car radio (Bluetooth)") }
-            SettingSwitch {
-                title: qsTr("Sound to the car radio")
-                description: carAudio.state.device
-                             ? carAudio.state.status
-                             : qsTr("Sound via Bluetooth to the radio; its buttons control Android Auto (during calls: answer/hang up), its display shows the title. Search for a radio first.")
-                key: "carAudio.enabled"
-            }
-            SettingRow {
-                visible: !!carAudio.state.device
-                title: carAudio.state.name || carAudio.state.device
-                description: carAudio.state.device + (carAudio.state.connected ? " · " + qsTr("connected") : "")
-                Button {
-                    text: qsTr("Remove")
-                    onClicked: {
-                        carAudio.forgetDevice()
-                        settings.refresh()
-                    }
-                }
-            }
-            SettingRow {
-                title: bluetooth.state.searching ? qsTr("Searching …") : carAudio.state.device ? qsTr("Other radio") : qsTr("Search for a radio")
-                description: qsTr("Put the radio into pairing mode (Bluetooth menu of the radio), then search.")
-                Button {
-                    text: bluetooth.state.searching ? qsTr("Stop") : qsTr("Search")
-                    highlighted: !bluetooth.state.searching && !carAudio.state.device
-                    onClicked: bluetooth.state.searching ? bluetooth.stopSearch() : bluetooth.startSearch(30)
-                }
-            }
-            Repeater {
-                // audio devices: found by the search, or paired already (not the current radio, not phones)
-                model: {
-                    const audio = d => (d.icon || "").startsWith("audio") || (d.uuids || []).indexOf("0000110b-0000-1000-8000-00805f9b34fb") >= 0
-                    const current = (carAudio.state.device || "").toUpperCase()
-                    return bluetooth.discovered.concat(bluetooth.devices)
-                        .filter(d => audio(d) && d.address.toUpperCase() !== current)
+            Column {
+                width: parent.width
+                spacing: Theme.spacing / 2
+                visible: page.hasBluetooth
+                SectionTitle { text: qsTr("Car radio (Bluetooth)") }
+                SettingSwitch {
+                    title: qsTr("Sound to the car radio")
+                    description: carAudio.state.device
+                                 ? carAudio.state.status
+                                 : qsTr("Sound via Bluetooth to the radio; its buttons control Android Auto (during calls: answer/hang up), its display shows the title. Search for a radio first.")
+                    key: "carAudio.enabled"
                 }
                 SettingRow {
-                    title: modelData.name
-                    description: modelData.address + (bluetooth.state.pairingWith === modelData.address.toUpperCase() ? " · " + qsTr("pairing …") : "")
+                    visible: !!carAudio.state.device
+                    title: carAudio.state.name || carAudio.state.device
+                    description: carAudio.state.device + (carAudio.state.connected ? " · " + qsTr("connected") : "")
                     Button {
-                        text: qsTr("Use")
-                        // selecting ends the search, which rebuilds this list (and destroys this button)
-                        onClicked: carAudio.selectDevice(modelData.address)
+                        text: qsTr("Remove")
+                        onClicked: {
+                            carAudio.forgetDevice()
+                            settings.refresh()
+                        }
                     }
                 }
-            }
-            SettingText {
-                title: qsTr("Pairing PIN")
-                description: qsTr("Only for older radios that ask for a PIN instead of confirming a code.")
-                key: "carAudio.pin"
-                inputHints: Qt.ImhDigitsOnly
-                placeholder: "0000"
+                SettingRow {
+                    title: bluetooth.state.searching ? qsTr("Searching …") : carAudio.state.device ? qsTr("Other radio") : qsTr("Search for a radio")
+                    description: qsTr("Put the radio into pairing mode (Bluetooth menu of the radio), then search.")
+                    Button {
+                        text: bluetooth.state.searching ? qsTr("Stop") : qsTr("Search")
+                        highlighted: !bluetooth.state.searching && !carAudio.state.device
+                        onClicked: bluetooth.state.searching ? bluetooth.stopSearch() : bluetooth.startSearch(30)
+                    }
+                }
+                Repeater {
+                    // audio devices: found by the search, or paired already (not the current radio, not phones)
+                    model: {
+                        const audio = d => (d.icon || "").startsWith("audio") || (d.uuids || []).indexOf("0000110b-0000-1000-8000-00805f9b34fb") >= 0
+                        const current = (carAudio.state.device || "").toUpperCase()
+                        return bluetooth.discovered.concat(bluetooth.devices)
+                            .filter(d => audio(d) && d.address.toUpperCase() !== current)
+                    }
+                    SettingRow {
+                        title: modelData.name
+                        description: modelData.address + (bluetooth.state.pairingWith === modelData.address.toUpperCase() ? " · " + qsTr("pairing …") : "")
+                        Button {
+                            text: qsTr("Use")
+                            // selecting ends the search, which rebuilds this list (and destroys this button)
+                            onClicked: carAudio.selectDevice(modelData.address)
+                        }
+                    }
+                }
+                SettingText {
+                    title: qsTr("Pairing PIN")
+                    description: qsTr("Only for older radios that ask for a PIN instead of confirming a code.")
+                    key: "carAudio.pin"
+                    inputHints: Qt.ImhDigitsOnly
+                    placeholder: "0000"
+                }
             }
         }
     }
@@ -392,158 +401,174 @@ Item {
     Component {
         id: wirelessCategory
         Section {
-            SettingSwitch {
+            // instead of settings that cannot work: which adapter is missing
+            SettingRow {
+                visible: !page.hasWifi || !page.hasBluetooth
                 title: qsTr("Wireless Android Auto")
-                description: qsTr("The phone is paired once via Bluetooth and then connects automatically through the WiFi hotspot of OpenHU.")
-                key: "aa.wireless"
+                description: (!page.hasWifi ? qsTr("No WiFi adapter found.") + " " : "")
+                             + (!page.hasBluetooth ? qsTr("No Bluetooth adapter found.") + " " : "")
+                             + qsTr("Wireless Android Auto needs both.")
             }
-            SettingRow {
-                visible: wireless.state.running
-                title: qsTr("Status")
-                description: page.wirelessStatus(wireless.state)
-                Button {
-                    visible: !!wireless.state.wifiOff
-                    text: qsTr("Switch WiFi on")
-                    onClicked: wireless.enableWifi()
+            Column {
+                width: parent.width
+                spacing: Theme.spacing / 2
+                visible: page.hasWifi && page.hasBluetooth
+                SettingSwitch {
+                    title: qsTr("Wireless Android Auto")
+                    description: qsTr("The phone is paired once via Bluetooth and then connects automatically through the WiFi hotspot of OpenHU.")
+                    key: "aa.wireless"
                 }
-            }
-
-            SectionTitle {
-                visible: settings.values["aa.wireless"] && wireless.state.bluetooth !== "error"
-                text: qsTr("Phones")
-            }
-            SettingRow {
-                visible: settings.values["aa.wireless"] && wireless.state.bluetooth !== "error"
-                title: bluetooth.state.pairing ? qsTr("Visible as “%1”").arg(bluetooth.state.adapter) : qsTr("Pair a new phone")
-                description: bluetooth.state.pairing
-                             ? qsTr("On the phone, choose “%1” under Bluetooth and confirm the code here.").arg(bluetooth.state.adapter)
-                             : qsTr("OpenHU is then visible to phones for 2 minutes.")
-                Button {
-                    text: bluetooth.state.pairing ? qsTr("Cancel") : qsTr("Pair")
-                    highlighted: !bluetooth.state.pairing
-                    onClicked: {
-                        if (bluetooth.state.pairing) {
-                            bluetooth.setPairing(false)
-                        } else {
-                            wireless.pair()
-                            settings.refresh()
-                        }
-                    }
-                }
-            }
-            Repeater {
-                model: wireless.state.running ? bluetooth.devices.filter(d => d.icon === "phone") : []
                 SettingRow {
-                    title: modelData.name
-                    description: modelData.address + (modelData.connected ? " · " + qsTr("connected") : "")
-                    Row {
-                        spacing: Theme.spacing / 3
-                        Button {
-                            text: qsTr("Connect")
-                            onClicked: wireless.connectDevice(modelData.address)
-                        }
-                        Button {
-                            text: qsTr("Remove")
-                            onClicked: bluetooth.removeDevice(modelData.address)
+                    visible: wireless.state.running
+                    title: qsTr("Status")
+                    description: page.wirelessStatus(wireless.state)
+                    Button {
+                        visible: !!wireless.state.wifiOff
+                        text: qsTr("Switch WiFi on")
+                        onClicked: wireless.enableWifi()
+                    }
+                }
+
+                SectionTitle {
+                    visible: settings.values["aa.wireless"] && wireless.state.bluetooth !== "error"
+                    text: qsTr("Phones")
+                }
+                SettingRow {
+                    visible: settings.values["aa.wireless"] && wireless.state.bluetooth !== "error"
+                    title: bluetooth.state.pairing ? qsTr("Visible as “%1”").arg(bluetooth.state.adapter) : qsTr("Pair a new phone")
+                    description: bluetooth.state.pairing
+                                 ? qsTr("On the phone, choose “%1” under Bluetooth and confirm the code here.").arg(bluetooth.state.adapter)
+                                 : qsTr("OpenHU is then visible to phones for 2 minutes.")
+                    Button {
+                        text: bluetooth.state.pairing ? qsTr("Cancel") : qsTr("Pair")
+                        highlighted: !bluetooth.state.pairing
+                        onClicked: {
+                            if (bluetooth.state.pairing) {
+                                bluetooth.setPairing(false)
+                            } else {
+                                wireless.pair()
+                                settings.refresh()
+                            }
                         }
                     }
                 }
-            }
+                Repeater {
+                    model: wireless.state.running ? bluetooth.devices.filter(d => d.icon === "phone") : []
+                    SettingRow {
+                        title: modelData.name
+                        description: modelData.address + (modelData.connected ? " · " + qsTr("connected") : "")
+                        Row {
+                            spacing: Theme.spacing / 3
+                            Button {
+                                text: qsTr("Connect")
+                                onClicked: wireless.connectDevice(modelData.address)
+                            }
+                            Button {
+                                text: qsTr("Remove")
+                                onClicked: bluetooth.removeDevice(modelData.address)
+                            }
+                        }
+                    }
+                }
 
-            SettingChoice {
-                title: qsTr("Priority with cable")
-                description: settings.values["wireless.priority"] === "wifi"
-                             ? qsTr("The phone may connect wirelessly also with a cable (the cable only charges then).")
-                             : qsTr("With a cable Android Auto runs over USB (more stable, charges). Wireless takes over after unplugging.")
-                key: "wireless.priority"
-                options: [{ value: "usb", label: "USB" }, { value: "wifi", label: qsTr("WiFi") }]
-            }
+                SettingChoice {
+                    title: qsTr("Priority with cable")
+                    description: settings.values["wireless.priority"] === "wifi"
+                                 ? qsTr("The phone may connect wirelessly also with a cable (the cable only charges then).")
+                                 : qsTr("With a cable Android Auto runs over USB (more stable, charges). Wireless takes over after unplugging.")
+                    key: "wireless.priority"
+                    options: [{ value: "usb", label: "USB" }, { value: "wifi", label: qsTr("WiFi") }]
+                }
 
-            SectionTitle { text: qsTr("WiFi hotspot") }
-            SettingChoice {
-                title: qsTr("Hotspot")
-                description: settings.values["wireless.hotspot"] === "demand"
-                             ? qsTr("Starts only when a paired phone shows up (a few seconds longer) and goes off after 2 minutes without a wireless session.")
-                             : qsTr("Runs all the time while wireless Android Auto is on (fastest connection).")
-                key: "wireless.hotspot"
-                options: [{ value: "always", label: qsTr("Always on") }, { value: "demand", label: qsTr("On demand") }]
-            }
-            SettingText {
-                title: qsTr("Name (SSID)")
-                description: qsTr("Leave empty for “%1”.").arg(wireless.state.ssid)
-                key: "wireless.ssid"
-                placeholder: wireless.state.ssid
-            }
-            SettingText {
-                title: qsTr("Password")
-                description: qsTr("Never needs to be typed in: the phone gets it via Bluetooth.")
-                key: "wireless.password"
-                inputHints: Qt.ImhSensitiveData | Qt.ImhNoPredictiveText | Qt.ImhNoAutoUppercase
-            }
-            SettingChoice {
-                title: qsTr("Frequency band")
-                description: qsTr("Android Auto runs best with 5 GHz. “Auto” takes 5 GHz and falls back to 2.4 GHz when 5 GHz does not start. A WiFi card cannot do both at once.")
-                             + (wireless.state.channel > 0 ? " " + qsTr("Currently channel %1.").arg(wireless.state.channel) : "")
-                key: "wireless.band"
-                options: [{ value: "auto", label: qsTr("Auto") }, { value: "5", label: "5 GHz" }, { value: "2.4", label: qsTr("2.4 GHz") }]
-            }
-            SettingText {
-                title: qsTr("Country")
-                description: qsTr("Sets the allowed WiFi channels (needed for 5 GHz).")
-                key: "wireless.country"
-                inputHints: Qt.ImhUppercaseOnly | Qt.ImhNoPredictiveText
-                placeholder: "DE"
-            }
-            SettingRow {
-                id: advancedRow
-                property bool open: false
-                title: qsTr("Advanced settings")
-                description: qsTr("Channel, address, DHCP range")
-                Button {
-                    text: advancedRow.open ? qsTr("Hide") : qsTr("Show")
-                    onClicked: advancedRow.open = !advancedRow.open
+                SectionTitle { text: qsTr("WiFi hotspot") }
+                SettingChoice {
+                    title: qsTr("Hotspot")
+                    description: settings.values["wireless.hotspot"] === "demand"
+                                 ? qsTr("Starts only when a paired phone shows up (a few seconds longer) and goes off after 2 minutes without a wireless session.")
+                                 : qsTr("Runs all the time while wireless Android Auto is on (fastest connection).")
+                    key: "wireless.hotspot"
+                    options: [{ value: "always", label: qsTr("Always on") }, { value: "demand", label: qsTr("On demand") }]
+                }
+                SettingText {
+                    title: qsTr("Name (SSID)")
+                    description: qsTr("Leave empty for “%1”.").arg(wireless.state.ssid)
+                    key: "wireless.ssid"
+                    placeholder: wireless.state.ssid
+                }
+                SettingText {
+                    title: qsTr("Password")
+                    description: qsTr("Never needs to be typed in: the phone gets it via Bluetooth.")
+                    key: "wireless.password"
+                    inputHints: Qt.ImhSensitiveData | Qt.ImhNoPredictiveText | Qt.ImhNoAutoUppercase
+                }
+                SettingChoice {
+                    title: qsTr("Frequency band")
+                    description: qsTr("Android Auto runs best with 5 GHz. “Auto” takes 5 GHz and falls back to 2.4 GHz when 5 GHz does not start. A WiFi card cannot do both at once.")
+                                 + (wireless.state.channel > 0 ? " " + qsTr("Currently channel %1.").arg(wireless.state.channel) : "")
+                    key: "wireless.band"
+                    options: [{ value: "auto", label: qsTr("Auto") }, { value: "5", label: "5 GHz" }, { value: "2.4", label: qsTr("2.4 GHz") }]
+                }
+                SettingText {
+                    title: qsTr("Country")
+                    description: qsTr("Sets the allowed WiFi channels (needed for 5 GHz).")
+                    key: "wireless.country"
+                    inputHints: Qt.ImhUppercaseOnly | Qt.ImhNoPredictiveText
+                    placeholder: "DE"
+                }
+                SettingRow {
+                    id: advancedRow
+                    property bool open: false
+                    title: qsTr("Advanced settings")
+                    description: qsTr("Channel, address, DHCP range")
+                    Button {
+                        text: advancedRow.open ? qsTr("Hide") : qsTr("Show")
+                        onClicked: advancedRow.open = !advancedRow.open
+                    }
+                }
+                SettingText {
+                    visible: advancedRow.open
+                    title: qsTr("Channel")
+                    description: settings.values["wireless.band"] === "auto"
+                                 ? qsTr("With “Auto” OpenHU chooses by itself (36 or 6). Choose a fixed band for a fixed channel.")
+                                 : qsTr("Empty = default (%1). 5 GHz: 36–48 without radar detection.").arg(settings.values["wireless.band"] === "2.4" ? "6" : "36")
+                    key: "wireless.channel"
+                    placeholder: qsTr("automatic")
+                }
+                SettingText {
+                    visible: advancedRow.open
+                    title: qsTr("Address (gateway)")
+                    description: qsTr("OpenHU in the hotspot network, with netmask. The phone uses it as gateway and DNS.")
+                    key: "wireless.address"
+                    inputHints: Qt.ImhPreferNumbers | Qt.ImhNoPredictiveText
+                    placeholder: "10.42.0.1/24"
+                }
+                SettingText {
+                    visible: advancedRow.open
+                    title: qsTr("DHCP range")
+                    description: qsTr("Empty = automatic.")
+                    key: "wireless.dhcpRange"
+                    inputHints: Qt.ImhPreferNumbers | Qt.ImhNoPredictiveText
+                    placeholder: "10.42.0.10-10.42.0.254"
                 }
             }
-            SettingText {
-                visible: advancedRow.open
-                title: qsTr("Channel")
-                description: settings.values["wireless.band"] === "auto"
-                             ? qsTr("With “Auto” OpenHU chooses by itself (36 or 6). Choose a fixed band for a fixed channel.")
-                             : qsTr("Empty = default (%1). 5 GHz: 36–48 without radar detection.").arg(settings.values["wireless.band"] === "2.4" ? "6" : "36")
-                key: "wireless.channel"
-                placeholder: qsTr("automatic")
-            }
-            SettingText {
-                visible: advancedRow.open
-                title: qsTr("Address (gateway)")
-                description: qsTr("OpenHU in the hotspot network, with netmask. The phone uses it as gateway and DNS.")
-                key: "wireless.address"
-                inputHints: Qt.ImhPreferNumbers | Qt.ImhNoPredictiveText
-                placeholder: "10.42.0.1/24"
-            }
-            SettingText {
-                visible: advancedRow.open
-                title: qsTr("DHCP range")
-                description: qsTr("Empty = automatic.")
-                key: "wireless.dhcpRange"
-                inputHints: Qt.ImhPreferNumbers | Qt.ImhNoPredictiveText
-                placeholder: "10.42.0.10-10.42.0.254"
-            }
-
-
-            SectionTitle { text: qsTr("Phone calls via Bluetooth") }
-            SettingChoice {
-                title: qsTr("Bluetooth adapter")
-                description: qsTr("Pair the phone via Bluetooth through the USB cable (always active with wireless Android Auto).")
-                key: "bluetooth.adapter"
-                options: [{ value: "none", label: qsTr("None") }, { value: "local", label: qsTr("Local") }]
-            }
-            SettingText {
-                visible: settings.values["bluetooth.adapter"] === "local"
-                title: qsTr("Adapter address")
-                description: qsTr("MAC address, e.g. from “bluetoothctl list”. Empty: first adapter.")
-                key: "bluetooth.address"
-                placeholder: "00:11:22:33:44:55"
+            Column {
+                width: parent.width
+                spacing: Theme.spacing / 2
+                visible: page.hasBluetooth
+                SectionTitle { text: qsTr("Phone calls via Bluetooth") }
+                SettingChoice {
+                    title: qsTr("Bluetooth adapter")
+                    description: qsTr("Pair the phone via Bluetooth through the USB cable (always active with wireless Android Auto).")
+                    key: "bluetooth.adapter"
+                    options: [{ value: "none", label: qsTr("None") }, { value: "local", label: qsTr("Local") }]
+                }
+                SettingText {
+                    visible: settings.values["bluetooth.adapter"] === "local"
+                    title: qsTr("Adapter address")
+                    description: qsTr("MAC address, e.g. from “bluetoothctl list”. Empty: first adapter.")
+                    key: "bluetooth.address"
+                    placeholder: "00:11:22:33:44:55"
+                }
             }
         }
     }
@@ -628,6 +653,14 @@ Item {
                     text: qsTr("Quit")
                     onClicked: shell.quit()
                 }
+            }
+            // why some settings are missing
+            SettingRow {
+                visible: !page.hasWifi || !page.hasBluetooth
+                title: qsTr("Hardware")
+                description: [!page.hasWifi ? qsTr("No WiFi card found: wireless Android Auto and WiFi networks are not available.") : "",
+                              !page.hasBluetooth ? qsTr("No Bluetooth adapter found: wireless Android Auto, the car radio and phone calls via Bluetooth are not available.") : ""]
+                             .filter(line => line).join(" ")
             }
             Text {
                 width: parent ? parent.width : 0

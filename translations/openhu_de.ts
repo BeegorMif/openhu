@@ -444,6 +444,18 @@
         <translation>Kabelloses Android Auto</translation>
     </message>
     <message>
+        <source>No WiFi adapter found.</source>
+        <translation>Kein WLAN-Adapter gefunden.</translation>
+    </message>
+    <message>
+        <source>No Bluetooth adapter found.</source>
+        <translation>Kein Bluetooth-Adapter gefunden.</translation>
+    </message>
+    <message>
+        <source>Wireless Android Auto needs both.</source>
+        <translation>Kabelloses Android Auto braucht beides.</translation>
+    </message>
+    <message>
         <source>The phone is paired once via Bluetooth and then connects automatically through the WiFi hotspot of OpenHU.</source>
         <translation>Das Telefon wird einmal per Bluetooth gekoppelt und verbindet sich danach automatisch über den WLAN-Hotspot von OpenHU.</translation>
     </message>
@@ -702,6 +714,18 @@
     <message>
         <source>Quit</source>
         <translation>Beenden</translation>
+    </message>
+    <message>
+        <source>Hardware</source>
+        <translation>Hardware</translation>
+    </message>
+    <message>
+        <source>No WiFi card found: wireless Android Auto and WiFi networks are not available.</source>
+        <translation>Keine WLAN-Karte erkannt: kabelloses Android Auto und WLANs stehen nicht zur Verfügung.</translation>
+    </message>
+    <message>
+        <source>No Bluetooth adapter found: wireless Android Auto, the car radio and phone calls via Bluetooth are not available.</source>
+        <translation>Kein Bluetooth-Adapter erkannt: kabelloses Android Auto, das Autoradio und Telefonate über Bluetooth stehen nicht zur Verfügung.</translation>
     </message>
     <message>
         <source>Based on OpenAuto (f1x.studio, OpenCarDev) and aasdk. License: GPL-3.0.</source>
@@ -1142,6 +1166,10 @@
     <message>
         <source>Connect to WiFi networks</source>
         <translation>Mit WLANs verbinden</translation>
+    </message>
+    <message>
+        <source>No WiFi adapter found.</source>
+        <translation>Kein WLAN-Adapter gefunden.</translation>
     </message>
     <message>
         <source>OpenHU goes online through saved WiFi networks (home, workshop, a phone&apos;s hotspot) for updates, remote access and plugins, whenever the hotspot does not need the WiFi card.</source>

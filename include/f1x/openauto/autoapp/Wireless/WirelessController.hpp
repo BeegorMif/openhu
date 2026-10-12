@@ -106,6 +106,8 @@ private:
     void publish();
     // the hotspot and the WiFi client would need the same card
     bool sharedCard() const;
+    // wireless Android Auto needs a WiFi card and a Bluetooth adapter (until the cards are known: assumed there)
+    bool wifiPresent() const;
     // the hotspot leaves the card to the client ("search" or "client"); empty when the card is free
     QString makeRoom(const QString& reason);
     // the hotspot back (the client left, the search is over, a phone asks)

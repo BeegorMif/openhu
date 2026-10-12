@@ -276,6 +276,9 @@ int main(int argc, char* argv[])
                      &wirelessController, &autoapp::wireless::WirelessController::apply);
     QObject::connect(&settingsController, &autoapp::shell::SettingsController::carAudioChanged,
                      &carAudio, &autoapp::bt::CarAudio::apply);
+    // a Bluetooth adapter plugged in later: the car radio connects then
+    QObject::connect(&bluetoothManager, &autoapp::bt::BluetoothManager::presenceChanged, &carAudio,
+                     &autoapp::bt::CarAudio::apply);
     // selecting or forgetting a radio switches car audio on/off
     QObject::connect(&carAudio, &autoapp::bt::CarAudio::changed, &settingsController,
                      &autoapp::shell::SettingsController::refresh);

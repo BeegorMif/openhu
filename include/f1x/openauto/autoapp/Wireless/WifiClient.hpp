@@ -40,7 +40,7 @@ namespace f1x::openauto::autoapp::wireless
 class WifiClient: public QObject
 {
     Q_OBJECT
-    // available (NetworkManager with a WiFi card), enabled, devices (WiFi cards), client {uuid, ssid, ip, device}
+    // available (a WiFi card), ready (the cards are known), enabled, devices (WiFi cards), client {uuid, ssid, ip, device}
     // while connected, internet, networks [{uuid, ssid, priority, secured, hidden, active, joined}] (highest
     // priority first; joined: connected at least once), found [{ssid, signal, security, secured, known}] after a
     // search, scanning, busy, message (what happened last), hotspotDevice (the card of OpenHU's hotspot)
@@ -54,6 +54,8 @@ public:
 
     QVariantMap state() const;
     bool enabled() const { return enabled_; }
+    // the WiFi cards are known (after the first look); devices() empty then means none
+    bool ready() const { return ready_; }
     QStringList devices() const { return devices_; }
     bool connected() const { return !client_.isEmpty(); }
     QString hotspotDevice() const { return hotspotDevice_; }
@@ -82,6 +84,8 @@ signals:
     void changed();
     // joined or left a WiFi network
     void clientChanged(bool connected);
+    // WiFi cards came or went (also the first time they are known)
+    void devicesChanged();
     // shown as a toast
     void error(const QString& message);
 
@@ -97,6 +101,9 @@ private:
     // autoconnect and card of the profiles as configured; false when they are right already
     bool syncProfiles();
     void startMonitor();
+    // without NetworkManager: the cards from /sys/class/net/*/wireless
+    void readSysfs();
+    void setDevices(const QStringList& devices);
     void publish();
 
     QString nmcli_;
@@ -109,6 +116,7 @@ private:
     QString hotspotDevice_;
     // nmcli there at all; available_: and a WiFi card
     bool nmcliFound_ = false;
+    bool ready_ = false;
     bool available_ = false;
     bool internet_ = false;
     bool scanning_ = false;

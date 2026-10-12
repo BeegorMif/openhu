@@ -17,7 +17,7 @@ echo "$*" >> "$FAKE_NM/calls"
 case "$*" in
     "monitor") exec sleep 600 ;;
     "-t -f CONNECTIVITY general") echo full ;;
-    "-t -f DEVICE,TYPE device") printf 'wlan0:wifi\neth0:ethernet\n' ;;
+    "-t -f DEVICE,TYPE device") if [ -n "$FAKE_NO_WIFI" ]; then echo eth0:ethernet; else printf 'wlan0:wifi\neth0:ethernet\n'; fi ;;
     "-t -f UUID,TYPE,DEVICE,STATE,NAME connection show --active") echo "u1:802-11-wireless:wlan0:activated:openhu-wifi-Gar\:age" ;;
     "-g 802-11-wireless.mode connection show u1") echo infrastructure ;;
     "-t -m multiline -f 802-11-wireless.ssid connection show u1") echo '802-11-wireless.ssid:Gar\:age' ;;
@@ -52,6 +52,20 @@ private slots:
         script.close();
         script.setPermissions(QFile::ReadOwner | QFile::WriteOwner | QFile::ExeOwner);
         qputenv("FAKE_NM", dir_.path().toLocal8Bit());
+        qunsetenv("FAKE_NO_WIFI");
+    }
+
+    // a device without WiFi (a PC, a VM): known as such, the settings show why WiFi is missing
+    void noWifiCard()
+    {
+        qputenv("FAKE_NO_WIFI", "1");
+        WifiClient wifi(dir_.filePath("nmcli"));
+        QSignalSpy devices(&wifi, &WifiClient::devicesChanged);
+        QVERIFY(!wifi.ready());
+        QTRY_VERIFY(wifi.ready());
+        QVERIFY(wifi.devices().isEmpty());
+        QVERIFY(!wifi.state().value("available").toBool());
+        QCOMPARE(devices.count(), 1);
     }
 
     void terse()
