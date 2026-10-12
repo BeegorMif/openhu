@@ -33,12 +33,22 @@ namespace shell
 class ShellController: public QObject
 {
     Q_OBJECT
+    // Version of OpenHU OS (IMAGE_VERSION) when OpenHU runs on it, otherwise empty. There the settings restart and
+    // power off the device instead of only OpenHU (systemd starts OpenHU again right after it quits).
+    Q_PROPERTY(QString osVersion READ osVersion CONSTANT)
 
 public:
     using QObject::QObject;
 
     Q_INVOKABLE void quit() { emit quitRequested(); }
     Q_INVOKABLE void restart() { emit restartRequested(); }
+    // The whole device, through logind (OpenHU OS allows it the openhu user); OpenHU ends on its SIGTERM
+    Q_INVOKABLE void reboot();
+    Q_INVOKABLE void powerOff();
+
+    QString osVersion() const { return osVersion_; }
+    // IMAGE_VERSION of an os-release file with IMAGE_ID=openhu-os, otherwise empty
+    static QString readOsVersion(const QString& path = QStringLiteral("/usr/lib/os-release"));
     // Main.qml reports page changes -> "ui.page" {page}
     Q_INVOKABLE void setCurrentPage(const QString& page)
     {
@@ -54,6 +64,11 @@ signals:
     void restartRequested();
     void navigateRequested(const QString& page);
     void toastRequested(const QString& text, int durationMs);
+
+private:
+    void callLogind(const char* method);
+
+    QString osVersion_ = readOsVersion();
 };
 
 }

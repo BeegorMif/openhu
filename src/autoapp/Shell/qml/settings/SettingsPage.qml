@@ -587,18 +587,35 @@ Item {
                 title: "Daten, Plugins und Logs"
                 description: settings.info.dataDir
             }
+            // On OpenHU OS the whole device: systemd would start OpenHU again right after it quits
             SettingRow {
-                title: "OpenHU neu starten"
-                Button {
-                    text: "Neu starten"
-                    onClicked: shell.restart()
+                title: shell.osVersion !== "" ? "Neu starten" : "OpenHU neu starten"
+                description: shell.osVersion !== "" ? "Startet das Gerät neu" : ""
+                ConfirmButton {
+                    label: "Neu starten"
+                    confirmText: "Wirklich neu starten?"
+                    confirm: shell.osVersion !== ""
+                    onConfirmed: {
+                        if (shell.osVersion !== "")
+                            shell.reboot()
+                        else
+                            shell.restart()
+                    }
                 }
             }
             SettingRow {
-                title: "OpenHU beenden"
-                Button {
-                    text: "Beenden"
-                    onClicked: shell.quit()
+                title: shell.osVersion !== "" ? "Ausschalten" : "OpenHU beenden"
+                description: shell.osVersion !== "" ? "Fährt das Gerät herunter" : ""
+                ConfirmButton {
+                    label: shell.osVersion !== "" ? "Ausschalten" : "Beenden"
+                    confirmText: "Wirklich ausschalten?"
+                    confirm: shell.osVersion !== ""
+                    onConfirmed: {
+                        if (shell.osVersion !== "")
+                            shell.powerOff()
+                        else
+                            shell.quit()
+                    }
                 }
             }
             Text {
