@@ -29,8 +29,10 @@ namespace core
 
 EventBus& EventBus::instance()
 {
-    static EventBus bus;
-    return bus;
+    // Never destroyed: Qt ends the process with exit() when the display connection breaks, the QML engine is
+    // still alive then and its bindings would read a destroyed context property (TypeError ... of null).
+    static EventBus* bus = new EventBus;
+    return *bus;
 }
 
 void EventBus::publish(const QString& topic, const QVariantMap& data)

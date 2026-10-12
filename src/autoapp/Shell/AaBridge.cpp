@@ -82,8 +82,9 @@ int evenFloor(double value)
 
 AaBridge& AaBridge::instance()
 {
-    static AaBridge bridge;
-    return bridge;
+    // Never destroyed, see EventBus::instance()
+    static AaBridge* bridge = new AaBridge;
+    return *bridge;
 }
 
 void AaBridge::configure(configuration::IConfiguration::Pointer configuration)
