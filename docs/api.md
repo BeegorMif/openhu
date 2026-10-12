@@ -44,7 +44,7 @@ Example: `websocat ws://127.0.0.1:5520` and then `{"type":"subscribe","topics":[
 | `bluetooth.pairing` | `active`, `device`, `passkey` – a device asks to pair (confirmed in the shell or with `bluetooth.confirm`) |
 | `bluetooth.state` | `available` (an adapter is there, also before it is used), `error`, `adapter`, `pairing` (visible), `pairingDevice`, `pairingPasskey`, `pairingWith` (pairing started by OpenHU), `searching` |
 | `caraudio.state` | `enabled`, `device`, `name`, `paired`, `connected`, `sink`, `error`, `status` – sound to the Bluetooth car radio |
-| `system.update` | OpenHU OS only: `state` (`idle`, `checking`, `installing`, `done`, `uptodate`, `error`, `cancelled`), `phase` (`root`, `kernel`), `percent`, `from`, `version`, `error`, after a check `checked`, `current`, `newest`, `available`, `checkError`; `busy`, `blocked` (Android Auto connected) |
+| `system.update` | OpenHU OS only: `state` (`idle`, `checking`, `installing`, `done`, `uptodate`, `error`, `cancelled`), `phase` (`root`, `kernel`), `percent`, `from`, `version`, `error`, `source` (`usb`, `online`), after a check `checked`, `current`, `newest`, `available`, `source`, `checkError`; `usb` while a USB stick with OpenHU OS is plugged in (`version`, `newer`, `path`); `offer` – what `system.update.install` installs (`version`, `source`: the newer of the checked version and the stick's); `busy`, `blocked` (Android Auto connected) |
 | `system.ssh` | OpenHU OS only: `enabled`, `running`, `password` (set), `keys`, `busy`, `addresses` |
 | `system.time` | OpenHU OS only: `zone` (`Europe/Berlin`, `UTC`), `offset` (seconds east of UTC), `ntp` (time from the internet), `synchronized`, `time` (seconds since 1970), `busy` |
 
@@ -101,8 +101,8 @@ API clients on the wireless hotspot network are refused unless "API auch im WLAN
 | `bluetooth.remove` | `address` | `{}` |
 | `system.os` | – | `openhuOs` (bool), `version` (OpenHU OS version), `boot` (`state`: `normal`, `trial`, `updated`, `rollback`; `running`, `failed`) |
 | `system.update.state` | – | like the topic `system.update` (OpenHU OS only, the others too) |
-| `system.update.check` | – | `{queued}` – result in `system.update` (`newest`, `available`) |
-| `system.update.install` | – | `{queued}` – the newest version found by the check; refused while Android Auto is connected. Progress in `system.update`; after `done` reboot (`input.action` or the shell) |
+| `system.update.check` | – | `{queued}` – the USB sticks and the update server, result in `system.update` (`newest`, `available`, `source`) |
+| `system.update.install` | – | `{queued}` – `offer` of `system.update`: the newest version found by the check or on a USB stick; refused while Android Auto is connected. Progress in `system.update`; after `done` reboot (`input.action` or the shell) |
 | `system.update.cancel` | – | `{}` – the running version stays |
 | `system.ssh.state` | – | like the topic `system.ssh` |
 | `system.ssh.enable` | `enabled` (default `true`) | `{queued}` – needs a root password, which is set in the shell only (Settings → System) |

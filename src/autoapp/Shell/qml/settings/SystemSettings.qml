@@ -14,6 +14,8 @@ Flickable {
     // "Europe/Berlin", ... sorted by region, so the drop-down keeps the regions together
     readonly property var zones: system.timeZones()
     readonly property bool installing: updateInfo.state === "checking" || updateInfo.state === "installing"
+    // what Install installs: a found version, online or on a USB stick
+    readonly property var offer: updateInfo.offer || null
 
     contentWidth: width
     contentHeight: column.implicitHeight + Theme.spacing * 2
@@ -128,10 +130,11 @@ Flickable {
         }
         if (page.updateInfo.busy)
             return qsTrId("settings.system.searching_updates")
+        if (page.offer)
+            return page.offer.source === "usb" ? qsTrId("settings.system.usb_update").arg(page.offer.version)
+                                               : qsTrId("settings.system.new_version").arg(page.offer.version)
         if (page.updateInfo.checked && page.updateInfo.checkError)
             return qsTrId("settings.system.search_failed")
-        if (page.updateInfo.checked && page.updateInfo.available)
-            return qsTrId("settings.system.new_version").arg(page.updateInfo.newest)
         if (page.updateInfo.checked)
             return qsTrId("settings.system.openhu_os_up_date")
         return qsTrId("settings.system.search_updates")
@@ -141,19 +144,21 @@ Flickable {
         switch (page.updateInfo.state) {
         case "installing":
             return page.updateInfo.percent + " % · " + (page.updateInfo.phase === "kernel" ? qsTrId("settings.system.kernel") : qsTrId("settings.system.system"))
-                   + " · " + qsTrId("settings.system.openhu_keeps_running_please")
+                   + " · " + (page.updateInfo.source === "usb" ? qsTrId("settings.system.keep_stick_plugged")
+                                                               : qsTrId("settings.system.openhu_keeps_running_please"))
         case "done": return qsTrId("settings.system.active_after_restart_if").arg(page.updateInfo.from)
         case "error": return page.updateInfo.error || ""
         case "cancelled": return qsTrId("settings.system.running_version_unchanged")
         }
+        if (page.offer && !page.updateInfo.busy)
+            return (page.offer.source === "usb" ? qsTrId("settings.system.usb_no_download")
+                                                : qsTrId("settings.system.about_500_mb_download"))
+                   + (page.updateInfo.blocked ? " " + qsTrId("settings.system.not_android_auto_connected") : "")
         // without a network the hotspot may have the WiFi card: WiFi networks only after Search or Connect
         const hotspotOnCard = !!wifi.state.available && !!wifi.state.hotspotDevice && !(wifi.state.client || {}).ssid
         if (page.updateInfo.checked && page.updateInfo.checkError)
             return page.updateInfo.checkError
                    + (hotspotOnCard ? " " + qsTrId("settings.system.wifi_card_runs_hotspot") : "")
-        if (page.updateInfo.checked && page.updateInfo.available)
-            return qsTrId("settings.system.about_500_mb_download")
-                   + (page.updateInfo.blocked ? " " + qsTrId("settings.system.not_android_auto_connected") : "")
         return qsTrId("settings.system.online_github_releases_needs")
     }
 
@@ -272,13 +277,13 @@ Flickable {
             Row {
                 spacing: Theme.spacing / 2
                 Button {
-                    visible: !page.installing && page.updateInfo.state !== "done" && !(page.updateInfo.checked && page.updateInfo.available)
+                    visible: !page.installing && page.updateInfo.state !== "done" && !page.offer
                     enabled: !page.updateInfo.busy
                     text: page.updateInfo.checked ? qsTrId("settings.system.search_again") : qsTrId("settings.system.search")
                     onClicked: system.checkForUpdate()
                 }
                 ConfirmButton {
-                    visible: !page.installing && page.updateInfo.state !== "done" && !!page.updateInfo.checked && !!page.updateInfo.available
+                    visible: !page.installing && page.updateInfo.state !== "done" && !!page.offer
                     enabled: !page.updateInfo.blocked && !page.updateInfo.busy
                     label: qsTrId("settings.system.install")
                     confirmText: qsTrId("settings.system.really_install")

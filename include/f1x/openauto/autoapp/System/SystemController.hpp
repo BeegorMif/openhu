@@ -19,6 +19,7 @@
 
 #include <functional>
 #include <QObject>
+#include <QFileSystemWatcher>
 #include <QTimer>
 #include <QVariantMap>
 
@@ -38,7 +39,9 @@ class SystemController: public QObject
     // "updated" once openhu-boot-check found OpenHU running, re-read until then.
     Q_PROPERTY(QVariantMap bootStatus READ bootStatus NOTIFY bootStatusChanged)
     // state (idle/checking/installing/done/uptodate/error/cancelled), phase, percent, from, version, error,
-    // newest/available after a check, busy while the helper runs, blocked while Android Auto is connected
+    // source (usb/online) of the running update; newest/available/source after a check, busy while the helper runs,
+    // blocked while Android Auto is connected; usb: the newest version on a plugged in USB stick {version, newer, path};
+    // offer: what installUpdate installs {version, source}, the newer of the checked one and the stick's
     Q_PROPERTY(QVariantMap update READ update NOTIFY updateChanged)
     // enabled, running, password, keys, busy, addresses (IPv4 of this device); error when the state is unknown
     Q_PROPERTY(QVariantMap ssh READ ssh NOTIFY sshChanged)
@@ -61,6 +64,7 @@ public:
     QVariantMap time() const { return time_; }
 
     Q_INVOKABLE void checkForUpdate();
+    // the newest of the checked version and the one on a USB stick;
     // empty when started, otherwise why not (Android Auto connected, nothing to install, ...)
     Q_INVOKABLE QString installUpdate();
     Q_INVOKABLE void cancelUpdate();
@@ -84,6 +88,8 @@ public:
 signals:
     void bootStatusChanged();
     void updateChanged();
+    // a USB stick with a newer version was plugged in (shown as a toast)
+    void usbUpdateFound(const QString& version);
     void sshChanged();
     // a switch or password change was refused (shown as a toast)
     void sshError(const QString& message);
@@ -95,6 +101,8 @@ private:
     void run(const QString& helper, const QStringList& args, const QByteArray& input,
              std::function<void(const QVariantMap&)> done);
     void readUpdateState();
+    void readUsbUpdate();
+    QVariantMap offer() const;
     void readBootStatus();
     void setUpdate(const QVariantMap& values);
     void setSsh(const QVariantMap& values);
@@ -112,6 +120,9 @@ private:
     bool aaConnected_ = false;
     QTimer progressTimer_;
     QTimer bootTimer_;
+    // <runDir>/usb-update.json, written by openhu-update scan when a stick comes or goes
+    QFileSystemWatcher runWatcher_;
+    bool usbRead_ = false;
     int bootReads_ = 0;
 };
 
