@@ -312,7 +312,18 @@ namespace f1x {
         }
 
         void AndroidAutoEntity::onPingRequest(const aap_protobuf::service::control::message::PingRequest& request) {
-          OPENAUTO_LOG(info) << "[AndroidAutoEntity] onPingRequest()";
+          // Wireless: the phone pings once a second and judges the link by the answers (timestamp echoed)
+          OPENAUTO_LOG(debug) << "[AndroidAutoEntity] onPingRequest() " << request.timestamp();
+          aap_protobuf::service::control::message::PingResponse response;
+          response.set_timestamp(request.timestamp());
+          if (request.has_data()) {
+            response.set_data(request.data());
+          }
+
+          auto promise = aasdk::channel::SendPromise::defer(strand_);
+          promise->then([]() {},
+                        std::bind(&AndroidAutoEntity::onChannelError, this->shared_from_this(), std::placeholders::_1));
+          controlServiceChannel_->sendPingResponse(response, std::move(promise));
           controlServiceChannel_->receive(this->shared_from_this());
         }
 
