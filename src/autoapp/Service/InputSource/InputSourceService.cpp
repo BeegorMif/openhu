@@ -141,7 +141,7 @@ namespace f1x {
           }
 
           void InputSourceService::onButtonEvent(const projection::ButtonEvent &event) {
-            OPENAUTO_LOG(error) << "[InputSourceService] onButtonEvent()";
+            OPENAUTO_LOG(debug) << "[InputSourceService] onButtonEvent()";
             auto timestamp = std::chrono::duration_cast<std::chrono::microseconds>(
                 std::chrono::high_resolution_clock::now().time_since_epoch());
 
