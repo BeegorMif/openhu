@@ -233,8 +233,8 @@ echo ""
 echo "=== Build Summary ==="
 echo "Build type: ${CMAKE_BUILD_TYPE}"
 echo "Build directory: ${BUILD_DIR}"
-if [ -f "${BUILD_DIR}/autoapp" ]; then
-    echo "Binary: ${BUILD_DIR}/autoapp"
+if [ -f "${BUILD_DIR}/bin/openhu" ]; then
+    echo "Binary: ${BUILD_DIR}/bin/openhu"
 fi
 if [ -f "${BUILD_DIR}/btservice" ]; then
     echo "Binary: ${BUILD_DIR}/btservice"

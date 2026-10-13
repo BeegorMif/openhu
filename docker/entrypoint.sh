@@ -18,7 +18,7 @@ for _ in $(seq 50); do
   sleep 0.1
 done
 
-DISPLAY="$VDISPLAY" autoapp "$@" &
+DISPLAY="$VDISPLAY" openhu "$@" &
 APP_PID=$!
 # wait returns on the signal, the second wait waits for OpenHU to end
 wait $APP_PID || true

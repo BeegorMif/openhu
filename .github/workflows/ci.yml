@@ -62,7 +62,7 @@ jobs:
           cache-from: type=gha,scope=${{ matrix.arch }}
           cache-to: type=gha,mode=max,scope=${{ matrix.arch }}
 
-      # Package name/architecture, then install in a clean Debian: every library of autoapp must resolve,
+      # Package name/architecture, then install in a clean Debian: every library of openhu must resolve,
       # and the shell starts headless and shows all pages without QML warnings (tests/shell-smoke.sh), plugin
       # pages survive changes of other plugins (tests/shell-plugin-pages.sh)
       - name: Smoke test
@@ -75,10 +75,10 @@ jobs:
             apt-get update -qq
             apt-get install -y -qq --no-install-recommends /packages/libaasdk_*.deb /packages/openhu_*.deb python3-websockets >/dev/null
             dpkg -s openhu libaasdk | grep -E "^(Package|Status|Version):"
-            ldd /usr/bin/autoapp
-            if ldd /usr/bin/autoapp | grep "not found"; then exit 1; fi
-            /tests/shell-smoke.sh /usr/bin/autoapp
-            /tests/shell-plugin-pages.sh /usr/bin/autoapp'
+            ldd /usr/libexec/openhu/openhu
+            if ldd /usr/libexec/openhu/openhu | grep "not found"; then exit 1; fi
+            /tests/shell-smoke.sh /usr/bin/openhu
+            /tests/shell-plugin-pages.sh /usr/bin/openhu'
 
       # openhu and the libaasdk packages it was built against
       - uses: actions/upload-artifact@v4

@@ -7,8 +7,8 @@ User documentation: `README.md` and `docs/` (installation, configuration, API, p
 
 Turn OpenAuto (opencardev) into an extensible head unit system, inspired by Hudiy:
 Android Auto in the main window, API for vehicle/media data, plugins with a store, CAN bus,
-steering wheel keys, radio, reverse camera. Project name **OpenHU** (renamed on the outside only; the internal
-namespaces `f1x::openauto` and the binary `autoapp` stay, so upstream changes remain mergeable).
+steering wheel keys, radio, reverse camera. Project name **OpenHU** (the program is `openhu` since openhu#20; the
+internal namespaces `f1x::openauto` and the sources in `src/autoapp/` stay, so upstream changes remain mergeable).
 
 ## Repositories and branches
 

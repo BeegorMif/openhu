@@ -27,9 +27,9 @@ namespace f1x::openauto::autoapp::system
 {
 
 // OpenHU OS: system update, ssh access, time zone and time (Settings -> System, system.* API) through the command
-// line tool of OpenHU OS, answering in JSON: openhu update check/install/cancel (progress in <runDir>/update.json),
-// openhu ssh status/on/off/password, openhu time status/zone/ntp/set. It runs these as root itself (pkexec, its
-// polkit rule allows the openhu user exactly these commands).
+// line tool of OpenHU OS, answering in JSON: openhu-cli update check/install/cancel (progress in
+// <runDir>/update.json), openhu-cli ssh status/on/off/password, openhu-cli time status/zone/ntp/set. It runs these as
+// root itself (pkexec, its polkit rule allows the openhu user exactly these commands).
 // Elsewhere (Docker, .deb on another system) available is false and nothing runs.
 class SystemController: public QObject
 {
@@ -53,7 +53,7 @@ class SystemController: public QObject
 public:
     // osVersion: IMAGE_VERSION of OpenHU OS, empty elsewhere. The rest only changes for tests.
     explicit SystemController(const QString& osVersion, QObject* parent = nullptr,
-                              const QString& cli = QStringLiteral("/usr/bin/openhu"),
+                              const QString& cli = QStringLiteral("/usr/bin/openhu-cli"),
                               const QString& runDir = QStringLiteral("/run/openhu-os"));
 
     bool available() const { return !osVersion_.isEmpty(); }
@@ -98,7 +98,7 @@ signals:
     void timeError(const QString& message);
 
 private:
-    // openhu <command> <args> --json
+    // openhu-cli <command> <args> --json
     void run(const QString& command, const QStringList& args, const QByteArray& input,
              std::function<void(const QVariantMap&)> done);
     void readUpdateState();

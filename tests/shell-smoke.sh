@@ -3,28 +3,28 @@
 # shell page once through the API (python3-websockets), stops it with SIGTERM and fails on QML
 # errors/warnings or a failed shutdown.
 #
-#   tests/shell-smoke.sh [autoapp] [seconds before the pages]
+#   tests/shell-smoke.sh [openhu] [seconds before the pages]
 set -uo pipefail
 
-autoapp="${1:-autoapp}"
+openhu="${1:-openhu}"
 seconds="${2:-8}"
 
 work="$(mktemp -d)"
 trap 'rm -rf "$work"' EXIT
-log="$work/autoapp.log"
+log="$work/openhu.log"
 
 cd "$work"
 # no plugin sources: the store page would download the official index otherwise
 mkdir -p "$work/.openhu"
 echo "# shell smoke test: no sources" > "$work/.openhu/sources.list"
-HOME="$work" QT_QPA_PLATFORM=offscreen QT_QUICK_BACKEND=software "$autoapp" > "$log" 2>&1 &
+HOME="$work" QT_QPA_PLATFORM=offscreen QT_QUICK_BACKEND=software "$openhu" > "$log" 2>&1 &
 pid=$!
 
 sleep "$seconds"
 status=0
 if ! kill -0 "$pid" 2>/dev/null; then
   wait "$pid"
-  echo "autoapp ended by itself (exit $?):"
+  echo "OpenHU ended by itself (exit $?):"
   cat "$log"
   exit 1
 fi
@@ -49,6 +49,15 @@ with connect("ws://127.0.0.1:5520") as ws:
     time.sleep(1)
 PY
 
+# A second OpenHU must end right away (instance lock), without touching USB, the API port or the display
+second="$(HOME="$work" QT_QPA_PLATFORM=offscreen QT_QUICK_BACKEND=software timeout 20 "$openhu" 2>&1)"
+second_status=$?
+if [ "$second_status" -ne 1 ] || ! grep -q "OpenHU is already running (pid $pid)" <<< "$second"; then
+  echo "A second OpenHU did not end with the instance lock (exit $second_status):"
+  echo "$second"
+  status=1
+fi
+
 kill -TERM "$pid"
 for _ in $(seq 1 50); do
   kill -0 "$pid" 2>/dev/null || break
@@ -56,10 +65,10 @@ for _ in $(seq 1 50); do
 done
 if kill -0 "$pid" 2>/dev/null; then
   kill -KILL "$pid"
-  echo "autoapp did not stop on SIGTERM"
+  echo "OpenHU did not stop on SIGTERM"
   status=1
 else
-  wait "$pid" || { echo "autoapp exit code $? after SIGTERM"; status=1; }
+  wait "$pid" || { echo "OpenHU exit code $? after SIGTERM"; status=1; }
 fi
 
 cat "$log"

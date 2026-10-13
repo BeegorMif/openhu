@@ -11,7 +11,7 @@ using f1x::openauto::autoapp::system::SystemController;
 namespace
 {
 
-// Stand-in for the command line tool of OpenHU OS: "openhu <command> ..." runs the fake of the command, state files
+// Stand-in for the command line tool of OpenHU OS: "openhu-cli <command> ..." runs the fake of the command, state files
 // in $FAKE_RUN
 const char* cFakeCli = R"(#!/bin/sh
 command=$1; shift
@@ -64,8 +64,8 @@ private slots:
     void init()
     {
         QVERIFY(helpers_.isValid() && run_.isValid());
-        write(helpers_.filePath("openhu"), cFakeCli);
-        QFile::setPermissions(helpers_.filePath("openhu"), QFile::ReadOwner | QFile::WriteOwner | QFile::ExeOwner);
+        write(helpers_.filePath("openhu-cli"), cFakeCli);
+        QFile::setPermissions(helpers_.filePath("openhu-cli"), QFile::ReadOwner | QFile::WriteOwner | QFile::ExeOwner);
         write(helpers_.filePath("update"), cFakeUpdate);
         write(helpers_.filePath("ssh"), cFakeSsh);
         write(helpers_.filePath("time"), cFakeTime);
@@ -265,7 +265,7 @@ private slots:
 private:
     QString cli() const
     {
-        return helpers_.filePath("openhu");
+        return helpers_.filePath("openhu-cli");
     }
 
     static void write(const QString& path, const QByteArray& content)

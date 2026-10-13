@@ -30,7 +30,7 @@ private slots:
         QCOMPARE(config.getApiPort(), uint16_t(5520));
         QCOMPARE(config.getApiListenAddress(), std::string("127.0.0.1"));
         QVERIFY(!config.getApiAllowHotspot());
-        QCOMPARE(config.getApiToken(), std::string());  // created by autoapp at the first start
+        QCOMPARE(config.getApiToken(), std::string());  // created by OpenHU at the first start
         QCOMPARE(config.getApiAllowedOrigins(), std::string("*"));
         QVERIFY(!config.getWirelessProjectionEnabled());
         QCOMPARE(config.getWirelessSettings().band, std::string("5"));

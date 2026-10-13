@@ -156,8 +156,10 @@ target_link_libraries(openhu_core PUBLIC
         ${PROTOBUF_LIBRARIES}
         AASDK::aasdk)
 
-add_executable(autoapp ${autoapp_main_file} ${autoapp_resource_files})
-target_link_libraries(autoapp PRIVATE openhu_core)
+# The program is called openhu (the sources and namespaces keep the name autoapp of OpenAuto, so upstream changes
+# stay mergeable)
+add_executable(openhu ${autoapp_main_file} ${autoapp_resource_files})
+target_link_libraries(openhu PRIVATE openhu_core)
 
 # Translations of the shell (text IDs in the code, every language a file, docs/translations.md): translations/openhu_<language>.ts
 # compiled by lrelease (qt6-l10n-tools) into the resources as :/i18n/openhu_<language>.qm
@@ -173,7 +175,7 @@ foreach(ts_file ${openhu_ts_files})
                        DEPENDS ${ts_file} VERBATIM)
     list(APPEND openhu_qm_files ${qm_file})
 endforeach()
-qt_add_resources(autoapp openhu_translations PREFIX /i18n BASE ${CMAKE_CURRENT_BINARY_DIR}/i18n FILES ${openhu_qm_files})
+qt_add_resources(openhu openhu_translations PREFIX /i18n BASE ${CMAKE_CURRENT_BINARY_DIR}/i18n FILES ${openhu_qm_files})
 add_custom_target(openhu_qm DEPENDS ${openhu_qm_files})
 
 option(OPENHU_TESTS "Build the unit tests (ctest)" ON)
@@ -218,13 +220,17 @@ else()
     message(STATUS "Repository Status: CLEAN")
 endif()
 
-set_target_properties(autoapp
-    PROPERTIES VERSION ${PROGRAM_VERSION_STRING} SOVERSION ${OPENAUTO_BUILD_MAJOR_RELEASE})
-
 # Install rules
-install(TARGETS autoapp
-    RUNTIME DESTINATION bin
+# The program in libexec, /usr/bin/openhu links to it (OpenHU OS removes the link: there only openhu-session starts
+# it, the command line is openhu-cli). /usr/bin/autoapp is the old name, kept for one release.
+install(TARGETS openhu
+    RUNTIME DESTINATION libexec/openhu
 )
+file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/links)
+foreach(openhu_link openhu autoapp)
+    file(CREATE_LINK ../libexec/openhu/openhu ${CMAKE_CURRENT_BINARY_DIR}/links/${openhu_link} SYMBOLIC)
+    install(FILES ${CMAKE_CURRENT_BINARY_DIR}/links/${openhu_link} DESTINATION bin)
+endforeach()
 
 # Install udev rules
 install(FILES packaging/udev/99-openhu.rules
@@ -285,7 +291,7 @@ set(CPACK_DEBIAN_PACKAGE_MAINTAINER "OpenCarDev Team <opencardevuk@gmail.com>")
 set(CPACK_DEBIAN_PACKAGE_SECTION "utils")
 set(CPACK_DEBIAN_PACKAGE_PRIORITY "optional")
 set(CPACK_DEBIAN_PACKAGE_HOMEPAGE "https://github.com/average-web-dev/openhu")
-# same binaries as the openauto package
+# /usr/bin/autoapp as in the openauto package
 set(CPACK_DEBIAN_PACKAGE_CONFLICTS "openauto")
 set(CPACK_DEBIAN_PACKAGE_REPLACES "openauto")
 set(CPACK_DEBIAN_PACKAGE_SHLIBDEPS ON)
