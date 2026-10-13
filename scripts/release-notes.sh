@@ -18,7 +18,9 @@ PREVIOUS_DATE=""
 [ -n "$PREVIOUS" ] && PREVIOUS_DATE="$(gh release view "$PREVIOUS" -R "$REPO" --json publishedAt -q .publishedAt)"
 
 # libaasdk version the packages were built against (same for every architecture)
-aasdk="$(ls "$DIR"/libaasdk_*.deb 2>/dev/null | head -1 | sed -E 's/.*libaasdk_([0-9.]+)-.*/\1/')"
+# (libaasdk_2.0.0_deb13u1_amd64.deb or libaasdk_2.0.0-1_amd64.deb)
+aasdk="$(ls "$DIR"/libaasdk_*.deb 2>/dev/null | head -1 | xargs -r basename |
+           sed -nE 's/^libaasdk_([0-9]+\.[0-9]+\.[0-9]+).*/\1/p' || true)"
 
 echo "OpenHU $VERSION for Debian 13 \"trixie\", amd64 and arm64."
 echo
