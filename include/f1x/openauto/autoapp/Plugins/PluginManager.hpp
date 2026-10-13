@@ -20,6 +20,7 @@
 #include <functional>
 #include <map>
 #include <memory>
+#include <vector>
 #include <QElapsedTimer>
 #include <QObject>
 #include <QProcess>
@@ -100,6 +101,7 @@ private:
 
     void startProcess(Plugin& plugin);
     void stopProcess(Plugin& plugin);
+    void stopProcesses(const std::vector<Plugin*>& plugins);
     void onProcessFinished(const QString& id, int exitCode, QProcess::ExitStatus status);
     QVariantMap toVariant(const Plugin& plugin) const;
     void saveState() const;

@@ -47,6 +47,7 @@
 #include <f1x/openauto/autoapp/Api/ClientFilter.hpp>
 #include <f1x/openauto/autoapp/Api/CoreMethods.hpp>
 #include <f1x/openauto/autoapp/Audio/VolumeController.hpp>
+#include <f1x/openauto/autoapp/Core/ChildProcesses.hpp>
 #include <f1x/openauto/autoapp/Core/EventBus.hpp>
 #include <f1x/openauto/autoapp/Core/InstanceLock.hpp>
 #include <f1x/openauto/autoapp/Core/UsbReset.hpp>
@@ -117,6 +118,8 @@ void configureLogging() {
 
 int main(int argc, char* argv[])
 {
+    // first: what OpenHU inherited (cage's pipe) stays with OpenHU, its children do not get it
+    autoapp::core::protectInheritedDescriptors();
     QElapsedTimer startup;
     startup.start();
     configureLogging();

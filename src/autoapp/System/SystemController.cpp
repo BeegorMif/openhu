@@ -23,6 +23,7 @@
 #include <QProcess>
 #include <QTimeZone>
 #include <QVersionNumber>
+#include <f1x/openauto/autoapp/Core/ChildProcesses.hpp>
 #include <f1x/openauto/autoapp/System/SystemController.hpp>
 #include <f1x/openauto/autoapp/Core/EventBus.hpp>
 #include <f1x/openauto/Common/Log.hpp>
@@ -506,7 +507,7 @@ void SystemController::run(const QString& command, const QStringList& args, cons
             done({{"error", qtTrId("system.could_not_started").arg(helper)}});
         }
     });
-    process->start(cli_, arguments);
+    core::startChild(*process, cli_, arguments);
     if(!input.isEmpty())
     {
         process->write(input);

@@ -27,6 +27,7 @@
 #include <QSysInfo>
 #include <QTimer>
 #include <QTextStream>
+#include <f1x/openauto/autoapp/Core/ChildProcesses.hpp>
 #include <f1x/openauto/autoapp/Plugins/PluginStore.hpp>
 #include <f1x/openauto/autoapp/Core/EventBus.hpp>
 #include <f1x/openauto/Common/Log.hpp>
@@ -652,7 +653,7 @@ QString PluginStore::unpack(const QString& id, const QString& archive, QString& 
     QDir().mkpath(staging + "/content");
 
     QProcess tar;
-    tar.start("tar", {"-xzf", archive, "-C", staging + "/content", "--no-same-owner"});
+    core::startChild(tar, "tar", {"-xzf", archive, "-C", staging + "/content", "--no-same-owner"});
     if(!tar.waitForFinished(60000) || tar.exitCode() != 0)
     {
         error = qtTrId("store.cannot_unpack_archive").arg(QString::fromLocal8Bit(tar.readAllStandardError()).trimmed());

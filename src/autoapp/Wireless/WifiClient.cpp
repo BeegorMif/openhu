@@ -19,6 +19,7 @@
 #include <algorithm>
 #include <QDir>
 #include <QStandardPaths>
+#include <f1x/openauto/autoapp/Core/ChildProcesses.hpp>
 #include <f1x/openauto/autoapp/Wireless/WifiClient.hpp>
 #include <f1x/openauto/autoapp/Core/EventBus.hpp>
 #include <f1x/openauto/Common/Log.hpp>
@@ -132,7 +133,7 @@ void WifiClient::startMonitor()
 {
     if(monitor_.state() == QProcess::NotRunning)
     {
-        monitor_.start(nmcli_, {"monitor"});
+        core::startChild(monitor_, nmcli_, {"monitor"});
     }
 }
 
@@ -642,7 +643,7 @@ void WifiClient::run(const QString& program, const QStringList& args, std::funct
             done(-1, QString());
         }
     });
-    process->start(program, args);
+    core::startChild(*process, program, args);
 }
 
 void WifiClient::publish()

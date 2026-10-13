@@ -17,6 +17,7 @@
 
 
 #include <QProcess>
+#include <f1x/openauto/autoapp/Core/ChildProcesses.hpp>
 #include <f1x/openauto/autoapp/Audio/VolumeController.hpp>
 #include <f1x/openauto/autoapp/Bluetooth/BluetoothManager.hpp>
 #include <f1x/openauto/autoapp/Bluetooth/CarAudio.hpp>
@@ -33,7 +34,7 @@ namespace
 QString pactl(const QStringList& arguments)
 {
     QProcess process;
-    process.start("pactl", arguments);
+    core::startChild(process, "pactl", arguments);
     process.waitForFinished(3000);
     return QString::fromLocal8Bit(process.readAllStandardOutput()).trimmed();
 }
