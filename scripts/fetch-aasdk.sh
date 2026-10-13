@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Downloads libaasdk and libaasdk-dev from the newest aasdk release of the OpenHU fork that fits
-# OPENHU_AASDK_VERSION in CMakeLists.txt (same major version, at least that minor version).
+# OPENHU_AASDK_VERSION in CMakeLists.txt (same major and minor version, newest patch version).
 #
 #   scripts/fetch-aasdk.sh <dir> [arch]    arch defaults to dpkg --print-architecture
 #
@@ -34,7 +34,7 @@ for r in json.load(sys.stdin):
     if r["draft"] or r["prerelease"] or not m:
         continue
     v = tuple(map(int, m.groups()))
-    if v[0] != major or v[1] < minor or (best and v <= best[0]):
+    if v[0] != major or v[1] != minor or (best and v <= best[0]):
         continue
     urls = [a["browser_download_url"] for a in r["assets"]
             if re.fullmatch(r"libaasdk(-dev)?_.*_" + re.escape(arch) + r"\.deb", a["name"])]
@@ -47,7 +47,7 @@ if best:
 )
 
 if [ "${#release[@]}" -eq 0 ]; then
-  echo "No aasdk release openhu-v${want%%.*}.x (>= $want) with $arch packages in $repo" >&2
+  echo "No aasdk release openhu-v$want.x with $arch packages in $repo" >&2
   exit 1
 fi
 

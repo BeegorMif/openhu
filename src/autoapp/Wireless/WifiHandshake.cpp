@@ -96,8 +96,7 @@ void WifiHandshake::handle(quint16 id, const QByteArray& payload)
         response.set_ssid(network_.ssid.toStdString());
         response.set_password(network_.password.toStdString());
         response.set_bssid(network_.bssid.toStdString());
-        // Phones expect 8 for WPA2 personal; the enum of aap_protobuf names this value WPA2_ENTERPRISE
-        response.set_security_mode(static_cast<aap_protobuf::service::wifiprojection::message::WifiSecurityMode>(8));
+        response.set_security_mode(aap_protobuf::service::wifiprojection::message::WifiSecurityMode::WPA2_PERSONAL);
         response.set_access_point_type(aap_protobuf::service::wifiprojection::message::AccessPointType::DYNAMIC);
         this->send(aaw::MessageId::WIFI_INFO_RESPONSE, response);
         emit progress("info", QString());

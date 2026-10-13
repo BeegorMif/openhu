@@ -96,9 +96,10 @@ else ()
 endif ()
 
 # aasdk from the OpenHU fork (https://github.com/average-web-dev/aasdk, branch openhu).
-# Required version: any release with the same major version and at least this minor version.
+# Required version: any release with this major and minor version. A new minor version of aasdk may
+# change the ABI (e.g. the size of classes OpenHU creates), so OpenHU is built against each one.
 # find_package checks it here, the Depends of the .deb are derived from it below.
-set(OPENHU_AASDK_VERSION 1.1)
+set(OPENHU_AASDK_VERSION 1.2)
 find_package(aasdk ${OPENHU_AASDK_VERSION} CONFIG REQUIRED)
 message(STATUS "aasdk ${aasdk_VERSION}: ${aasdk_DIR}")
 
@@ -285,9 +286,9 @@ set(CPACK_DEBIAN_PACKAGE_SHLIBDEPS ON)
 # Wireless Android Auto and car radio: BlueZ for Bluetooth, NetworkManager for the hotspot, iw for the WiFi country
 # Plugins written in Python use the API client of openhu-plugins (python3-websockets)
 set(CPACK_DEBIAN_PACKAGE_RECOMMENDS "bluez, network-manager, iw, python3, python3-websockets")
-string(REGEX MATCH "^[0-9]+" _aasdk_major "${OPENHU_AASDK_VERSION}")
-math(EXPR _aasdk_next_major "${_aasdk_major} + 1")
-set(CPACK_DEBIAN_PACKAGE_DEPENDS "libaasdk (>= ${OPENHU_AASDK_VERSION}), libaasdk (<< ${_aasdk_next_major}), pulseaudio-utils, qt6-svg-plugins, qml6-module-qtquick, qml6-module-qtquick-window, qml6-module-qtquick-layouts, qml6-module-qtquick-controls, qml6-module-qtmultimedia, qml6-module-qtquick-virtualkeyboard, qt6-virtualkeyboard-plugin")
+string(REGEX MATCH "^([0-9]+)\\.([0-9]+)" _aasdk_version "${OPENHU_AASDK_VERSION}")
+math(EXPR _aasdk_next_minor "${CMAKE_MATCH_2} + 1")
+set(CPACK_DEBIAN_PACKAGE_DEPENDS "libaasdk (>= ${OPENHU_AASDK_VERSION}), libaasdk (<< ${CMAKE_MATCH_1}.${_aasdk_next_minor}), pulseaudio-utils, qt6-svg-plugins, qml6-module-qtquick, qml6-module-qtquick-window, qml6-module-qtquick-layouts, qml6-module-qtquick-controls, qml6-module-qtmultimedia, qml6-module-qtquick-virtualkeyboard, qt6-virtualkeyboard-plugin")
 
 # Debian package control scripts
 set(CPACK_DEBIAN_PACKAGE_CONTROL_EXTRA
