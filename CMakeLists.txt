@@ -192,6 +192,15 @@ if(GIT_COMMIT_ID AND NOT GIT_COMMIT_ID STREQUAL "unknown")
     endif()
 endif()
 
+# Release builds (tag v<version>) take the version of the tag instead of the build date
+set(OPENHU_VERSION_OVERRIDE "" CACHE STRING "Release version, e.g. 2026.10.13 or 2026.10.13.1 (replaces the build date)")
+if(OPENHU_VERSION_OVERRIDE)
+    if(NOT OPENHU_VERSION_OVERRIDE MATCHES "^[0-9]+(\\.[0-9]+)+$")
+        message(FATAL_ERROR "OPENHU_VERSION_OVERRIDE '${OPENHU_VERSION_OVERRIDE}': digits and dots only (e.g. 2026.10.13)")
+    endif()
+    set(PROGRAM_VERSION_STRING "${OPENHU_VERSION_OVERRIDE}")
+endif()
+
 # Add build type suffix for debug builds
 if(CMAKE_BUILD_TYPE STREQUAL "Debug")
     set(PROGRAM_VERSION_STRING "${PROGRAM_VERSION_STRING}.debug")
