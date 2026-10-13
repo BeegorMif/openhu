@@ -355,9 +355,9 @@
         <source></source>
         <translation>Audio output</translation>
     </message>
-    <message id="settings.audio.rtaudio_mostly_has_lower">
+    <message id="settings.audio.qt_multimedia_has_lower">
         <source></source>
-        <translation>RtAudio mostly has the lower latency, Qt Multimedia is the alternative when there are problems.</translation>
+        <translation>Qt Multimedia has the lower latency, RtAudio is the alternative when there are problems.</translation>
     </message>
     <message id="settings.audio.car_radio_bluetooth">
         <source></source>
