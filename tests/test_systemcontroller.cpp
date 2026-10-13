@@ -11,11 +11,18 @@ using f1x::openauto::autoapp::system::SystemController;
 namespace
 {
 
-// Stand-ins for the OpenHU OS helpers (run with /bin/sh instead of pkexec), state files in $FAKE_RUN
+// Stand-in for the command line tool of OpenHU OS: "openhu <command> ..." runs the fake of the command, state files
+// in $FAKE_RUN
+const char* cFakeCli = R"(#!/bin/sh
+command=$1; shift
+exec /bin/sh "$(dirname "$0")/$command" "$@"
+)";
+
 const char* cFakeUpdate = R"(
 case "$1" in
     check) echo '{"current": "1", "newest": "2", "available": true}' ;;
-    start) printf '{"state": "installing", "phase": "root", "percent": 42, "from": "1", "version": "%s"}' "$3" \
+    install) version=$(echo "$*" | sed -n 's/.*--version \([^ ]*\).*/\1/p')
+           printf '{"state": "installing", "phase": "root", "percent": 42, "from": "1", "version": "%s"}' "$version" \
                > "$FAKE_RUN/update.json"
            echo "$*" > "$FAKE_RUN/start-args"
            echo '{"started": true}' ;;
@@ -29,8 +36,8 @@ state() { printf '{"enabled": %s, "running": %s, "password": %s, "keys": false}\
 case "$1" in
     status) cat "$FAKE_RUN/ssh.json" 2>/dev/null || state false false ;;
     password) read -r pw; printf '%s' "$pw" > "$FAKE_RUN/password"; state false true ;;
-    enable) [ -f "$FAKE_RUN/password" ] || { echo '{"error": "set a password first"}'; exit 1; }; state true true ;;
-    disable) state false true ;;
+    on) [ -f "$FAKE_RUN/password" ] || { echo '{"error": "set a password first"}'; exit 1; }; state true true ;;
+    off) state false true ;;
 esac
 )";
 
@@ -57,9 +64,11 @@ private slots:
     void init()
     {
         QVERIFY(helpers_.isValid() && run_.isValid());
-        write(helpers_.filePath("openhu-update"), cFakeUpdate);
-        write(helpers_.filePath("openhu-ssh"), cFakeSsh);
-        write(helpers_.filePath("openhu-time"), cFakeTime);
+        write(helpers_.filePath("openhu"), cFakeCli);
+        QFile::setPermissions(helpers_.filePath("openhu"), QFile::ReadOwner | QFile::WriteOwner | QFile::ExeOwner);
+        write(helpers_.filePath("update"), cFakeUpdate);
+        write(helpers_.filePath("ssh"), cFakeSsh);
+        write(helpers_.filePath("time"), cFakeTime);
         QFile::remove(run_.filePath("update.json"));
         QFile::remove(run_.filePath("usb-update.json"));
         QFile::remove(run_.filePath("start-args"));
@@ -76,7 +85,7 @@ private slots:
     // Docker or a .deb elsewhere: nothing runs, nothing to install
     void notOnOpenHuOs()
     {
-        SystemController system(QString(), nullptr, "/bin/sh", helpers_.path(), run_.path());
+        SystemController system(QString(), nullptr, cli(), run_.path());
         QVERIFY(!system.available());
         QCOMPARE(system.update().value("state").toString(), QString("idle"));
         QVERIFY(!system.installUpdate().isEmpty());
@@ -88,7 +97,7 @@ private slots:
     void bootStatus()
     {
         write(run_.filePath("boot-status.json"), R"({"state": "rollback", "running": "1", "failed": "2"})");
-        SystemController system("1", nullptr, "/bin/sh", helpers_.path(), run_.path());
+        SystemController system("1", nullptr, cli(), run_.path());
         QCOMPARE(system.bootStatus().value("state").toString(), QString("rollback"));
         QCOMPARE(system.bootStatus().value("failed").toString(), QString("2"));
         QFile::remove(run_.filePath("boot-status.json"));
@@ -98,7 +107,7 @@ private slots:
     void bootStatusTrialBecomesUpdated()
     {
         write(run_.filePath("boot-status.json"), R"({"state": "trial", "running": "2", "attempt": 1, "tries": 3})");
-        SystemController system("2", nullptr, "/bin/sh", helpers_.path(), run_.path());
+        SystemController system("2", nullptr, cli(), run_.path());
         QSignalSpy changed(&system, &SystemController::bootStatusChanged);
         QCOMPARE(system.bootStatus().value("state").toString(), QString("trial"));
         write(run_.filePath("boot-status.json"), R"({"state": "updated", "running": "2", "attempt": 1, "tries": 3})");
@@ -109,7 +118,7 @@ private slots:
 
     void checkInstallAndProgress()
     {
-        SystemController system("1", nullptr, "/bin/sh", helpers_.path(), run_.path());
+        SystemController system("1", nullptr, cli(), run_.path());
         system.checkForUpdate();
         QTRY_COMPARE(system.update().value("newest").toString(), QString("2"));
         QVERIFY(system.update().value("available").toBool());
@@ -118,7 +127,7 @@ private slots:
         QCOMPARE(system.installUpdate(), QString());
         QTRY_COMPARE(system.update().value("percent").toInt(), 42);
         QCOMPARE(system.update().value("state").toString(), QString("installing"));
-        QCOMPARE(read(run_.filePath("start-args")).trimmed(), QByteArray("start --version 2 --json"));
+        QCOMPARE(read(run_.filePath("start-args")).trimmed(), QByteArray("install --no-wait --version 2 --json"));
         QVERIFY(!system.installUpdate().isEmpty());  // already running
 
         // the background update finishes: the progress timer picks it up
@@ -129,7 +138,7 @@ private slots:
 
     void cancel()
     {
-        SystemController system("1", nullptr, "/bin/sh", helpers_.path(), run_.path());
+        SystemController system("1", nullptr, cli(), run_.path());
         QCOMPARE(system.installUpdate(), QString());
         QTRY_COMPARE(system.update().value("state").toString(), QString("installing"));
         system.cancelUpdate();
@@ -139,7 +148,7 @@ private slots:
     // an update reboots the device: not while a phone is projecting
     void blockedDuringAndroidAuto()
     {
-        SystemController system("1", nullptr, "/bin/sh", helpers_.path(), run_.path());
+        SystemController system("1", nullptr, cli(), run_.path());
         EventBus::instance().publish("projection.state", {{"connected", true}});
         QVERIFY(system.update().value("blocked").toBool());
         QVERIFY(!system.installUpdate().isEmpty());
@@ -151,7 +160,7 @@ private slots:
     void usbUpdateAtStart()
     {
         replace(run_.filePath("usb-update.json"), R"({"current": "1", "version": "3", "newer": true, "path": "/run/media/sda1"})");
-        SystemController system("1", nullptr, "/bin/sh", helpers_.path(), run_.path());
+        SystemController system("1", nullptr, cli(), run_.path());
         QSignalSpy found(&system, &SystemController::usbUpdateFound);
         QCOMPARE(system.update().value("usb").toMap().value("version").toString(), QString("3"));
         QCOMPARE(system.update().value("offer").toMap().value("source").toString(), QString("usb"));
@@ -161,7 +170,7 @@ private slots:
     // openhu-update scan writes usb-update.json when a stick comes or goes
     void usbUpdatePluggedIn()
     {
-        SystemController system("1", nullptr, "/bin/sh", helpers_.path(), run_.path());
+        SystemController system("1", nullptr, cli(), run_.path());
         QSignalSpy found(&system, &SystemController::usbUpdateFound);
         QVERIFY(!system.update().contains("offer"));
 
@@ -180,7 +189,7 @@ private slots:
         QTRY_VERIFY(system.update().value("checked").toBool());
         QCOMPARE(system.update().value("offer").toMap().value("version").toString(), QString("3"));
         QCOMPARE(system.installUpdate(), QString());
-        QTRY_COMPARE(read(run_.filePath("start-args")).trimmed(), QByteArray("start --version 3 --json"));
+        QTRY_COMPARE(read(run_.filePath("start-args")).trimmed(), QByteArray("install --no-wait --version 3 --json"));
         system.cancelUpdate();
         QTRY_COMPARE(system.update().value("state").toString(), QString("cancelled"));
 
@@ -192,7 +201,7 @@ private slots:
 
     void ssh()
     {
-        SystemController system("1", nullptr, "/bin/sh", helpers_.path(), run_.path());
+        SystemController system("1", nullptr, cli(), run_.path());
         QSignalSpy errors(&system, &SystemController::sshError);
         QTRY_VERIFY(system.ssh().contains("enabled"));
         QVERIFY(!system.ssh().value("password").toBool());
@@ -227,7 +236,7 @@ private slots:
 
     void timeZoneAndClock()
     {
-        SystemController system("1", nullptr, "/bin/sh", helpers_.path(), run_.path());
+        SystemController system("1", nullptr, cli(), run_.path());
         QSignalSpy errors(&system, &SystemController::timeError);
         QTRY_COMPARE(system.time().value("zone").toString(), QString("Europe/Berlin"));
         QVERIFY(system.time().value("ntp").toBool());
@@ -254,6 +263,11 @@ private slots:
     }
 
 private:
+    QString cli() const
+    {
+        return helpers_.filePath("openhu");
+    }
+
     static void write(const QString& path, const QByteArray& content)
     {
         QFile file(path);

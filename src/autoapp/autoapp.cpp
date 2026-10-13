@@ -56,6 +56,7 @@
 #include <f1x/openauto/autoapp/Shell/AaBridge.hpp>
 #include <f1x/openauto/autoapp/Shell/AaSurface.hpp>
 #include <f1x/openauto/autoapp/Shell/SettingsController.hpp>
+#include <f1x/openauto/autoapp/Shell/SettingsMethods.hpp>
 #include <f1x/openauto/autoapp/Shell/ShellController.hpp>
 #include <f1x/openauto/autoapp/Shell/Translations.hpp>
 #include <f1x/openauto/autoapp/System/SystemController.hpp>
@@ -182,6 +183,7 @@ int main(int argc, char* argv[])
     // WebSocket API for external tools and plugins (docs/api.md)
     autoapp::api::ApiServer apiServer;
     autoapp::api::registerCoreMethods(apiServer, volumeController, shellController, actionDispatcher);
+    autoapp::shell::registerSettingsMethods(apiServer, settingsController);
     apiServer.listen(autoapp::api::listenAddress(QString::fromStdString(configuration->getApiListenAddress())),
                      configuration->getApiPort());
 

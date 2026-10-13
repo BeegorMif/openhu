@@ -55,6 +55,9 @@ class ApiServer: public QObject
 
 public:
     using Method = std::function<QVariant(const QVariantMap& params)>;
+    // Set by the server in every method's params: true for clients on this device (loopback) and in-process
+    // callers, false for clients from a network. A client cannot set it.
+    static constexpr const char* cLocal = "_local";
 
     explicit ApiServer(QObject* parent = nullptr);
     ~ApiServer() override;

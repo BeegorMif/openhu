@@ -52,12 +52,11 @@ QVariantMap parseOutput(const QByteArray& out)
 
 }
 
-SystemController::SystemController(const QString& osVersion, QObject* parent, const QString& pkexec,
-                                   const QString& helperDir, const QString& runDir)
+SystemController::SystemController(const QString& osVersion, QObject* parent, const QString& cli,
+                                   const QString& runDir)
     : QObject(parent)
     , osVersion_(osVersion)
-    , pkexec_(pkexec)
-    , helperDir_(helperDir)
+    , cli_(cli)
     , runDir_(runDir)
 {
     if(!this->available())
@@ -172,7 +171,7 @@ void SystemController::checkForUpdate()
         return;
     }
     this->setUpdate({{"busy", true}, {"checkError", QVariant()}});
-    this->run("openhu-update", {"check"}, {}, [this](const QVariantMap& result) {
+    this->run("update", {"check"}, {}, [this](const QVariantMap& result) {
         if(result.contains("error"))
         {
             this->setUpdate({{"busy", false}, {"checked", true}, {"checkError", result.value("error")}});
@@ -199,7 +198,8 @@ QString SystemController::installUpdate()
         return qtTrId("system.update_already_running");
     }
 
-    QStringList args{"start"};
+    // in the background (openhu-update.service): survives OpenHU restarts, progress in update.json
+    QStringList args{"install", "--no-wait"};
     const QString newest = this->offer().value("version").toString();
     if(!newest.isEmpty())
     {
@@ -207,7 +207,7 @@ QString SystemController::installUpdate()
     }
     OPENAUTO_LOG(info) << "[SystemController] starting the system update " << newest.toStdString();
     this->setUpdate({{"busy", true}, {"state", "checking"}, {"error", QVariant()}, {"percent", 0}});
-    this->run("openhu-update", args, {}, [this](const QVariantMap& result) {
+    this->run("update", args, {}, [this](const QVariantMap& result) {
         this->setUpdate({{"busy", false}});
         if(result.contains("error"))
         {
@@ -225,7 +225,7 @@ void SystemController::cancelUpdate()
     {
         return;
     }
-    this->run("openhu-update", {"cancel"}, {}, [this](const QVariantMap&) { this->readUpdateState(); });
+    this->run("update", {"cancel"}, {}, [this](const QVariantMap&) { this->readUpdateState(); });
 }
 
 void SystemController::readUpdateState()
@@ -321,7 +321,7 @@ void SystemController::refreshSsh()
     {
         return;
     }
-    this->run("openhu-ssh", {"status"}, {}, [this](const QVariantMap& result) {
+    this->run("ssh", {"status"}, {}, [this](const QVariantMap& result) {
         if(result.contains("error"))
         {
             ssh_ = {{"busy", false}, {"error", result.value("error")}};
@@ -341,7 +341,7 @@ void SystemController::setSshEnabled(bool enabled)
     OPENAUTO_LOG(info) << "[SystemController] ssh " << (enabled ? "on" : "off");
     ssh_.insert("busy", true);
     emit sshChanged();
-    this->run("openhu-ssh", {enabled ? "enable" : "disable"}, {}, [this](const QVariantMap& result) {
+    this->run("ssh", {enabled ? "on" : "off"}, {}, [this](const QVariantMap& result) {
         this->setSsh(result);
     });
 }
@@ -362,7 +362,7 @@ QString SystemController::setSshPassword(const QString& password)
     }
     ssh_.insert("busy", true);
     emit sshChanged();
-    this->run("openhu-ssh", {"password"}, password.toUtf8() + '\n', [this](const QVariantMap& result) {
+    this->run("ssh", {"password"}, password.toUtf8() + '\n', [this](const QVariantMap& result) {
         this->setSsh(result);
     });
     return {};
@@ -388,7 +388,7 @@ void SystemController::refreshTime()
     {
         return;
     }
-    this->run("openhu-time", {"status"}, {}, [this](const QVariantMap& result) {
+    this->run("time", {"status"}, {}, [this](const QVariantMap& result) {
         if(result.contains("error"))
         {
             time_ = {{"busy", false}, {"error", result.value("error")}};
@@ -408,7 +408,7 @@ void SystemController::setTimeZone(const QString& zone)
     OPENAUTO_LOG(info) << "[SystemController] time zone " << zone.toStdString();
     time_.insert("busy", true);
     emit timeChanged();
-    this->run("openhu-time", {"zone", zone}, {}, [this](const QVariantMap& result) { this->setTimeState(result); });
+    this->run("time", {"zone", zone}, {}, [this](const QVariantMap& result) { this->setTimeState(result); });
 }
 
 void SystemController::setNtp(bool enabled)
@@ -420,7 +420,7 @@ void SystemController::setNtp(bool enabled)
     OPENAUTO_LOG(info) << "[SystemController] time from the internet " << (enabled ? "on" : "off");
     time_.insert("busy", true);
     emit timeChanged();
-    this->run("openhu-time", {"ntp", enabled ? "on" : "off"}, {}, [this](const QVariantMap& result) {
+    this->run("time", {"ntp", enabled ? "on" : "off"}, {}, [this](const QVariantMap& result) {
         this->setTimeState(result);
     });
 }
@@ -439,7 +439,7 @@ QString SystemController::setTime(qint64 seconds)
                        << QDateTime::fromSecsSinceEpoch(seconds, QTimeZone::UTC).toString(Qt::ISODate).toStdString();
     time_.insert("busy", true);
     emit timeChanged();
-    this->run("openhu-time", {"set", QString::number(seconds)}, {}, [this](const QVariantMap& result) {
+    this->run("time", {"set", QString::number(seconds)}, {}, [this](const QVariantMap& result) {
         this->setTimeState(result);
     });
     return {};
@@ -477,16 +477,13 @@ void SystemController::setTimeState(const QVariantMap& values)
     core::EventBus::instance().publish("system.time", time_);
 }
 
-void SystemController::run(const QString& helper, const QStringList& args, const QByteArray& input,
+void SystemController::run(const QString& command, const QStringList& args, const QByteArray& input,
                            std::function<void(const QVariantMap&)> done)
 {
     auto* process = new QProcess(this);
-    QStringList arguments{helperDir_ + "/" + helper};
-    arguments << args;
-    if(helper == "openhu-update")
-    {
-        arguments << "--json";  // openhu-ssh always answers in JSON
-    }
+    const QString helper = "openhu " + command;
+    QStringList arguments{command};
+    arguments << args << "--json";
     connect(process, &QProcess::finished, this, [process, done, helper](int exitCode, QProcess::ExitStatus) {
         QVariantMap result = parseOutput(process->readAllStandardOutput());
         if(result.isEmpty() && exitCode != 0)
@@ -509,7 +506,7 @@ void SystemController::run(const QString& helper, const QStringList& args, const
             done({{"error", qtTrId("system.could_not_started").arg(helper)}});
         }
     });
-    process->start(pkexec_, arguments);
+    process->start(cli_, arguments);
     if(!input.isEmpty())
     {
         process->write(input);

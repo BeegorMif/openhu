@@ -46,10 +46,13 @@ public:
                        QObject* parent = nullptr);
 
     QVariantMap values() const;
+    // Per key of values(): type (bool, int, string, choice), choices, min/max, maxLength, applies (now, reconnect,
+    // restart), secret (passwords, not readable from the network), readOnly. For the API (settings.keys).
+    static QVariantMap keys();
     QStringList pending() const;
     QVariantMap info() const;
 
-    // Returns an error message, empty on success.
+    // Returns an error message, empty on success. Publishes "settings.changed" {key, value, pending}.
     Q_INVOKABLE QString set(const QString& key, const QVariant& value);
     Q_INVOKABLE void clearPending(const QString& what);
     // Values were changed elsewhere (e.g. wireless.pair() switched wireless on)

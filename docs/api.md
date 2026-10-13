@@ -45,6 +45,7 @@ Example: `websocat ws://127.0.0.1:5520` and then `{"type":"subscribe","topics":[
 | `bluetooth.state` | `available` (an adapter is there, also before it is used), `error`, `adapter`, `pairing` (visible), `pairingDevice`, `pairingPasskey`, `pairingWith` (pairing started by OpenHU), `searching` |
 | `caraudio.state` | `enabled`, `device`, `name`, `paired`, `connected`, `sink`, `error`, `status` – sound to the Bluetooth car radio |
 | `system.update` | OpenHU OS only: `state` (`idle`, `checking`, `installing`, `done`, `uptodate`, `error`, `cancelled`), `phase` (`root`, `kernel`), `percent`, `from`, `version`, `error`, `source` (`usb`, `online`), after a check `checked`, `current`, `newest`, `available`, `source`, `checkError`; `usb` while a USB stick with OpenHU OS is plugged in (`version`, `newer`, `path`); `offer` – what `system.update.install` installs (`version`, `source`: the newer of the checked version and the stick's); `busy`, `blocked` (Android Auto connected) |
+| `settings.changed` | `key`, `value` (not for passwords), `pending` (`reconnect`, `restart`) – a setting was changed (settings page or `settings.set`) |
 | `system.ssh` | OpenHU OS only: `enabled`, `running`, `password` (set), `keys`, `busy`, `addresses` |
 | `system.time` | OpenHU OS only: `zone` (`Europe/Berlin`, `UTC`), `offset` (seconds east of UTC), `ntp` (time from the internet), `synchronized`, `time` (seconds since 1970), `busy` |
 
@@ -63,6 +64,10 @@ API clients on the wireless hotspot network are refused unless "API auch im WLAN
 | `bus.emit` | `topic`, `data` (object) | `{}` – event without keeping a value (commands for plugin processes) |
 | `bus.get` | `topic` | last value |
 | `bus.topics` | – | topics that have a value |
+| `settings.keys` | – | per key: `type` (`bool`, `int`, `string`, `choice`), `choices`, `min`/`max`, `maxLength`, `applies` (`now`, `reconnect`: next Android Auto connection, `restart`: of OpenHU), `secret`, `readOnly` |
+| `settings.list` | – | `{values, pending}` – all settings (keys as in the settings page: `aa.fps`, `wireless.hotspot`, …); passwords (`secret`) only for clients on the device |
+| `settings.get` | `key` | `{key, value}`; unknown key → error |
+| `settings.set` | `key`, `value` | `{key, value, applies, pending}` – the same checks as the settings page, saved to `openhu.ini` right away; the value may be text (`"60"`, `"on"`, `"false"`) and is converted to the key's type; a wrong value → error with the reason |
 | `volume.get` | – | `{volume, muted}` |
 | `volume.set` | `value` (0–100) | `{volume, muted}` |
 | `volume.change` | `delta` (e.g. `5`, `-5`) | `{volume, muted}` |
