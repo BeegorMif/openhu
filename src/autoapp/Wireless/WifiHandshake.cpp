@@ -16,6 +16,7 @@
 */
 
 #include <cerrno>
+#include <cstring>
 #include <fcntl.h>
 #include <unistd.h>
 #include <aap_protobuf/aaw/MessageId.pb.h>
@@ -40,6 +41,11 @@ std::string statusName(int32_t status)
 {
     return aaw::Status_IsValid(status) ? aaw::Status_Name(static_cast<aaw::Status>(status))
                                        : "status " + std::to_string(status);
+}
+
+std::string hex(const QByteArray& data)
+{
+    return data.toHex(' ').toStdString();
 }
 
 }
@@ -76,6 +82,9 @@ void WifiHandshake::onReadable()
         {
             return;
         }
+        // every step of the handshake is logged to follow the phone's behaviour (openhu#57)
+        OPENAUTO_LOG(info) << "[WifiHandshake] channel closed by the phone ("
+                           << (size == 0 ? std::string("end of stream") : std::string(std::strerror(errno))) << ")";
         notifier_.setEnabled(false);
         emit closed();
         return;
@@ -99,6 +108,8 @@ void WifiHandshake::onReadable()
 
 void WifiHandshake::handle(quint16 id, const QByteArray& payload)
 {
+    OPENAUTO_LOG(info) << "[WifiHandshake] <- " << (aaw::MessageId_IsValid(id) ? aaw::MessageId_Name(static_cast<aaw::MessageId>(id)) : std::to_string(id))
+                       << " (" << payload.size() << " bytes) " << hex(payload);
     switch(id)
     {
     case aaw::MessageId::WIFI_INFO_REQUEST:
@@ -152,6 +163,16 @@ void WifiHandshake::send(quint16 id, const google::protobuf::Message& message)
     frame[2] = static_cast<char>((id >> 8) & 0xff);
     frame[3] = static_cast<char>(id & 0xff);
     message.SerializeToArray(frame.data() + 4, size);
+
+    // the WiFi password stays out of the log
+    std::string content = message.ShortDebugString();
+    if(const auto* info = dynamic_cast<const aaw::WifiInfoResponse*>(&message))
+    {
+        aaw::WifiInfoResponse masked(*info);
+        masked.set_password("***");
+        content = masked.ShortDebugString();
+    }
+    OPENAUTO_LOG(info) << "[WifiHandshake] -> " << aaw::MessageId_Name(static_cast<aaw::MessageId>(id)) << " " << content;
 
     // a few bytes on a fresh socket: a short write does not happen in practice
     if(::write(fd_, frame.constData(), frame.size()) != frame.size())
