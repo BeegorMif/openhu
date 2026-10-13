@@ -11,6 +11,9 @@
 #   ./dev.sh clean        delete the build volumes and ccache (the next build starts from scratch)
 #
 # Start without building: ./dev.sh run --no-build, resolution: OPENHU_RESOLUTION=800x480 ./dev.sh run
+# Protocol capture of the Android Auto connection (aasdk AASDK_CAPTURE, average-web-dev/aasdk#14):
+#   OPENHU_CAPTURE=1 ./dev.sh run    writes data/capture-<time>.jsonl (with OPENHU_CAPTURE=media also audio/video
+#                                    data); evaluate with ../aasdk/tools/capture_summary.py. Contains personal data.
 set -euo pipefail
 
 DOCKER_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -132,6 +135,15 @@ cmd_run() {
   local extra=()
   [ -t 0 ] && [ -t 1 ] && extra+=(-it)
   [ -d "$plugin_repo_dir" ] && extra+=(-v "$plugin_repo_dir:/opt/openhu-plugins:ro")
+
+  # Protocol capture into data/ (aasdk reads AASDK_CAPTURE)
+  if [ -n "${OPENHU_CAPTURE:-}" ]; then
+    local capture
+    capture="capture-$(date +%Y%m%d-%H%M%S).jsonl"
+    extra+=(-e "AASDK_CAPTURE=/root/.openhu/$capture")
+    [ "$OPENHU_CAPTURE" = media ] && extra+=(-e AASDK_CAPTURE_MEDIA=1)
+    echo "Protocol capture: $DOCKER_DIR/data/$capture"
+  fi
 
   # Pass cameras through (reverse camera plugin), if present
   local dev
