@@ -146,7 +146,7 @@ int main(int argc, char **argv) {
   std::thread feeder([&] {
     // created, opened and started from this thread like ServiceFactory/MediaAudioService on the io_service
     IAudioOutput::Pointer out;
-    out = IAudioOutput::Pointer(new QtAudioOutput(channels, 16, rate),
+    out = IAudioOutput::Pointer(new QtAudioOutput(channels, 16, rate, o.stream),
                                 [](IAudioOutput *p) { static_cast<QtAudioOutput *>(p)->deleteLater(); });
     if (!out->open()) {
       std::fprintf(stderr, "open failed\n");
