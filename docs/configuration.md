@@ -9,7 +9,7 @@ This page is the reference for editing files by hand, provisioning devices, or d
 | File | Location | Content |
 |---|---|---|
 | `openhu.ini` | working directory of OpenHU: `/var/lib/openhu` (systemd service), `docker/config/` (container) | all settings below; `openauto.ini` is read if `openhu.ini` does not exist yet |
-| `openhu-logs.ini` | same directory, optional | Boost.Log filter/format settings |
+| `openhu-logs.ini` | same directory, optional | Boost.Log filter/format settings; without it the log level comes from the environment variable `OPENHU_LOG` (`trace`, `debug`, `info`, `warning`, `error`), default `info` |
 | `keymap.json` | data directory | key → action mapping, only the entries that differ from the defaults (`{"F5": "aa.back", "H": ""}`) |
 | `sources.list` | data directory | store sources, see [plugins.md](plugins.md#repositories-store-sources) |
 | `plugins/<id>/` | data directory | installed plugins |
