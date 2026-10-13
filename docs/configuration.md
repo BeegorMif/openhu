@@ -112,5 +112,7 @@ Where the keys are in the settings:
 | Key | Default | |
 |---|---|---|
 | `Port` | `5520` | WebSocket API, see [api.md](api.md) |
-| `Listen` | `127.0.0.1` | `0.0.0.0` = reachable from the network over IPv4, `::` = IPv4 and IPv6 (the API has no login: trusted networks only) |
+| `Listen` | `127.0.0.1` | `0.0.0.0` = reachable from the network over IPv4, `::` = IPv4 and IPv6; clients from the network need the token |
 | `AllowHotspot` | `false` | accept API clients from the wireless hotspot network (IPv4 subnet and every address of the hotspot interface, IPv6 included) |
+| `Token` | created at the first start | login for clients from the network and browsers, see [api.md](api.md#login-token); a new one in Settings → Network |
+| `AllowedOrigins` | `*` | origins browsers may connect from, comma separated (`http://192.168.1.10:8080`); `*` = any, empty = no browser (API key `api.origins`) |

@@ -41,6 +41,13 @@ the start, see [Translations](#translations)) and `OPENHU_DATA_DIR` (persistent 
 `~/.openhu/plugin-data/<id>`, kept on updates). Output goes to `~/.openhu/logs/<id>.log`.
 Enabled/disabled and dock state are kept in `~/.openhu/plugins.json`.
 
+Plugin processes connect over `127.0.0.1` and need no API token ([api.md](api.md#login-token)), as long as they send
+no `Origin` header (WebSocket libraries do not unless told to). They get the full rights of a program on the
+device, passwords included. A plugin that offers a service to the network itself (a web page, an MQTT bridge, a
+remote control) must not pass requests from there on to the API without its own login, otherwise it opens the API
+to the network without the token. `openhu.py` takes a token (`OpenHU(token=...)` or `OPENHU_API_TOKEN`) for running
+a plugin process on another computer against a head unit while developing.
+
 ## QML
 
 `import OpenHU 1.0` provides:

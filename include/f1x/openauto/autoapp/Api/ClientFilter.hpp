@@ -20,7 +20,9 @@
 #include <QHostAddress>
 #include <QList>
 #include <QNetworkAddressEntry>
+#include <QNetworkRequest>
 #include <QString>
+#include <QStringList>
 
 namespace f1x
 {
@@ -51,6 +53,21 @@ bool isHotspotPeer(const QHostAddress& peer, const HotspotNetwork& hotspot);
 // Api.AllowHotspot=false) clients of the hotspot may not, and neither may IPv6 clients while the hotspot
 // interface is unknown, because they cannot be told apart.
 bool clientAllowed(const QHostAddress& peer, bool blockHotspot, const HotspotNetwork& hotspot);
+
+// A client on this device (also IPv4 loopback of a dual-stack socket, ::ffff:127.0.0.1)
+bool isLoopbackPeer(const QHostAddress& peer);
+
+// API token (Api.Token): 32 random bytes, base64url without padding
+QString generateToken();
+// Constant-time comparison; an empty expected token matches nothing
+bool tokenMatches(const QString& given, const QString& expected);
+// Token from the WebSocket handshake: "Authorization: Bearer <token>" or "?token=<token>", empty without one
+QString handshakeToken(const QNetworkRequest& request);
+
+// Api.AllowedOrigins: "*" (default) or a comma separated list of origins ("http://192.168.1.10:8080")
+QStringList parseOrigins(const QString& configured);
+// Whether a client with this Origin header may connect; clients without one (not a browser) always may
+bool originAllowed(const QString& origin, const QStringList& allowed);
 
 }
 }

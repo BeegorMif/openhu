@@ -43,6 +43,8 @@ const std::string cVideoDecoderKey = "Video.Decoder";
 const std::string cApiPortKey = "Api.Port";
 const std::string cApiListenKey = "Api.Listen";
 const std::string cApiAllowHotspotKey = "Api.AllowHotspot";
+const std::string cApiTokenKey = "Api.Token";
+const std::string cApiAllowedOriginsKey = "Api.AllowedOrigins";
 const std::string cVideoFPSKey = "Video.FPS";
 const std::string cVideoResolutionKey = "Video.Resolution";
 const std::string cVideoScreenDPIKey = "Video.ScreenDPI";
@@ -107,6 +109,8 @@ void Configuration::load()
         apiPort_ = ini.get<uint16_t>(cApiPortKey, apiPort_);
         apiListenAddress_ = ini.get<std::string>(cApiListenKey, apiListenAddress_);
         apiAllowHotspot_ = ini.get<bool>(cApiAllowHotspotKey, apiAllowHotspot_);
+        apiToken_ = ini.get<std::string>(cApiTokenKey, apiToken_);
+        apiAllowedOrigins_ = ini.get<std::string>(cApiAllowedOriginsKey, apiAllowedOrigins_);
 
         videoFPS_ = static_cast<aap_protobuf::service::media::sink::message::VideoFrameRateType>(
             ini.get<uint32_t>(cVideoFPSKey, videoFPS_));
@@ -166,6 +170,8 @@ void Configuration::reset()
     apiPort_ = 5520;
     apiListenAddress_ = "127.0.0.1";
     apiAllowHotspot_ = false;
+    apiToken_ = "";
+    apiAllowedOrigins_ = "*";
     videoFPS_ = aap_protobuf::service::media::sink::message::VideoFrameRateType::VIDEO_FPS_30;
     videoResolution_ = aap_protobuf::service::media::sink::message::VideoCodecResolutionType::VIDEO_800x480;
     screenDPI_ = 140;
@@ -198,6 +204,8 @@ void Configuration::save()
     ini.put<uint16_t>(cApiPortKey, apiPort_);
     ini.put<std::string>(cApiListenKey, apiListenAddress_);
     ini.put<bool>(cApiAllowHotspotKey, apiAllowHotspot_);
+    ini.put<std::string>(cApiTokenKey, apiToken_);
+    ini.put<std::string>(cApiAllowedOriginsKey, apiAllowedOrigins_);
     ini.put<uint32_t>(cVideoFPSKey, static_cast<uint32_t>(videoFPS_));
     ini.put<uint32_t>(cVideoResolutionKey, static_cast<uint32_t>(videoResolution_));
     ini.put<size_t>(cVideoScreenDPIKey, screenDPI_);
@@ -360,6 +368,26 @@ bool Configuration::getApiAllowHotspot() const
 void Configuration::setApiAllowHotspot(bool value)
 {
     apiAllowHotspot_ = value;
+}
+
+std::string Configuration::getApiToken() const
+{
+    return apiToken_;
+}
+
+void Configuration::setApiToken(const std::string& value)
+{
+    apiToken_ = value;
+}
+
+std::string Configuration::getApiAllowedOrigins() const
+{
+    return apiAllowedOrigins_;
+}
+
+void Configuration::setApiAllowedOrigins(const std::string& value)
+{
+    apiAllowedOrigins_ = value;
 }
 
 aap_protobuf::service::media::sink::message::VideoFrameRateType Configuration::getVideoFPS() const

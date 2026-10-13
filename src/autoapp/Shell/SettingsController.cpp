@@ -22,6 +22,7 @@
 #include <QHostAddress>
 #include <QRegularExpression>
 #include <QGuiApplication>
+#include <f1x/openauto/autoapp/Api/ClientFilter.hpp>
 #include <f1x/openauto/autoapp/Shell/SettingsController.hpp>
 #include <f1x/openauto/autoapp/Core/EventBus.hpp>
 #include <f1x/openauto/autoapp/Plugins/PluginManager.hpp>
@@ -155,6 +156,9 @@ QVariantMap SettingsController::keys()
         {"api.port", number(1024, 65535, cRestart)},
         {"api.network", flag(cRestart)},
         {"api.hotspot", flag("now")},
+        // for clients from the network and browsers; shown in the shell, a new one only from there
+        {"api.token", QVariantMap{{"type", "string"}, {"secret", true}, {"readOnly", true}, {"applies", "now"}}},
+        {"api.origins", text("now")},
     };
 }
 
@@ -206,6 +210,8 @@ QVariantMap SettingsController::values() const
         {"api.port", configuration_->getApiPort()},
         {"api.network", listen != "127.0.0.1" && listen != "localhost"},
         {"api.hotspot", configuration_->getApiAllowHotspot()},
+        {"api.token", QString::fromStdString(configuration_->getApiToken())},
+        {"api.origins", QString::fromStdString(configuration_->getApiAllowedOrigins())},
     };
 }
 
@@ -521,6 +527,11 @@ QString SettingsController::set(const QString& key, const QVariant& value)
         // checked for every new connection, no restart needed
         configuration_->setApiAllowHotspot(value.toBool());
     }
+    else if(key == "api.origins")
+    {
+        configuration_->setApiAllowedOrigins(api::parseOrigins(value.toString()).join(',').toStdString());
+        QMetaObject::invokeMethod(this, &SettingsController::apiAccessChanged, Qt::QueuedConnection);
+    }
     else if(key == "api.network")
     {
         configuration_->setApiListenAddress(value.toBool() ? "0.0.0.0" : "127.0.0.1");
@@ -531,6 +542,20 @@ QString SettingsController::set(const QString& key, const QVariant& value)
         return qtTrId("settings.error.unknown_setting").arg(key);
     }
 
+    this->saved(key);
+    return QString();
+}
+
+void SettingsController::regenerateApiToken()
+{
+    OPENAUTO_LOG(info) << "[SettingsController] new API token";
+    configuration_->setApiToken(api::generateToken().toStdString());
+    emit apiAccessChanged();
+    this->saved("api.token");
+}
+
+void SettingsController::saved(const QString& key)
+{
     configuration_->save();
     emit changed();
     // for the API (settings.changed); secrets without their value, the topic reaches clients from the network too
@@ -540,7 +565,6 @@ QString SettingsController::set(const QString& key, const QVariant& value)
         event.insert("value", this->values().value(key));
     }
     core::EventBus::instance().publish("settings.changed", event);
-    return QString();
 }
 
 void SettingsController::clearPending(const QString& what)

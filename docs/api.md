@@ -15,6 +15,37 @@ WebSocket + JSON, default `ws://127.0.0.1:5520` (`openhu.ini`: `[Api] Port=5520`
 
 Example: `websocat ws://127.0.0.1:5520` and then `{"type":"subscribe","topics":["*"]}`.
 
+## Login (token)
+
+Programs on the device itself (plugins, `openhu`, `websocat` on the head unit) need no login. Clients from the
+network and browsers (every client that sends an `Origin` header, also on the device itself) have to send the API
+token first. It is created at the first start (`openhu.ini`: `[Api] Token=`) and shown in Settings → Network
+→ API token, which also makes a new one (clients logged in with the old one are disconnected). It cannot be read or
+set through the API from the network.
+
+The token goes with the handshake or as the first message:
+
+| How | Example |
+|---|---|
+| Header | `Authorization: Bearer <token>` |
+| URL | `ws://<head unit>:5520/?token=<token>` (browsers cannot set headers) |
+| Message | → `{"type":"auth","token":"<token>"}` ← `{"type":"auth","authenticated":true}` |
+
+Before the login every other message is answered with the error `authentication required`, and no events are
+sent. A wrong token closes the connection (close code 1008), and so does no login within 10 seconds.
+
+```sh
+websocat -H "Authorization: Bearer $TOKEN" ws://192.168.1.50:5520
+```
+
+Browsers may connect from every origin by default (`[Api] AllowedOrigins=*`); a list such as
+`http://192.168.1.10:8080,http://dashboard.local` allows only those, empty allows no browser at all. Browsers always
+need the token and never get passwords (`secret` settings), not even on the device itself, so a web page cannot use
+the API behind the user's back.
+
+The connection is not encrypted (`ws://`): the token travels in clear text through the network, use the API only in
+networks you trust.
+
 ## Topics (events)
 
 | Topic | Data |
@@ -52,7 +83,7 @@ Example: `websocat ws://127.0.0.1:5520` and then `{"type":"subscribe","topics":[
 Plugins publish their own topics with `bus.publish` (e.g. `vehicle.speed`).
 
 API clients on the wireless hotspot network are refused unless "API auch im WLAN-Hotspot" is switched on
-(the hotspot is meant for the phone; connect API devices over Ethernet).
+(the hotspot is meant for the phone; connect API devices over Ethernet). If they are allowed, they need the token too.
 
 ## Methods
 
@@ -65,7 +96,7 @@ API clients on the wireless hotspot network are refused unless "API auch im WLAN
 | `bus.get` | `topic` | last value |
 | `bus.topics` | – | topics that have a value |
 | `settings.keys` | – | per key: `type` (`bool`, `int`, `string`, `choice`), `choices`, `min`/`max`, `maxLength`, `applies` (`now`, `reconnect`: next Android Auto connection, `restart`: of OpenHU), `secret`, `readOnly` |
-| `settings.list` | – | `{values, pending}` – all settings (keys as in the settings page: `aa.fps`, `wireless.hotspot`, …); passwords (`secret`) only for clients on the device |
+| `settings.list` | – | `{values, pending}` – all settings (keys as in the settings page: `aa.fps`, `wireless.hotspot`, …); passwords and the API token (`secret`) only for clients on the device |
 | `settings.get` | `key` | `{key, value}`; unknown key → error |
 | `settings.set` | `key`, `value` | `{key, value, applies, pending}` – the same checks as the settings page, saved to `openhu.ini` right away; the value may be text (`"60"`, `"on"`, `"false"`) and is converted to the key's type; a wrong value → error with the reason |
 | `volume.get` | – | `{volume, muted}` |

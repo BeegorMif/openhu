@@ -677,7 +677,7 @@
     </message>
     <message id="settings.network.otherwise_only_reachable_device">
         <source></source>
-        <translation>Sonst nur auf diesem Gerät erreichbar. Die API hat keine Anmeldung – nur in vertrauenswürdigen Netzen einschalten.</translation>
+        <translation>Sonst nur auf diesem Gerät erreichbar. Geräte aus dem Netzwerk brauchen den API-Token.</translation>
     </message>
     <message id="settings.network.api_also_wifi_hotspot">
         <source></source>
@@ -1758,6 +1758,22 @@
     <message id="wireless.disconnected_phone">
         <source></source>
         <translation>Am Telefon getrennt</translation>
+    </message>
+    <message id="settings.network.api_token">
+        <source></source>
+        <translation>API-Token</translation>
+    </message>
+    <message id="settings.network.api_token_description">
+        <source></source>
+        <translation>Geräte aus dem Netzwerk und Browser melden sich damit an:</translation>
+    </message>
+    <message id="settings.network.new_token">
+        <source></source>
+        <translation>Neuer Token</translation>
+    </message>
+    <message id="settings.network.really_new_token">
+        <source></source>
+        <translation>Wirklich? Alte Anmeldungen enden</translation>
     </message>
 </context>
 </TS>
