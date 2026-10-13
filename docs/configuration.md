@@ -66,12 +66,11 @@ Where the keys are in the settings:
 | `EnableTouchscreen` | `true` | touch input for Android Auto |
 | `OnScreenKeyboard` | `true` | on-screen keyboard for text fields in the shell (Qt Virtual Keyboard, layout in the language of the shell); off with a real keyboard |
 
-### [AudioChannel], [Audio]
+### [AudioChannel]
 
 | Key | Default | |
 |---|---|---|
 | `MediaEnabled`, `GuidanceEnabled`, `SystemEnabled`, `TelephonyEnabled` | `true` | Android Auto audio channels played by OpenHU |
-| `Audio.OutputBackend` | `1` | `0` RtAudio, `1` Qt Multimedia (lower latency); was `Audio.OutputBackendType` with the default RtAudio, which is no longer read |
 
 ### [CarAudio]
 

@@ -26,7 +26,6 @@
 #include <aap_protobuf/service/media/sink/message/VideoCodecResolutionType.pb.h>
 #include <f1x/openauto/autoapp/Configuration/BluetoothAdapterType.hpp>
 #include <f1x/openauto/autoapp/Configuration/HandednessOfTrafficType.hpp>
-#include <f1x/openauto/autoapp/Configuration/AudioOutputBackendType.hpp>
 
 namespace f1x
 {
@@ -154,8 +153,6 @@ public:
     virtual void setSystemAudioChannelEnabled(bool value) = 0;
     virtual bool telephonyAudioChannelEnabled() const = 0;
     virtual void setTelephonyAudioChannelEnabled(bool value) = 0;
-    virtual AudioOutputBackendType getAudioOutputBackendType() const = 0;
-    virtual void setAudioOutputBackendType(AudioOutputBackendType value) = 0;
 
     // "key=value" from a system file (wireless Android Auto reads the hotspot SSID/password from hostapd.conf)
     virtual QString getParamFromFile(QString fileName, QString searchString) const = 0;

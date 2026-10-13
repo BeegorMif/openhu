@@ -28,12 +28,6 @@ SettingsSection {
             }
         }
     }
-    SettingChoice {
-        title: qsTrId("settings.audio.audio_output")
-        description: qsTrId("settings.audio.qt_multimedia_has_lower")
-        key: "audio.backend"
-        options: [{ value: "qt", label: "Qt Multimedia" }, { value: "rtaudio", label: "RtAudio" }]
-    }
 
     Column {
         width: parent.width

@@ -149,7 +149,6 @@ QVariantMap SettingsController::keys()
         {"wireless.clientInterface", text("now", 15)},
         {"wireless.address", text("now")},
         {"wireless.dhcpRange", text("now")},
-        {"audio.backend", choice({"rtaudio", "qt"}, cReconnect)},
         {"bluetooth.adapter", choice({"none", "local"}, cRestart)},
         {"bluetooth.address", text(cRestart)},
         {"carAudio.enabled", flag("now")},
@@ -201,8 +200,6 @@ QVariantMap SettingsController::values() const
         {"aa.audioMedia", configuration_->musicAudioChannelEnabled()},
         {"aa.audioGuidance", configuration_->guidanceAudioChannelEnabled()},
         {"aa.audioTelephony", configuration_->telephonyAudioChannelEnabled()},
-        {"audio.backend", configuration_->getAudioOutputBackendType() == configuration::AudioOutputBackendType::QT
-                              ? "qt" : "rtaudio"},
         {"bluetooth.adapter", configuration_->getBluetoothAdapterType() == configuration::BluetoothAdapterType::NONE
                                   ? "none" : "local"},
         {"bluetooth.address", QString::fromStdString(configuration_->getBluetoothAdapterAddress())},
@@ -475,12 +472,6 @@ QString SettingsController::set(const QString& key, const QVariant& value)
     else if(key == "aa.audioTelephony")
     {
         configuration_->setTelephonyAudioChannelEnabled(value.toBool());
-        this->markPending(cReconnect);
-    }
-    else if(key == "audio.backend")
-    {
-        configuration_->setAudioOutputBackendType(value.toString() == "qt" ? configuration::AudioOutputBackendType::QT
-                                                                           : configuration::AudioOutputBackendType::RTAUDIO);
         this->markPending(cReconnect);
     }
     else if(key == "bluetooth.adapter")

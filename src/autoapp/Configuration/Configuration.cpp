@@ -75,9 +75,6 @@ const std::string cAudioMediaKey = "AudioChannel.MediaEnabled";
 const std::string cAudioGuidanceKey = "AudioChannel.GuidanceEnabled";
 const std::string cAudioSystemKey = "AudioChannel.SystemEnabled";
 const std::string cAudioTelephonyKey = "AudioChannel.TelephonyEnabled";
-// Was Audio.OutputBackendType with RtAudio as the default: a new key so that saved configurations get the new
-// default Qt Multimedia too (nobody chose RtAudio, it was just saved along); the old key is dropped on the next save
-const std::string cAudioOutputBackendKey = "Audio.OutputBackend";
 
 }
 
@@ -150,8 +147,6 @@ void Configuration::load()
         audioChannelEnabledGuidance_ = ini.get<bool>(cAudioGuidanceKey, audioChannelEnabledGuidance_);
         audioChannelEnabledSystem_ = ini.get<bool>(cAudioSystemKey, audioChannelEnabledSystem_);
         audioChannelEnabledTelephony_ = ini.get<bool>(cAudioTelephonyKey, audioChannelEnabledTelephony_);
-        audioOutputBackendType_ = static_cast<AudioOutputBackendType>(
-            ini.get<uint32_t>(cAudioOutputBackendKey, static_cast<uint32_t>(audioOutputBackendType_)));
     }
     catch(const boost::property_tree::ptree_error& e)
     {
@@ -190,7 +185,6 @@ void Configuration::reset()
     audioChannelEnabledGuidance_ = true;
     audioChannelEnabledSystem_ = true;
     audioChannelEnabledTelephony_ = true;
-    audioOutputBackendType_ = AudioOutputBackendType::QT;
 }
 
 void Configuration::save()
@@ -238,7 +232,6 @@ void Configuration::save()
     ini.put<bool>(cAudioGuidanceKey, audioChannelEnabledGuidance_);
     ini.put<bool>(cAudioSystemKey, audioChannelEnabledSystem_);
     ini.put<bool>(cAudioTelephonyKey, audioChannelEnabledTelephony_);
-    ini.put<uint32_t>(cAudioOutputBackendKey, static_cast<uint32_t>(audioOutputBackendType_));
 
     try
     {
@@ -530,16 +523,6 @@ bool Configuration::telephonyAudioChannelEnabled() const
 void Configuration::setTelephonyAudioChannelEnabled(bool value)
 {
     audioChannelEnabledTelephony_ = value;
-}
-
-AudioOutputBackendType Configuration::getAudioOutputBackendType() const
-{
-    return audioOutputBackendType_;
-}
-
-void Configuration::setAudioOutputBackendType(AudioOutputBackendType value)
-{
-    audioOutputBackendType_ = value;
 }
 
 QString Configuration::getParamFromFile(QString fileName, QString searchString) const

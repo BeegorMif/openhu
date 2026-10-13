@@ -351,14 +351,6 @@
         <source></source>
         <translation>Stumm</translation>
     </message>
-    <message id="settings.audio.audio_output">
-        <source></source>
-        <translation>Audioausgabe</translation>
-    </message>
-    <message id="settings.audio.qt_multimedia_has_lower">
-        <source></source>
-        <translation>Qt Multimedia hat die geringere Verzögerung, RtAudio ist die Alternative bei Problemen.</translation>
-    </message>
     <message id="settings.audio.car_radio_bluetooth">
         <source></source>
         <translation>Autoradio (Bluetooth)</translation>
