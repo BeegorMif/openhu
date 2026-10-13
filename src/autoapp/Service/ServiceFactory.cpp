@@ -40,7 +40,6 @@
 #include <f1x/openauto/autoapp/Service/MediaPlaybackStatus/MediaPlaybackStatusService.hpp>
 #include <f1x/openauto/autoapp/Service/PhoneStatus/PhoneStatusService.hpp>
 #include <f1x/openauto/autoapp/Projection/FfmpegVideoOutput.hpp>
-#include <f1x/openauto/autoapp/Projection/RtAudioOutput.hpp>
 #include <f1x/openauto/autoapp/Projection/QtAudioOutput.hpp>
 #include <f1x/openauto/autoapp/Projection/QtAudioInput.hpp>
 #include <f1x/openauto/autoapp/Projection/InputDevice.hpp>
@@ -109,8 +108,6 @@ namespace f1x::openauto::autoapp::service {
     if (configuration_->musicAudioChannelEnabled()) {
       OPENAUTO_LOG(info) << "[ServiceFactory] Media Audio Channel enabled";
       auto mediaAudioOutput =
-          configuration_->getAudioOutputBackendType() == configuration::AudioOutputBackendType::RTAUDIO ?
-          std::make_shared<projection::RtAudioOutput>(2, 16, 48000) :
           projection::IAudioOutput::Pointer(new projection::QtAudioOutput(2, 16, 48000),
                                             std::bind(&QObject::deleteLater, std::placeholders::_1));
 
@@ -121,8 +118,6 @@ namespace f1x::openauto::autoapp::service {
     if (configuration_->guidanceAudioChannelEnabled()) {
       OPENAUTO_LOG(info) << "[ServiceFactory] Guidance Audio Channel enabled";
       auto guidanceAudioOutput =
-          configuration_->getAudioOutputBackendType() == configuration::AudioOutputBackendType::RTAUDIO ?
-          std::make_shared<projection::RtAudioOutput>(1, 16, 16000) :
           projection::IAudioOutput::Pointer(new projection::QtAudioOutput(1, 16, 16000),
                                             std::bind(&QObject::deleteLater, std::placeholders::_1));
 
@@ -135,8 +130,6 @@ namespace f1x::openauto::autoapp::service {
     if (configuration_->telephonyAudioChannelEnabled()) {
       OPENAUTO_LOG(info) << "[ServiceFactory] Telephony Audio Channel enabled";
       auto telephonyAudioOutput =
-          configuration_->getAudioOutputBackendType() == configuration::AudioOutputBackendType::RTAUDIO ?
-          std::make_shared<projection::RtAudioOutput>(1, 16, 16000) :
           projection::IAudioOutput::Pointer(new projection::QtAudioOutput(1, 16, 16000),
                                             std::bind(&QObject::deleteLater, std::placeholders::_1));
 
@@ -151,8 +144,6 @@ namespace f1x::openauto::autoapp::service {
 
     OPENAUTO_LOG(info) << "[ServiceFactory] System Audio Channel enabled";
     auto systemAudioOutput =
-        configuration_->getAudioOutputBackendType() == configuration::AudioOutputBackendType::RTAUDIO ?
-        std::make_shared<projection::RtAudioOutput>(1, 16, 16000) :
         projection::IAudioOutput::Pointer(new projection::QtAudioOutput(1, 16, 16000),
                                           std::bind(&QObject::deleteLater, std::placeholders::_1));
 

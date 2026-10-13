@@ -70,7 +70,7 @@ a local source tree instead. Until the APT repository exists, `apt` cannot fetch
 ```bash
 sudo apt install build-essential cmake ninja-build pkg-config git ca-certificates \
     libboost-system-dev libboost-log-dev libprotobuf-dev protobuf-compiler libusb-1.0-0-dev libssl-dev \
-    libgps-dev librtaudio-dev qt6-base-dev qt6-declarative-dev qt6-multimedia-dev qt6-websockets-dev \
+    libgps-dev qt6-base-dev qt6-declarative-dev qt6-multimedia-dev qt6-websockets-dev \
     qt6-declarative-dev-tools libavcodec-dev libavutil-dev libswscale-dev qml6-module-qtquick \
     qml6-module-qtquick-window qml6-module-qtquick-layouts qml6-module-qtquick-controls qml6-module-qtmultimedia \
     qml6-module-qtquick-virtualkeyboard qt6-virtualkeyboard-plugin \

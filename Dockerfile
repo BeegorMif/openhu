@@ -57,7 +57,6 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
         libusb-1.0-0-dev \
         libssl-dev \
         libgps-dev \
-        librtaudio-dev \
         qt6-base-dev \
         qt6-declarative-dev \
         qt6-multimedia-dev \

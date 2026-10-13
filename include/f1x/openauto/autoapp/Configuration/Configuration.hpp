@@ -97,8 +97,6 @@ public:
     void setSystemAudioChannelEnabled(bool value) override;
     bool telephonyAudioChannelEnabled() const override;
     void setTelephonyAudioChannelEnabled(bool value) override;
-    AudioOutputBackendType getAudioOutputBackendType() const override;
-    void setAudioOutputBackendType(AudioOutputBackendType value) override;
 
     QString getParamFromFile(QString fileName, QString searchString) const override;
 
@@ -130,7 +128,6 @@ private:
     bool audioChannelEnabledGuidance_;
     bool audioChannelEnabledSystem_;
     bool audioChannelEnabledTelephony_;
-    AudioOutputBackendType audioOutputBackendType_;
 };
 
 }

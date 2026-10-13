@@ -22,7 +22,6 @@
 #include <QMediaDevices>
 #include <QAudioFormat>
 #include <f1x/openauto/autoapp/Projection/IAudioOutput.hpp>
-#include <f1x/openauto/autoapp/Projection/SequentialBuffer.hpp>
 
 namespace f1x
 {

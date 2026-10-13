@@ -110,13 +110,11 @@ find_package(Qt6 6.8 REQUIRED COMPONENTS Core Gui DBus Multimedia Network Qml Qu
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(FFMPEG REQUIRED IMPORTED_TARGET libavcodec libavutil libswscale)
 find_package(OpenSSL REQUIRED)
-find_package(rtaudio REQUIRED)
 find_package(gps REQUIRED)
 
 include_directories(${CMAKE_CURRENT_BINARY_DIR}
         ${Boost_INCLUDE_DIRS}
         ${OPENSSL_INCLUDE_DIR}
-        ${RTAUDIO_INCLUDE_DIRS}
         ${include_directory}
         ${PROTOBUF_INCLUDE_DIR})
 
@@ -151,7 +149,6 @@ target_link_libraries(openhu_core PUBLIC
         Qt6::WebSockets
         PkgConfig::FFMPEG
         ${WINSOCK2_LIBRARIES}
-        ${RTAUDIO_LIBRARIES}
         ${GPS_LIBRARIES}
         ${PROTOBUF_LIBRARIES}
         AASDK::aasdk)
