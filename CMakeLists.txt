@@ -99,7 +99,7 @@ endif ()
 # Required version: any release with this major and minor version. A new minor version of aasdk may
 # change the ABI (e.g. the size of classes OpenHU creates), so OpenHU is built against each one.
 # find_package checks it here, the Depends of the .deb are derived from it below.
-set(OPENHU_AASDK_VERSION 1.3)
+set(OPENHU_AASDK_VERSION 1.4)
 find_package(aasdk ${OPENHU_AASDK_VERSION} CONFIG REQUIRED)
 message(STATUS "aasdk ${aasdk_VERSION}: ${aasdk_DIR}")
 
