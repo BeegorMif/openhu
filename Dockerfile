@@ -154,6 +154,8 @@ RUN --mount=type=bind,from=aasdk,target=/aasdk-src,rw \
     && dpkg-query -W libaasdk libaasdk-dev
 
 FROM aasdk-build AS openhu-build
+# release version from the tag (CI); empty: the build date
+ARG OPENHU_VERSION=
 WORKDIR /src
 COPY CMakeLists.txt LICENSE ./
 COPY cmake_modules cmake_modules
@@ -171,6 +173,7 @@ RUN --mount=type=cache,target=/ccache \
     && cmake -S /src -B /tmp/build -DCMAKE_BUILD_TYPE=Release \
         -DCPACK_DEBIAN_PACKAGE_RELEASE="$(bash scripts/distro_release.sh)" \
         -DCPACK_PROJECT_CONFIG_FILE=/src/cmake_modules/CPackProjectConfig.cmake \
+        -DOPENHU_VERSION_OVERRIDE="$OPENHU_VERSION" \
     && cmake --build /tmp/build \
     && ctest --test-dir /tmp/build --output-on-failure \
     && cd /tmp/build && cpack -G DEB \

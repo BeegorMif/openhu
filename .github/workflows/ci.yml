@@ -1,11 +1,13 @@
 # Builds OpenHU for amd64 and arm64 against the newest fitting aasdk release (OPENHU_AASDK_VERSION)
 # with qmllint and the unit tests (Dockerfile), installs the packages in a clean Debian, starts the
-# shell headless and uploads the packages.
+# shell headless and uploads the packages. A tag v<version> (digits and dots, e.g. v2026.10.13) builds with
+# that version and publishes the packages as a GitHub release.
 name: CI
 
 on:
   push:
     branches: [main]
+    tags: ['v*']
   pull_request:
   workflow_dispatch:
   # Sent by the aasdk workflow openhu.yml after a release
@@ -26,6 +28,18 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # tag v2026.10.13: release version 2026.10.13, otherwise the build date
+      - name: Version
+        run: |
+          version=""
+          if [ "$GITHUB_REF_TYPE" = tag ]; then
+            version="${GITHUB_REF_NAME#v}"
+            case "$version" in
+              ""|*[!0-9.]*|.*|*.|*..*) echo "::error::tag $GITHUB_REF_NAME: v followed by digits and dots (v2026.10.13)"; exit 1 ;;
+            esac
+          fi
+          echo "OPENHU_VERSION=$version" >> "$GITHUB_ENV"
+
       - name: aasdk release
         env:
           GH_TOKEN: ${{ github.token }}
@@ -43,6 +57,7 @@ jobs:
           context: .
           target: packages
           build-contexts: aasdk=${{ runner.temp }}/aasdk
+          build-args: OPENHU_VERSION=${{ env.OPENHU_VERSION }}
           outputs: type=local,dest=packages
           cache-from: type=gha,scope=${{ matrix.arch }}
           cache-to: type=gha,mode=max,scope=${{ matrix.arch }}
@@ -71,3 +86,36 @@ jobs:
           name: openhu-${{ matrix.arch }}
           path: packages/*.deb
           retention-days: 30
+
+  release:
+    if: github.ref_type == 'tag'
+    needs: build
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: openhu-*
+          path: dist
+          merge-multiple: true
+
+      - name: GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          ls dist
+          # the package must carry the version of the tag
+          for deb in dist/openhu_*.deb; do
+            case "$(dpkg-deb -f "$deb" Version)" in
+              "$version"-*) ;;
+              *) echo "::error::$deb has version $(dpkg-deb -f "$deb" Version), expected $version"; exit 1 ;;
+            esac
+          done
+          (cd dist && sha256sum *.deb > SHA256SUMS)
+          scripts/release-notes.sh "$version" dist > notes.md
+          cat notes.md >> "$GITHUB_STEP_SUMMARY"
+          gh release create "$GITHUB_REF_NAME" dist/* --title "OpenHU $version" --notes-file notes.md
