@@ -5,7 +5,7 @@ Files that end up in the `openhu` Debian package (built with CPack, see `build.s
 ```
 packaging/
 ├── debian/                 # maintainer scripts (postinst, prerm, postrm, preinst)
-├── systemd/openhu.service  # runs /usr/bin/autoapp
+├── systemd/openhu.service  # runs /usr/libexec/openhu/openhu
 └── udev/99-openhu.rules    # USB access for Android phones (also in accessory mode)
 ```
 
@@ -13,11 +13,12 @@ packaging/
 
 | | |
 |---|---|
-| Binary | `/usr/bin/autoapp` |
+| Program | `/usr/libexec/openhu/openhu`, started as `/usr/bin/openhu` (link). `/usr/bin/autoapp`, the old name, links to it for one more release. OpenHU OS removes both links (its command line is `openhu-cli`) |
+| Single instance | a second OpenHU ends right away: lock `/run/lock/openhu.lock` (holds the pid) |
 | Service | `openhu.service` (enabled on install, not started) |
-| Depends | Qt 5 (Quick, Multimedia, WebSockets), GStreamer, `pulseaudio-utils` |
+| Depends | Qt 6 (Quick, Multimedia, WebSockets), FFmpeg, `pulseaudio-utils` |
 | Recommends | `bluez`, `network-manager`, `iw` – only needed for wireless Android Auto |
-| Replaces | `openauto` (same binary name) |
+| Replaces | `openauto` (`/usr/bin/autoapp`) |
 
 ## Wireless Android Auto on bare metal
 

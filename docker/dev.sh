@@ -91,7 +91,7 @@ cmd_test() {
     echo "=== ctest ==="
     ctest --test-dir /build/openhu --output-on-failure
     echo "=== shell ==="
-    bash tests/shell-smoke.sh /build/openhu/bin/autoapp
+    bash tests/shell-smoke.sh /build/openhu/bin/openhu
   '
 }
 

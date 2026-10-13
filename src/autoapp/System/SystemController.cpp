@@ -481,7 +481,7 @@ void SystemController::run(const QString& command, const QStringList& args, cons
                            std::function<void(const QVariantMap&)> done)
 {
     auto* process = new QProcess(this);
-    const QString helper = "openhu " + command;
+    const QString helper = "openhu-cli " + command;
     QStringList arguments{command};
     arguments << args << "--json";
     connect(process, &QProcess::finished, this, [process, done, helper](int exitCode, QProcess::ExitStatus) {

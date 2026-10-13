@@ -48,6 +48,7 @@
 #include <f1x/openauto/autoapp/Api/CoreMethods.hpp>
 #include <f1x/openauto/autoapp/Audio/VolumeController.hpp>
 #include <f1x/openauto/autoapp/Core/EventBus.hpp>
+#include <f1x/openauto/autoapp/Core/InstanceLock.hpp>
 #include <f1x/openauto/autoapp/Core/UsbReset.hpp>
 #include <f1x/openauto/autoapp/Input/ActionDispatcher.hpp>
 #include <f1x/openauto/autoapp/Plugins/PluginManager.hpp>
@@ -109,7 +110,7 @@ void configureLogging() {
             boost::log::register_simple_formatter_factory<boost::log::trivial::severity_level, char>("Severity");
             boost::log::init_from_stream(logSettings);
         } catch (std::exception const & e) {
-            OPENAUTO_LOG(warning) << "[OpenAuto] " << logIni << " was provided but was not valid.";
+            OPENAUTO_LOG(warning) << "[OpenHU] " << logIni << " was provided but was not valid.";
         }
     }
 }
@@ -119,6 +120,21 @@ int main(int argc, char* argv[])
     QElapsedTimer startup;
     startup.start();
     configureLogging();
+
+    // before USB, the API port and the display: a second OpenHU ends here. Without a lock file (error) it starts
+    // anyway, a head unit without its shell would be worse.
+    autoapp::core::InstanceLock instanceLock;
+    if(!instanceLock.acquire())
+    {
+        if(instanceLock.error().isEmpty())
+        {
+            const qint64 holder = instanceLock.holder();
+            OPENAUTO_LOG(error) << "[AutoApp] OpenHU is already running"
+                                << (holder > 0 ? " (pid " + std::to_string(holder) + ")" : std::string()) << ".";
+            return 1;
+        }
+        OPENAUTO_LOG(warning) << "[AutoApp] No instance lock: " << instanceLock.error().toStdString();
+    }
 
     libusb_context* usbContext;
     if(libusb_init(&usbContext) != 0)

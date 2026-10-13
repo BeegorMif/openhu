@@ -105,7 +105,7 @@ audio server of user 1000 (`XDG_RUNTIME_DIR=/run/user/1000`); adjust the `Enviro
 autostart entry:
 
 ```bash
-mkdir -p ~/.config/openhu && cd ~/.config/openhu && autoapp
+mkdir -p ~/.config/openhu && cd ~/.config/openhu && openhu
 ```
 
 Phones need to be accessible for that user (the udev rule allows it).

@@ -4,15 +4,15 @@
 # when the plugin itself is disabled/enabled (openhu#19). The QML of the plugin logs when it is created and
 # destroyed.
 #
-#   tests/shell-plugin-pages.sh [autoapp] [seconds before the test]
+#   tests/shell-plugin-pages.sh [openhu] [seconds before the test]
 set -uo pipefail
 
-autoapp="${1:-autoapp}"
+openhu="${1:-openhu}"
 seconds="${2:-8}"
 
 work="$(mktemp -d)"
 trap 'rm -rf "$work"' EXIT
-log="$work/autoapp.log"
+log="$work/openhu.log"
 
 cd "$work"
 plugins="$work/.openhu/plugins"
@@ -42,7 +42,7 @@ cat > "$plugins/other/manifest.json" <<'EOF'
 EOF
 printf 'import QtQuick\nItem {}\n' > "$plugins/other/qml/Main.qml"
 
-HOME="$work" QT_QPA_PLATFORM=offscreen QT_QUICK_BACKEND=software "$autoapp" > "$log" 2>&1 &
+HOME="$work" QT_QPA_PLATFORM=offscreen QT_QUICK_BACKEND=software "$openhu" > "$log" 2>&1 &
 pid=$!
 sleep "$seconds"
 
