@@ -89,6 +89,75 @@ void SettingsController::publishNightMode() const
                                        {{"mode", QString::fromStdString(configuration_->getNightMode())}});
 }
 
+QVariantMap SettingsController::keys()
+{
+    // applies: "now", "reconnect" (next Android Auto connection) or "restart" (of OpenHU)
+    const auto choice = [](const QVariantList& choices, const QString& applies) {
+        return QVariantMap{{"type", "choice"}, {"choices", choices}, {"applies", applies}};
+    };
+    const auto number = [](int min, int max, const QString& applies) {
+        return QVariantMap{{"type", "int"}, {"min", min}, {"max", max}, {"applies", applies}};
+    };
+    const auto flag = [](const QString& applies) { return QVariantMap{{"type", "bool"}, {"applies", applies}}; };
+    const auto text = [](const QString& applies, int maxLength = 0, bool secret = false) {
+        QVariantMap key{{"type", "string"}, {"applies", applies}};
+        if(maxLength > 0)
+        {
+            key.insert("maxLength", maxLength);
+        }
+        if(secret)
+        {
+            key.insert("secret", true);
+        }
+        return key;
+    };
+    QVariantList languages;
+    for(const QString& language: Translations::available())
+    {
+        languages << language;
+    }
+
+    return {
+        {"general.driverSide", choice({"left", "right"}, cReconnect)},
+        {"general.showCursor", flag("now")},
+        {"general.onScreenKeyboard", flag("now")},
+        {"general.language", choice(languages, "now")},
+        {"general.nameSuffix", text(cReconnect, 24)},
+        {"aa.resolution", choice({"auto", "800x480", "1280x720", "1920x1080", "2560x1440"}, cReconnect)},
+        {"aa.activeResolution", QVariantMap{{"type", "string"}, {"readOnly", true}}},
+        {"aa.nightMode", choice({"auto", "day", "night"}, "now")},
+        {"aa.fps", choice({30, 60}, cReconnect)},
+        {"aa.dpi", number(80, 400, cReconnect)},
+        {"aa.marginWidth", number(0, 600, cReconnect)},
+        {"aa.marginHeight", number(0, 600, cReconnect)},
+        {"aa.touchscreen", flag(cReconnect)},
+        {"aa.wireless", flag("now")},
+        {"aa.audioMedia", flag(cReconnect)},
+        {"aa.audioGuidance", flag(cReconnect)},
+        {"aa.audioTelephony", flag(cReconnect)},
+        {"wireless.ssid", text("now", 32)},
+        {"wireless.password", text("now", 63, true)},
+        {"wireless.band", choice({"auto", "2.4", "5"}, "now")},
+        {"wireless.channel", number(0, 165, "now")},
+        {"wireless.country", text("now", 2)},
+        {"wireless.priority", choice({"usb", "wifi"}, "now")},
+        {"wireless.hotspot", choice({"always", "demand"}, "now")},
+        {"wireless.interface", text("now", 15)},
+        {"wireless.client", flag("now")},
+        {"wireless.clientInterface", text("now", 15)},
+        {"wireless.address", text("now")},
+        {"wireless.dhcpRange", text("now")},
+        {"audio.backend", choice({"rtaudio", "qt"}, cReconnect)},
+        {"bluetooth.adapter", choice({"none", "local"}, cRestart)},
+        {"bluetooth.address", text(cRestart)},
+        {"carAudio.enabled", flag("now")},
+        {"carAudio.pin", text("now", 16, true)},
+        {"api.port", number(1024, 65535, cRestart)},
+        {"api.network", flag(cRestart)},
+        {"api.hotspot", flag("now")},
+    };
+}
+
 QVariantMap SettingsController::values() const
 {
     const QRect margins = configuration_->getVideoMargins();
@@ -464,6 +533,13 @@ QString SettingsController::set(const QString& key, const QVariant& value)
 
     configuration_->save();
     emit changed();
+    // for the API (settings.changed); secrets without their value, the topic reaches clients from the network too
+    QVariantMap event{{"key", key}, {"pending", pending_}};
+    if(!keys().value(key).toMap().value("secret").toBool())
+    {
+        event.insert("value", this->values().value(key));
+    }
+    core::EventBus::instance().publish("settings.changed", event);
     return QString();
 }
 

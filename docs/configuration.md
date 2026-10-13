@@ -23,6 +23,10 @@ the container).
 
 ## openhu.ini
 
+The settings can also be changed without the shell through the API (`settings.list`, `settings.set`, see
+[api.md](api.md)) or, on OpenHU OS, with `openhu config list|get|set`. Their keys follow the settings page
+(`aa.fps`, `wireless.hotspot`), not the `openhu.ini` names below; `settings.keys` lists them with their values.
+
 Where the keys are in the settings:
 
 | Settings | Keys |

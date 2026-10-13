@@ -26,9 +26,10 @@
 namespace f1x::openauto::autoapp::system
 {
 
-// OpenHU OS: system update, ssh access, time zone and time (Settings -> System, system.* API). The helpers of
-// OpenHU OS run as root through pkexec (its polkit rule allows the openhu user exactly these programs) and answer in
-// JSON: openhu-update (status/check/start/cancel, progress in <runDir>/update.json), openhu-ssh and openhu-time.
+// OpenHU OS: system update, ssh access, time zone and time (Settings -> System, system.* API) through the command
+// line tool of OpenHU OS, answering in JSON: openhu update check/install/cancel (progress in <runDir>/update.json),
+// openhu ssh status/on/off/password, openhu time status/zone/ntp/set. It runs these as root itself (pkexec, its
+// polkit rule allows the openhu user exactly these commands).
 // Elsewhere (Docker, .deb on another system) available is false and nothing runs.
 class SystemController: public QObject
 {
@@ -52,8 +53,7 @@ class SystemController: public QObject
 public:
     // osVersion: IMAGE_VERSION of OpenHU OS, empty elsewhere. The rest only changes for tests.
     explicit SystemController(const QString& osVersion, QObject* parent = nullptr,
-                              const QString& pkexec = QStringLiteral("pkexec"),
-                              const QString& helperDir = QStringLiteral("/usr/libexec/openhu-os"),
+                              const QString& cli = QStringLiteral("/usr/bin/openhu"),
                               const QString& runDir = QStringLiteral("/run/openhu-os"));
 
     bool available() const { return !osVersion_.isEmpty(); }
@@ -98,7 +98,8 @@ signals:
     void timeError(const QString& message);
 
 private:
-    void run(const QString& helper, const QStringList& args, const QByteArray& input,
+    // openhu <command> <args> --json
+    void run(const QString& command, const QStringList& args, const QByteArray& input,
              std::function<void(const QVariantMap&)> done);
     void readUpdateState();
     void readUsbUpdate();
@@ -110,8 +111,7 @@ private:
     bool updateRunning() const;
 
     QString osVersion_;
-    QString pkexec_;
-    QString helperDir_;
+    QString cli_;
     QString runDir_;
     QVariantMap bootStatus_;
     QVariantMap update_;

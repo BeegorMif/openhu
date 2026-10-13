@@ -75,6 +75,12 @@ QVariant ApiServer::call(const QString& method, const QVariantMap& params)
     {
         throw ApiError("unknown method: " + method.toStdString());
     }
+    if(!params.contains(cLocal))
+    {
+        QVariantMap local = params;
+        local.insert(cLocal, true);
+        return it.value()(local);
+    }
     return it.value()(params);
 }
 
@@ -154,7 +160,9 @@ void ApiServer::onTextMessage(QWebSocket* socket, const QString& message)
         QVariantMap response{{"type", "response"}, {"id", request.value("id")}};
         try
         {
-            response["result"] = this->call(request.value("method").toString(), request.value("params").toMap());
+            QVariantMap params = request.value("params").toMap();
+            params.insert(cLocal, socket->peerAddress().isLoopback());
+            response["result"] = this->call(request.value("method").toString(), params);
         }
         catch(const std::exception& e)
         {

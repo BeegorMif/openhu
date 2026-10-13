@@ -6,7 +6,9 @@
 #include <f1x/openauto/autoapp/Api/ApiServer.hpp>
 #include <f1x/openauto/autoapp/Api/ClientFilter.hpp>
 #include <f1x/openauto/autoapp/Api/CoreMethods.hpp>
+#include <f1x/openauto/autoapp/Configuration/Configuration.hpp>
 #include <f1x/openauto/autoapp/Core/EventBus.hpp>
+#include <f1x/openauto/autoapp/Shell/SettingsMethods.hpp>
 #include "TestHome.hpp"
 
 using f1x::openauto::autoapp::api::ApiError;
@@ -15,6 +17,8 @@ using f1x::openauto::autoapp::api::HotspotNetwork;
 using f1x::openauto::autoapp::audio::VolumeController;
 using f1x::openauto::autoapp::core::EventBus;
 using f1x::openauto::autoapp::input::ActionDispatcher;
+using f1x::openauto::autoapp::configuration::Configuration;
+using f1x::openauto::autoapp::shell::SettingsController;
 using f1x::openauto::autoapp::shell::ShellController;
 
 namespace
@@ -123,6 +127,57 @@ private slots:
         QCOMPARE(EventBus::instance().last("system.daynight").value("night").toBool(), true);
     }
 
+    // settings.* (openhu#42): the same checks as the settings page, values from the command line as text
+    void settingsMethods()
+    {
+        TestHome home;
+        ApiServer server;
+        SettingsController settings(std::make_shared<Configuration>(), 0, nullptr);
+        f1x::openauto::autoapp::shell::registerSettingsMethods(server, settings);
+
+        // every value has a description, and every description a value
+        QStringList keys = server.call("settings.keys").toMap().keys();
+        QStringList values = server.call("settings.list").toMap().value("values").toMap().keys();
+        keys.sort();
+        values.sort();
+        QCOMPARE(keys, values);
+        QCOMPARE(server.call("settings.get", {{"key", "aa.fps"}}).toMap().value("value").toInt(), 30);
+
+        QVariantMap result = server.call("settings.set", {{"key", "aa.fps"}, {"value", "60"}}).toMap();
+        QCOMPARE(result.value("value").toInt(), 60);
+        QCOMPARE(result.value("applies").toString(), QString("reconnect"));
+        QVERIFY(result.value("pending").toStringList().contains("reconnect"));
+        const QVariantMap changed = EventBus::instance().last("settings.changed");
+        QCOMPARE(changed.value("key").toString(), QString("aa.fps"));
+        QCOMPARE(changed.value("value").toInt(), 60);
+        // saved to openhu.ini
+        QVERIFY(Configuration().getVideoFPS() == aap_protobuf::service::media::sink::message::VideoFrameRateType::VIDEO_FPS_60);
+
+        QCOMPARE(server.call("settings.set", {{"key", "general.showCursor"}, {"value", "off"}}).toMap().value("value").toBool(), false);
+        QCOMPARE(server.call("settings.set", {{"key", "aa.dpi"}, {"value", 200}}).toMap().value("value").toInt(), 200);
+        QVERIFY(server.call("settings.set", {{"key", "api.port"}, {"value", "6000"}}).toMap().value("pending").toStringList().contains("restart"));
+
+        QVERIFY_EXCEPTION_THROWN(server.call("settings.set", {{"key", "aa.fps"}, {"value", "45"}}), ApiError);
+        QVERIFY_EXCEPTION_THROWN(server.call("settings.set", {{"key", "aa.dpi"}, {"value", "many"}}), ApiError);
+        QVERIFY_EXCEPTION_THROWN(server.call("settings.set", {{"key", "aa.dpi"}, {"value", 500}}), ApiError);  // set()'s own check
+        QVERIFY_EXCEPTION_THROWN(server.call("settings.set", {{"key", "general.showCursor"}, {"value", "maybe"}}), ApiError);
+        QVERIFY_EXCEPTION_THROWN(server.call("settings.set", {{"key", "aa.activeResolution"}, {"value", "auto"}}), ApiError);
+        QVERIFY_EXCEPTION_THROWN(server.call("settings.set", {{"key", "aa.fps"}}), ApiError);
+        QVERIFY_EXCEPTION_THROWN(server.call("settings.get", {{"key", "no.such"}}), ApiError);
+        QCOMPARE(server.call("settings.get", {{"key", "aa.dpi"}}).toMap().value("value").toInt(), 200);
+
+        // passwords: only on the device itself, not in the event
+        server.call("settings.set", {{"key", "wireless.password"}, {"value", "secret-123"}});
+        QVERIFY(!EventBus::instance().last("settings.changed").contains("value"));
+        QCOMPARE(server.call("settings.get", {{"key", "wireless.password"}}).toMap().value("value").toString(), QString("secret-123"));
+        const QVariantMap remote{{ApiServer::cLocal, false}};
+        QVERIFY(!server.call("settings.list", remote).toMap().value("values").toMap().contains("wireless.password"));
+        QVERIFY(server.call("settings.list", remote).toMap().value("values").toMap().contains("wireless.ssid"));
+        QVERIFY_EXCEPTION_THROWN(server.call("settings.get", {{"key", "wireless.password"}, {ApiServer::cLocal, false}}), ApiError);
+        QVERIFY(!server.call("settings.set", {{"key", "carAudio.pin"}, {"value", "1234"}, {ApiServer::cLocal, false}})
+                     .toMap().contains("value"));
+    }
+
     void requestsOverWebSocket()
     {
         ApiServer server;
@@ -138,6 +193,10 @@ private slots:
         QCOMPARE(response.value("type").toString(), QString("response"));
         QCOMPARE(response.value("id").toInt(), 7);
         QCOMPARE(response.value("result").toMap().value("v").toString(), QString("x"));
+        // set by the server, a client cannot claim it
+        QCOMPARE(response.value("result").toMap().value(ApiServer::cLocal).toBool(), true);
+        client.send({{"id", 9}, {"method", "test.echo"}, {"params", QVariantMap{{ApiServer::cLocal, false}}}});
+        QCOMPARE(client.next().value("result").toMap().value(ApiServer::cLocal).toBool(), true);
 
         // "type" may be left out for requests
         client.send({{"id", 8}, {"method", "test.missing"}});
