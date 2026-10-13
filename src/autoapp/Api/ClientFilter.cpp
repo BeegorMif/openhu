@@ -15,6 +15,8 @@
 *  along with openauto. If not, see <http://www.gnu.org/licenses/>.
 */
 
+#include <QRandomGenerator>
+#include <QUrlQuery>
 #include <f1x/openauto/autoapp/Api/ClientFilter.hpp>
 
 namespace f1x
@@ -35,6 +37,17 @@ QHostAddress normalized(const QHostAddress& peer)
     bool isIpv4 = false;
     const quint32 ipv4 = peer.toIPv4Address(&isIpv4);
     return isIpv4 ? QHostAddress(ipv4) : peer;
+}
+
+// "HTTP://Host:8080/" and "http://host:8080" are the same origin
+QString normalizedOrigin(const QString& origin)
+{
+    QString text = origin.trimmed().toLower();
+    while(text.endsWith('/'))
+    {
+        text.chop(1);
+    }
+    return text;
 }
 
 }
@@ -88,6 +101,64 @@ bool clientAllowed(const QHostAddress& peer, bool blockHotspot, const HotspotNet
     }
     // IPv6 addresses of the hotspot are only known from its interface
     return address.protocol() == QAbstractSocket::IPv4Protocol || !hotspot.interfaceName.isEmpty();
+}
+
+bool isLoopbackPeer(const QHostAddress& peer)
+{
+    return normalized(peer).isLoopback();
+}
+
+QString generateToken()
+{
+    QByteArray bytes(32, Qt::Uninitialized);
+    QRandomGenerator::system()->fillRange(reinterpret_cast<quint32*>(bytes.data()), bytes.size() / sizeof(quint32));
+    return QString::fromLatin1(bytes.toBase64(QByteArray::Base64UrlEncoding | QByteArray::OmitTrailingEquals));
+}
+
+bool tokenMatches(const QString& given, const QString& expected)
+{
+    const QByteArray a = given.toUtf8();
+    const QByteArray b = expected.toUtf8();
+    if(b.isEmpty() || a.size() != b.size())
+    {
+        return false;
+    }
+    // every byte compared, so the time does not tell how much of the token was right
+    unsigned char difference = 0;
+    for(qsizetype i = 0; i < a.size(); ++i)
+    {
+        difference |= static_cast<unsigned char>(a.at(i) ^ b.at(i));
+    }
+    return difference == 0;
+}
+
+QString handshakeToken(const QNetworkRequest& request)
+{
+    const QString authorization = QString::fromLatin1(request.rawHeader("Authorization")).trimmed();
+    if(authorization.startsWith("Bearer ", Qt::CaseInsensitive))
+    {
+        return authorization.mid(7).trimmed();
+    }
+    return QUrlQuery(request.url()).queryItemValue("token", QUrl::FullyDecoded);
+}
+
+QStringList parseOrigins(const QString& configured)
+{
+    QStringList origins;
+    for(const QString& entry: configured.split(',', Qt::SkipEmptyParts))
+    {
+        const QString origin = normalizedOrigin(entry);
+        if(!origin.isEmpty())
+        {
+            origins << origin;
+        }
+    }
+    return origins;
+}
+
+bool originAllowed(const QString& origin, const QStringList& allowed)
+{
+    return origin.isEmpty() || allowed.contains("*") || allowed.contains(normalizedOrigin(origin));
 }
 
 }

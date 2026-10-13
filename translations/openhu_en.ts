@@ -677,7 +677,7 @@
     </message>
     <message id="settings.network.otherwise_only_reachable_device">
         <source></source>
-        <translation>Otherwise only reachable on this device. The API has no login – only switch it on in trusted networks.</translation>
+        <translation>Otherwise only reachable on this device. Devices from the network need the API token.</translation>
     </message>
     <message id="settings.network.api_also_wifi_hotspot">
         <source></source>
@@ -1758,6 +1758,22 @@
     <message id="wireless.disconnected_phone">
         <source></source>
         <translation>Disconnected on the phone</translation>
+    </message>
+    <message id="settings.network.api_token">
+        <source></source>
+        <translation>API token</translation>
+    </message>
+    <message id="settings.network.api_token_description">
+        <source></source>
+        <translation>Devices from the network and browsers log in with it:</translation>
+    </message>
+    <message id="settings.network.new_token">
+        <source></source>
+        <translation>New token</translation>
+    </message>
+    <message id="settings.network.really_new_token">
+        <source></source>
+        <translation>Sure? Old logins end</translation>
     </message>
 </context>
 </TS>

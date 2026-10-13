@@ -57,6 +57,8 @@ public:
     Q_INVOKABLE void clearPending(const QString& what);
     // Values were changed elsewhere (e.g. wireless.pair() switched wireless on)
     Q_INVOKABLE void refresh();
+    // New API token (Settings → Network): clients that logged in with the old one are disconnected
+    Q_INVOKABLE void regenerateApiToken();
 
     // Restarts OpenHU in place (same process id, works under systemd and in the container).
     Q_INVOKABLE void restart();
@@ -75,9 +77,13 @@ signals:
     void carAudioChanged();
     // general.language chosen (applied by shell::Translations)
     void languageChanged(const QString& language);
+    // API token or allowed origins changed (applied by api::ApiServer)
+    void apiAccessChanged();
 
 private:
     void markPending(const QString& what);
+    // saves openhu.ini and publishes "settings.changed"
+    void saved(const QString& key);
 
     configuration::IConfiguration::Pointer configuration_;
     QStringList arguments_;

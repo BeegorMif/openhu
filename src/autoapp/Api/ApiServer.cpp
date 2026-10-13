@@ -17,8 +17,11 @@
 
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QTimer>
 #include <QWebSocket>
+#include <QWebSocketCorsAuthenticator>
 #include <f1x/openauto/autoapp/Api/ApiServer.hpp>
+#include <f1x/openauto/autoapp/Api/ClientFilter.hpp>
 #include <f1x/openauto/autoapp/Core/EventBus.hpp>
 #include <f1x/openauto/Common/Log.hpp>
 
@@ -31,11 +34,20 @@ namespace autoapp
 namespace api
 {
 
+namespace
+{
+
+// a client that needs the token and does not send it in time is disconnected
+constexpr int cLoginTimeoutMs = 10000;
+
+}
+
 ApiServer::ApiServer(QObject* parent)
     : QObject(parent)
     , server_(QStringLiteral("OpenHU"), QWebSocketServer::NonSecureMode)
 {
     connect(&server_, &QWebSocketServer::newConnection, this, &ApiServer::onNewConnection);
+    connect(&server_, &QWebSocketServer::originAuthenticationRequired, this, &ApiServer::onOriginAuthentication);
     connect(&core::EventBus::instance(), &core::EventBus::event, this, &ApiServer::onBusEvent);
 }
 
@@ -89,6 +101,44 @@ void ApiServer::setClientFilter(std::function<bool(const QHostAddress&)> filter)
     clientFilter_ = std::move(filter);
 }
 
+void ApiServer::setToken(const QString& token)
+{
+    if(token == token_)
+    {
+        return;
+    }
+    token_ = token;
+    // logged in with the old token; collected first, closing may remove them from clients_ right away
+    QList<QWebSocket*> loggedIn;
+    for(auto it = clients_.begin(); it != clients_.end(); ++it)
+    {
+        if(it.value().authenticated && !it.value().local)
+        {
+            it.value().authenticated = false;
+            loggedIn << it.key();
+        }
+    }
+    for(QWebSocket* socket: loggedIn)
+    {
+        this->refuse(socket, "token changed");
+    }
+}
+
+void ApiServer::setAllowedOrigins(const QStringList& origins)
+{
+    allowedOrigins_ = origins;
+}
+
+void ApiServer::onOriginAuthentication(QWebSocketCorsAuthenticator* authenticator)
+{
+    const bool allowed = originAllowed(authenticator->origin(), allowedOrigins_);
+    if(!allowed)
+    {
+        OPENAUTO_LOG(info) << "[ApiServer] origin refused: " << authenticator->origin().toStdString();
+    }
+    authenticator->setAllowed(allowed);
+}
+
 void ApiServer::onNewConnection()
 {
     while(QWebSocket* socket = server_.nextPendingConnection())
@@ -100,8 +150,35 @@ void ApiServer::onNewConnection()
             socket->deleteLater();
             continue;
         }
-        OPENAUTO_LOG(info) << "[ApiServer] client connected: " << socket->peerAddress().toString().toStdString();
-        clients_.insert(socket, Client());
+        // browsers send an Origin header: a web page must not get the rights of a program on this device
+        Client client;
+        client.local = isLoopbackPeer(socket->peerAddress()) && socket->origin().isEmpty();
+        client.authenticated = client.local;
+        const QString token = handshakeToken(socket->request());
+        if(!client.authenticated && !token.isEmpty())
+        {
+            if(!tokenMatches(token, token_))
+            {
+                this->refuse(socket, "invalid token");
+                socket->deleteLater();
+                continue;
+            }
+            client.authenticated = true;
+        }
+
+        OPENAUTO_LOG(info) << "[ApiServer] client connected: " << socket->peerAddress().toString().toStdString()
+                           << (client.local ? "" : client.authenticated ? " (token)" : " (waiting for the token)");
+        clients_.insert(socket, client);
+        if(!client.authenticated)
+        {
+            QTimer::singleShot(cLoginTimeoutMs, socket, [this, socket]() {
+                auto it = clients_.find(socket);
+                if(it != clients_.end() && !it.value().authenticated)
+                {
+                    this->refuse(socket, "no token");
+                }
+            });
+        }
         connect(socket, &QWebSocket::textMessageReceived, this, [this, socket](const QString& message) {
             this->onTextMessage(socket, message);
         });
@@ -121,7 +198,31 @@ void ApiServer::onTextMessage(QWebSocket* socket, const QString& message)
 
     const QVariantMap request = document.object().toVariantMap();
     const QString type = request.value("type", request.contains("method") ? "request" : "").toString();
-    auto& client = clients_[socket];
+    auto clientIt = clients_.find(socket);
+    if(clientIt == clients_.end())
+    {
+        return;
+    }
+    auto& client = clientIt.value();
+
+    if(type == "auth")
+    {
+        this->onAuth(socket, client, request);
+        return;
+    }
+    if(!client.authenticated)
+    {
+        const QString error = QStringLiteral("authentication required: send the API token (docs/api.md)");
+        if(type == "request")
+        {
+            this->send(socket, {{"type", "response"}, {"id", request.value("id")}, {"error", error}});
+        }
+        else
+        {
+            this->send(socket, {{"type", "error"}, {"error", error}});
+        }
+        return;
+    }
 
     if(type == "subscribe")
     {
@@ -161,7 +262,7 @@ void ApiServer::onTextMessage(QWebSocket* socket, const QString& message)
         try
         {
             QVariantMap params = request.value("params").toMap();
-            params.insert(cLocal, socket->peerAddress().isLoopback());
+            params.insert(cLocal, client.local);
             response["result"] = this->call(request.value("method").toString(), params);
         }
         catch(const std::exception& e)
@@ -174,6 +275,29 @@ void ApiServer::onTextMessage(QWebSocket* socket, const QString& message)
     {
         this->send(socket, {{"type", "error"}, {"error", "unknown message type: " + type}});
     }
+}
+
+void ApiServer::onAuth(QWebSocket* socket, Client& client, const QVariantMap& request)
+{
+    if(!client.authenticated)
+    {
+        if(!tokenMatches(request.value("token").toString(), token_))
+        {
+            this->send(socket, {{"type", "error"}, {"error", "invalid token"}});
+            this->refuse(socket, "invalid token");
+            return;
+        }
+        client.authenticated = true;
+        OPENAUTO_LOG(info) << "[ApiServer] client logged in: " << socket->peerAddress().toString().toStdString();
+    }
+    this->send(socket, {{"type", "auth"}, {"authenticated", true}});
+}
+
+void ApiServer::refuse(QWebSocket* socket, const QString& reason)
+{
+    OPENAUTO_LOG(info) << "[ApiServer] client refused (" << reason.toStdString()
+                       << "): " << socket->peerAddress().toString().toStdString();
+    socket->close(QWebSocketProtocol::CloseCodePolicyViolated, reason);
 }
 
 void ApiServer::onDisconnected(QWebSocket* socket)

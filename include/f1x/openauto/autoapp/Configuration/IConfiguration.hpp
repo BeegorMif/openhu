@@ -107,6 +107,12 @@ public:
     // API clients on the wireless hotspot (10.42.0.0/24); API devices normally use Ethernet
     virtual bool getApiAllowHotspot() const = 0;
     virtual void setApiAllowHotspot(bool value) = 0;
+    // Token for API clients from the network and browsers; generated at the first start (openhu#23)
+    virtual std::string getApiToken() const = 0;
+    virtual void setApiToken(const std::string& value) = 0;
+    // Origins browsers may connect from: "*" (default) or a comma separated list ("http://192.168.1.10:8080")
+    virtual std::string getApiAllowedOrigins() const = 0;
+    virtual void setApiAllowedOrigins(const std::string& value) = 0;
 
     // Android Auto video and input
     virtual aap_protobuf::service::media::sink::message::VideoFrameRateType getVideoFPS() const = 0;

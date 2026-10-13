@@ -1,5 +1,6 @@
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QNetworkInterface>
 #include <QTcpServer>
 #include <QWebSocket>
 #include <QtTest>
@@ -14,6 +15,7 @@
 using f1x::openauto::autoapp::api::ApiError;
 using f1x::openauto::autoapp::api::ApiServer;
 using f1x::openauto::autoapp::api::HotspotNetwork;
+namespace api = f1x::openauto::autoapp::api;
 using f1x::openauto::autoapp::audio::VolumeController;
 using f1x::openauto::autoapp::core::EventBus;
 using f1x::openauto::autoapp::input::ActionDispatcher;
@@ -31,16 +33,41 @@ quint16 freePort()
     return probe.serverPort();
 }
 
-// WebSocket client that keeps the received messages as JSON objects
+const QString cToken = QStringLiteral("test-token-0123456789");
+
+// WebSocket client that keeps the received messages as JSON objects. With an origin it acts like a browser.
 class Client: public QObject
 {
 public:
-    explicit Client(quint16 port)
+    explicit Client(quint16 port, const QString& origin = QString(), const QString& query = QString(),
+                    const QByteArray& authorization = QByteArray(), const QString& host = "127.0.0.1")
+        : socket_(origin)
     {
         connect(&socket_, &QWebSocket::textMessageReceived, this, [this](const QString& message) {
             messages_.append(QJsonDocument::fromJson(message.toUtf8()).object().toVariantMap());
         });
-        socket_.open(QUrl(QString("ws://127.0.0.1:%1").arg(port)));
+        QNetworkRequest request(QUrl(QString("ws://%1:%2/%3").arg(host).arg(port).arg(query)));
+        if(!authorization.isEmpty())
+        {
+            request.setRawHeader("Authorization", authorization);
+        }
+        socket_.open(request);
+    }
+
+    // Closed by the server with this close code (waits up to 5 s)
+    bool closedWith(QWebSocketProtocol::CloseCode code)
+    {
+        QTest::qWaitFor([this]() { return socket_.state() == QAbstractSocket::UnconnectedState; }, 5000);
+        return socket_.state() == QAbstractSocket::UnconnectedState && socket_.closeCode() == code;
+    }
+
+    // Result of a request, or its error as {"error": ...}
+    QVariantMap call(const QString& method, const QVariantMap& params = QVariantMap())
+    {
+        this->send({{"type", "request"}, {"id", 1}, {"method", method}, {"params", params}});
+        const QVariantMap response = this->next();
+        return response.contains("error") ? QVariantMap{{"error", response.value("error")}}
+                                          : response.value("result").toMap();
     }
 
     bool connected()
@@ -176,6 +203,24 @@ private slots:
         QVERIFY_EXCEPTION_THROWN(server.call("settings.get", {{"key", "wireless.password"}, {ApiServer::cLocal, false}}), ApiError);
         QVERIFY(!server.call("settings.set", {{"key", "carAudio.pin"}, {"value", "1234"}, {ApiServer::cLocal, false}})
                      .toMap().contains("value"));
+
+        // API token (openhu#23): read on the device only, a new one only from the shell
+        QVERIFY_EXCEPTION_THROWN(server.call("settings.set", {{"key", "api.token"}, {"value", "mine"}}), ApiError);
+        QVERIFY_EXCEPTION_THROWN(server.call("settings.get", {{"key", "api.token"}, {ApiServer::cLocal, false}}), ApiError);
+        QSignalSpy access(&settings, &SettingsController::apiAccessChanged);
+        settings.regenerateApiToken();
+        QCOMPARE(access.count(), 1);
+        const QString token = server.call("settings.get", {{"key", "api.token"}}).toMap().value("value").toString();
+        QCOMPARE(token.size(), 43);
+        QVERIFY(!EventBus::instance().last("settings.changed").contains("value"));
+        QCOMPARE(Configuration().getApiToken(), token.toStdString());
+        settings.regenerateApiToken();
+        QVERIFY(server.call("settings.get", {{"key", "api.token"}}).toMap().value("value").toString() != token);
+
+        QCOMPARE(server.call("settings.get", {{"key", "api.origins"}}).toMap().value("value").toString(), QString("*"));
+        QCOMPARE(server.call("settings.set", {{"key", "api.origins"}, {"value", " HTTP://A.example/, http://b.example"}})
+                     .toMap().value("value").toString(), QString("http://a.example,http://b.example"));
+        QTRY_COMPARE(access.count(), 3);  // queued
     }
 
     void requestsOverWebSocket()
@@ -303,6 +348,147 @@ private slots:
             hotspot.addresses = {ipv4, ula, linkLocal};
         }
         QCOMPARE(f1x::openauto::autoapp::api::clientAllowed(QHostAddress(peer), blockHotspot, hotspot), allowed);
+    }
+
+    // openhu#23: token, origins
+    void tokenHelpers()
+    {
+        const QString token = api::generateToken();
+        QCOMPARE(token.size(), 43);  // 32 bytes base64url
+        QVERIFY(QRegularExpression("^[A-Za-z0-9_-]+$").match(token).hasMatch());
+        QVERIFY(token != api::generateToken());
+
+        QVERIFY(api::tokenMatches(token, token));
+        QVERIFY(!api::tokenMatches(token.left(42), token));
+        QVERIFY(!api::tokenMatches(token + "x", token));
+        QVERIFY(!api::tokenMatches("", token));
+        QVERIFY(!api::tokenMatches("", ""));  // no token configured: nobody logs in
+
+        QNetworkRequest request(QUrl("ws://h:5520/?token=abc%2Bd"));
+        QCOMPARE(api::handshakeToken(request), QString("abc+d"));
+        request.setRawHeader("Authorization", "Bearer  xyz ");
+        QCOMPARE(api::handshakeToken(request), QString("xyz"));
+        QCOMPARE(api::handshakeToken(QNetworkRequest(QUrl("ws://h:5520/"))), QString());
+
+        QCOMPARE(api::parseOrigins(" HTTP://A.example:8080/ ,, http://b.example"),
+                 QStringList({"http://a.example:8080", "http://b.example"}));
+        QVERIFY(api::originAllowed("", {}));  // not a browser
+        QVERIFY(api::originAllowed("http://evil.example", {"*"}));
+        QVERIFY(api::originAllowed("http://A.example:8080", api::parseOrigins("http://a.example:8080")));
+        QVERIFY(!api::originAllowed("http://evil.example", api::parseOrigins("http://a.example:8080")));
+        QVERIFY(!api::originAllowed("http://evil.example", {}));
+
+        QVERIFY(api::isLoopbackPeer(QHostAddress("::ffff:127.0.0.1")));
+        QVERIFY(api::isLoopbackPeer(QHostAddress("::1")));
+        QVERIFY(!api::isLoopbackPeer(QHostAddress("192.168.1.20")));
+    }
+
+    // Browsers send an Origin header: also on this device they need the token and get no secrets
+    void browserNeedsToken()
+    {
+        ApiServer server;
+        server.setToken(cToken);
+        server.registerMethod("test.echo", [](const QVariantMap& params) -> QVariant { return params; });
+        const quint16 port = freePort();
+        QVERIFY(server.listen(QHostAddress::LocalHost, port));
+        EventBus::instance().publish("test.auth.state", {{"value", 1}});
+
+        Client browser(port, "http://evil.example");
+        QVERIFY(browser.connected());
+        QVERIFY(browser.call("test.echo").value("error").toString().contains("authentication required"));
+        browser.send({{"type", "subscribe"}, {"topics", QStringList{"*"}}});
+        QVERIFY(browser.next().value("error").toString().contains("authentication required"));
+        // no events without login
+        EventBus::instance().publish("test.auth.state", {{"value", 2}});
+        QVERIFY(browser.idle(200));
+
+        browser.send({{"type", "auth"}, {"token", "wrong"}});
+        QCOMPARE(browser.next().value("error").toString(), QString("invalid token"));
+        QVERIFY(browser.closedWith(QWebSocketProtocol::CloseCodePolicyViolated));
+
+        Client loggedIn(port, "http://evil.example");
+        QVERIFY(loggedIn.connected());
+        loggedIn.send({{"type", "auth"}, {"token", cToken}});
+        const QVariantMap auth = loggedIn.next();
+        QCOMPARE(auth.value("type").toString(), QString("auth"));
+        QVERIFY(auth.value("authenticated").toBool());
+        QCOMPARE(loggedIn.call("test.echo").value(ApiServer::cLocal).toBool(), false);
+        loggedIn.send({{"type", "subscribe"}, {"topics", QStringList{"test.auth.*"}}});
+        QCOMPARE(loggedIn.next().value("data").toMap().value("value").toInt(), 2);
+
+        // the token in the handshake
+        Client query(port, "http://evil.example", "?token=" + cToken);
+        QVERIFY(query.connected());
+        QCOMPARE(query.call("test.echo").value(ApiServer::cLocal).toBool(), false);
+        Client header(port, "http://evil.example", QString(), "Bearer " + cToken.toLatin1());
+        QVERIFY(header.connected());
+        QVERIFY(!header.call("test.echo").contains("error"));
+        Client wrong(port, "http://evil.example", "?token=wrong");
+        QVERIFY(wrong.closedWith(QWebSocketProtocol::CloseCodePolicyViolated));
+
+        // plugins and tools on this device: no Origin, no token
+        Client plugin(port);
+        QVERIFY(plugin.connected());
+        QCOMPARE(plugin.call("test.echo").value(ApiServer::cLocal).toBool(), true);
+        plugin.send({{"type", "auth"}, {"token", "anything"}});
+        QVERIFY(plugin.next().value("authenticated").toBool());
+
+        // a new token ends the logins with the old one, local clients stay
+        server.setToken("another-token");
+        QVERIFY(loggedIn.closedWith(QWebSocketProtocol::CloseCodePolicyViolated));
+        QVERIFY(query.closedWith(QWebSocketProtocol::CloseCodePolicyViolated));
+        QVERIFY(!plugin.call("test.echo").contains("error"));
+    }
+
+    void allowedOrigins()
+    {
+        ApiServer server;
+        server.setToken(cToken);
+        server.setAllowedOrigins(api::parseOrigins("http://dashboard.local:8080"));
+        const quint16 port = freePort();
+        QVERIFY(server.listen(QHostAddress::LocalHost, port));
+
+        Client evil(port, "http://evil.example", "?token=" + cToken);
+        QVERIFY(!evil.connected());
+        Client allowed(port, "http://dashboard.local:8080", "?token=" + cToken);
+        QVERIFY(allowed.connected());
+        QVERIFY(!allowed.call("system.methods").value("error").toString().contains("authentication"));
+        Client plugin(port);
+        QVERIFY(plugin.connected());
+    }
+
+    // A client from the network: the first non-loopback address of this machine
+    void networkClientNeedsToken()
+    {
+        QHostAddress address;
+        for(const QHostAddress& candidate: QNetworkInterface::allAddresses())
+        {
+            if(candidate.protocol() == QAbstractSocket::IPv4Protocol && !candidate.isLoopback())
+            {
+                address = candidate;
+                break;
+            }
+        }
+        if(address.isNull())
+        {
+            QSKIP("no network address on this machine");
+        }
+
+        ApiServer server;
+        server.setToken(cToken);
+        server.registerMethod("test.echo", [](const QVariantMap& params) -> QVariant { return params; });
+        const quint16 port = freePort();
+        QVERIFY(server.listen(QHostAddress::AnyIPv4, port));
+
+        Client client(port, QString(), QString(), QByteArray(), address.toString());
+        QVERIFY(client.connected());
+        QVERIFY(client.call("test.echo").value("error").toString().contains("authentication required"));
+        client.send({{"type", "auth"}, {"token", cToken}});
+        QVERIFY(client.next().value("authenticated").toBool());
+        QCOMPARE(client.call("test.echo").value(ApiServer::cLocal).toBool(), false);
+
+        Client wrong(port, QString(), "?token=wrong", QByteArray(), address.toString());
+        QVERIFY(wrong.closedWith(QWebSocketProtocol::CloseCodePolicyViolated));
     }
 
     // "::" listens on IPv4 and IPv6, a QHostAddress("::") alone would be IPv6 only

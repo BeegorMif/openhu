@@ -184,6 +184,20 @@ int main(int argc, char* argv[])
     autoapp::api::ApiServer apiServer;
     autoapp::api::registerCoreMethods(apiServer, volumeController, shellController, actionDispatcher);
     autoapp::shell::registerSettingsMethods(apiServer, settingsController);
+    // token for clients from the network and browsers (openhu#23), created at the first start
+    if(configuration->getApiToken().empty())
+    {
+        configuration->setApiToken(autoapp::api::generateToken().toStdString());
+        configuration->save();
+    }
+    const auto applyApiAccess = [configuration, &apiServer]() {
+        apiServer.setToken(QString::fromStdString(configuration->getApiToken()));
+        apiServer.setAllowedOrigins(
+            autoapp::api::parseOrigins(QString::fromStdString(configuration->getApiAllowedOrigins())));
+    };
+    applyApiAccess();
+    QObject::connect(&settingsController, &autoapp::shell::SettingsController::apiAccessChanged, &apiServer,
+                     applyApiAccess);
     apiServer.listen(autoapp::api::listenAddress(QString::fromStdString(configuration->getApiListenAddress())),
                      configuration->getApiPort());
 

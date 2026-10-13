@@ -30,6 +30,8 @@ private slots:
         QCOMPARE(config.getApiPort(), uint16_t(5520));
         QCOMPARE(config.getApiListenAddress(), std::string("127.0.0.1"));
         QVERIFY(!config.getApiAllowHotspot());
+        QCOMPARE(config.getApiToken(), std::string());  // created by autoapp at the first start
+        QCOMPARE(config.getApiAllowedOrigins(), std::string("*"));
         QVERIFY(!config.getWirelessProjectionEnabled());
         QCOMPARE(config.getWirelessSettings().band, std::string("5"));
         QCOMPARE(config.getCarAudioSettings().pin, std::string("0000"));
@@ -49,6 +51,8 @@ private slots:
             Configuration config;
             config.setApiPort(6000);
             config.setApiListenAddress("0.0.0.0");
+            config.setApiToken("token-123");
+            config.setApiAllowedOrigins("http://a.example");
             config.setNameSuffix("Golf");
             config.showCursor(true);
             config.setOnScreenKeyboard(false);
@@ -71,6 +75,8 @@ private slots:
         Configuration config;
         QCOMPARE(config.getApiPort(), uint16_t(6000));
         QCOMPARE(config.getApiListenAddress(), std::string("0.0.0.0"));
+        QCOMPARE(config.getApiToken(), std::string("token-123"));
+        QCOMPARE(config.getApiAllowedOrigins(), std::string("http://a.example"));
         QCOMPARE(config.getNameSuffix(), std::string("Golf"));
         QVERIFY(config.showCursor());
         QVERIFY(!config.onScreenKeyboard());

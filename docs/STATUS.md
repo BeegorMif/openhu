@@ -59,7 +59,8 @@ Detailed plan: `~/.claude/plans/ich-h-tte-gene-folgenden-ethereal-lighthouse.md`
 
 - QML shell instead of widgets; the old widgets UI is gone since phase 7.
 - Plugins are hybrid: manifest + QML page/overlay + a process in any language that talks to the API.
-- API: WebSocket + JSON, port 5520, localhost only (docs `docs/api.md`, plugins `docs/plugins.md`).
+- API: WebSocket + JSON, port 5520, localhost by default; clients from the network and browsers log in with a
+  token (docs `docs/api.md`, plugins `docs/plugins.md`).
 - Store packages are ready-made archives `dist/<id>-<version>.tar.gz` (instead of folders from the repo tarball),
   built reproducibly by `tools/openhu-repo-index`.
 - Volume through `pactl` (PulseAudio and PipeWire) instead of libpulse.
