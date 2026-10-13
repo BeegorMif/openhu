@@ -15,6 +15,7 @@
 *  along with openauto. If not, see <http://www.gnu.org/licenses/>.
 */
 
+#include <QDeadlineTimer>
 #include <QDir>
 #include <QFile>
 #include <QDateTime>
@@ -23,6 +24,7 @@
 #include <QJsonObject>
 #include <QProcessEnvironment>
 #include <QUrl>
+#include <f1x/openauto/autoapp/Core/ChildProcesses.hpp>
 #include <f1x/openauto/autoapp/Plugins/PluginManager.hpp>
 #include <f1x/openauto/autoapp/Core/EventBus.hpp>
 #include <f1x/openauto/Common/Log.hpp>
@@ -164,10 +166,12 @@ void PluginManager::load()
 
 void PluginManager::stopAll()
 {
+    std::vector<Plugin*> plugins;
     for(auto& entry: plugins_)
     {
-        this->stopProcess(*entry.second);
+        plugins.push_back(entry.second.get());
     }
+    this->stopProcesses(plugins);
 }
 
 QVariantList PluginManager::plugins() const
@@ -362,26 +366,57 @@ void PluginManager::startProcess(Plugin& plugin)
 
     plugin.stopping = false;
     plugin.uptime.start();
-    plugin.process->start(command, arguments);
+    // own process group: stopping the plugin also ends what it started
+    core::startChild(*plugin.process, command, arguments, core::ChildGroup::OwnGroup);
     OPENAUTO_LOG(info) << "[PluginManager] started " << id.toStdString() << ": " << command.toStdString() << " "
                        << arguments.join(' ').toStdString();
 }
 
 void PluginManager::stopProcess(Plugin& plugin)
 {
-    plugin.restartTimer.stop();
-    if(!plugin.process || plugin.process->state() == QProcess::NotRunning)
+    this->stopProcesses({&plugin});
+}
+
+// All at once with one deadline (OpenHU's shutdown, also under systemd's stop timeout): SIGTERM to each plugin's
+// process group, 3 s for all, then SIGKILL and 1 s.
+void PluginManager::stopProcesses(const std::vector<Plugin*>& plugins)
+{
+    std::vector<Plugin*> running;
+    std::vector<qint64> groups;
+    for(auto* plugin: plugins)
     {
-        return;
+        plugin->restartTimer.stop();
+        if(plugin->process && plugin->process->state() != QProcess::NotRunning)
+        {
+            plugin->stopping = true;
+            groups.push_back(core::terminateGroup(*plugin->process));
+            running.push_back(plugin);
+        }
     }
 
-    plugin.stopping = true;
-    plugin.process->terminate();
-    if(!plugin.process->waitForFinished(3000))
+    const auto wait = [&running](int ms) {
+        QDeadlineTimer deadline(ms);
+        std::vector<Plugin*> left;
+        for(auto* plugin: running)
+        {
+            if(!plugin->process->waitForFinished(int(std::max<qint64>(1, deadline.remainingTime()))))
+            {
+                left.push_back(plugin);
+            }
+        }
+        running = left;
+    };
+    wait(3000);
+    // also what a plugin started and left behind after its own end
+    for(const qint64 group: groups)
     {
-        plugin.process->kill();
-        plugin.process->waitForFinished(1000);
+        core::killGroup(group);
     }
+    for(auto* plugin: running)
+    {
+        plugin->process->kill();
+    }
+    wait(1000);
 }
 
 void PluginManager::onProcessFinished(const QString& id, int exitCode, QProcess::ExitStatus status)

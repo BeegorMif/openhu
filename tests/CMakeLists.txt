@@ -15,6 +15,7 @@ endfunction()
 
 openhu_test(test_eventbus)
 openhu_test(test_instancelock)
+openhu_test(test_childprocesses)
 openhu_test(test_configuration)
 openhu_test(test_actions)
 openhu_test(test_api)

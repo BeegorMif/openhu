@@ -17,6 +17,7 @@
 
 #include <algorithm>
 #include <QRegularExpression>
+#include <f1x/openauto/autoapp/Core/ChildProcesses.hpp>
 #include <f1x/openauto/autoapp/Audio/VolumeController.hpp>
 #include <f1x/openauto/autoapp/Core/EventBus.hpp>
 #include <f1x/openauto/Common/Log.hpp>
@@ -44,7 +45,7 @@ VolumeController::VolumeController(QObject* parent)
     connect(&refreshTimer_, &QTimer::timeout, this, &VolumeController::refresh);
 
     connect(&subscribe_, &QProcess::readyReadStandardOutput, this, &VolumeController::onSubscribeOutput);
-    subscribe_.start("pactl", {"subscribe"});
+    core::startChild(subscribe_, "pactl", {"subscribe"});
 
     this->refresh();
     this->publish();
@@ -104,12 +105,12 @@ void VolumeController::toggleMute()
 void VolumeController::refresh()
 {
     QProcess volumeProcess;
-    volumeProcess.start("pactl", {"get-sink-volume", cSink});
+    core::startChild(volumeProcess, "pactl", {"get-sink-volume", cSink});
     volumeProcess.waitForFinished(1000);
     const QString volumeOutput = QString::fromUtf8(volumeProcess.readAllStandardOutput());
 
     QProcess muteProcess;
-    muteProcess.start("pactl", {"get-sink-mute", cSink});
+    core::startChild(muteProcess, "pactl", {"get-sink-mute", cSink});
     muteProcess.waitForFinished(1000);
     const QString muteOutput = QString::fromUtf8(muteProcess.readAllStandardOutput());
 
@@ -140,7 +141,7 @@ void VolumeController::refresh()
 void VolumeController::runPactl(const QStringList& arguments)
 {
     QProcess process;
-    process.start("pactl", arguments);
+    core::startChild(process, "pactl", arguments);
     if(!process.waitForFinished(1000) || process.exitCode() != 0)
     {
         OPENAUTO_LOG(warning) << "[VolumeController] pactl " << arguments.join(' ').toStdString() << " failed: "

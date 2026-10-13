@@ -24,6 +24,7 @@
 #include <QGuiApplication>
 #include <f1x/openauto/autoapp/Api/ClientFilter.hpp>
 #include <f1x/openauto/autoapp/Shell/SettingsController.hpp>
+#include <f1x/openauto/autoapp/Core/ChildProcesses.hpp>
 #include <f1x/openauto/autoapp/Core/EventBus.hpp>
 #include <f1x/openauto/autoapp/Plugins/PluginManager.hpp>
 #include <f1x/openauto/autoapp/Shell/AaBridge.hpp>
@@ -616,12 +617,17 @@ void SettingsController::restart()
     argv.push_back(nullptr);
 
     // Sockets (API, wireless Android Auto), USB and plugin pipes are not close-on-exec: close everything
-    // except stdin/stdout/stderr, otherwise the new process cannot bind its ports again.
+    // except stdin/stdout/stderr, otherwise the new process cannot bind its ports again. What OpenHU inherited stays
+    // open: cage ends its session when OpenHU's copy of its pipe is closed.
     const long maxFd = ::sysconf(_SC_OPEN_MAX);
     for(int fd = 3; fd < (maxFd > 0 ? maxFd : 1024); ++fd)
     {
-        ::close(fd);
+        if(!core::isInheritedDescriptor(fd))
+        {
+            ::close(fd);
+        }
     }
+    core::keepInheritedDescriptorsOnExec();
 
     ::execv("/proc/self/exe", argv.data());
     OPENAUTO_LOG(error) << "[SettingsController] restart failed";

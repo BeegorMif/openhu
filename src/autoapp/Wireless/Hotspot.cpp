@@ -16,6 +16,7 @@
 */
 
 #include <QProcessEnvironment>
+#include <f1x/openauto/autoapp/Core/ChildProcesses.hpp>
 #include <f1x/openauto/autoapp/Wireless/Hotspot.hpp>
 #include <f1x/openauto/Common/Log.hpp>
 
@@ -104,7 +105,7 @@ void Hotspot::start(const configuration::WirelessSettings& settings, const QStri
     emit changed();
 
     OPENAUTO_LOG(info) << "[Hotspot] starting \"" << ssid.toStdString() << "\" (" << band.toStdString() << " GHz)";
-    process_.start("sh", {"-c", cStartScript});
+    core::startChild(process_, "sh", {"-c", cStartScript});
 }
 
 void Hotspot::onFinished(int exitCode)
