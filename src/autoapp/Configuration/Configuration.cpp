@@ -75,7 +75,9 @@ const std::string cAudioMediaKey = "AudioChannel.MediaEnabled";
 const std::string cAudioGuidanceKey = "AudioChannel.GuidanceEnabled";
 const std::string cAudioSystemKey = "AudioChannel.SystemEnabled";
 const std::string cAudioTelephonyKey = "AudioChannel.TelephonyEnabled";
-const std::string cAudioOutputBackendKey = "Audio.OutputBackendType";
+// Was Audio.OutputBackendType with RtAudio as the default: a new key so that saved configurations get the new
+// default Qt Multimedia too (nobody chose RtAudio, it was just saved along); the old key is dropped on the next save
+const std::string cAudioOutputBackendKey = "Audio.OutputBackend";
 
 }
 
@@ -188,7 +190,7 @@ void Configuration::reset()
     audioChannelEnabledGuidance_ = true;
     audioChannelEnabledSystem_ = true;
     audioChannelEnabledTelephony_ = true;
-    audioOutputBackendType_ = AudioOutputBackendType::RTAUDIO;
+    audioOutputBackendType_ = AudioOutputBackendType::QT;
 }
 
 void Configuration::save()

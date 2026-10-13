@@ -355,9 +355,9 @@
         <source></source>
         <translation>Audioausgabe</translation>
     </message>
-    <message id="settings.audio.rtaudio_mostly_has_lower">
+    <message id="settings.audio.qt_multimedia_has_lower">
         <source></source>
-        <translation>RtAudio hat meist die geringere Verzögerung, Qt Multimedia ist die Alternative bei Problemen.</translation>
+        <translation>Qt Multimedia hat die geringere Verzögerung, RtAudio ist die Alternative bei Problemen.</translation>
     </message>
     <message id="settings.audio.car_radio_bluetooth">
         <source></source>

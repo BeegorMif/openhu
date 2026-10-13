@@ -71,7 +71,7 @@ Where the keys are in the settings:
 | Key | Default | |
 |---|---|---|
 | `MediaEnabled`, `GuidanceEnabled`, `SystemEnabled`, `TelephonyEnabled` | `true` | Android Auto audio channels played by OpenHU |
-| `Audio.OutputBackendType` | `0` | `0` RtAudio (lower latency), `1` Qt Multimedia |
+| `Audio.OutputBackend` | `1` | `0` RtAudio, `1` Qt Multimedia (lower latency); was `Audio.OutputBackendType` with the default RtAudio, which is no longer read |
 
 ### [CarAudio]
 
