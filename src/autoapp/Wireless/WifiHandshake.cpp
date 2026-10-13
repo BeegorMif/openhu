@@ -32,6 +32,18 @@ namespace f1x::openauto::autoapp::wireless
 
 namespace aaw = aap_protobuf::aaw;
 
+namespace
+{
+
+// The phone sends the status as a number: a newer phone may send one the enum does not know yet
+std::string statusName(int32_t status)
+{
+    return aaw::Status_IsValid(status) ? aaw::Status_Name(static_cast<aaw::Status>(status))
+                                       : "status " + std::to_string(status);
+}
+
+}
+
 WifiHandshake::WifiHandshake(int fd, Network network, QObject* parent)
     : QObject(parent)
     , fd_(fd)
@@ -106,14 +118,14 @@ void WifiHandshake::handle(quint16 id, const QByteArray& payload)
     {
         aaw::WifiStartResponse response;
         response.ParseFromArray(payload.constData(), payload.size());
-        OPENAUTO_LOG(info) << "[WifiHandshake] start response: " << aaw::Status_Name(response.status());
+        OPENAUTO_LOG(info) << "[WifiHandshake] start response: " << statusName(response.status());
         break;
     }
     case aaw::MessageId::WIFI_CONNECTION_STATUS:
     {
         aaw::WifiConnectionStatus status;
         status.ParseFromArray(payload.constData(), payload.size());
-        OPENAUTO_LOG(info) << "[WifiHandshake] connection status: " << aaw::Status_Name(status.status()) << " "
+        OPENAUTO_LOG(info) << "[WifiHandshake] connection status: " << statusName(status.status()) << " "
                            << status.error_message();
         if(status.status() == aaw::Status::STATUS_SUCCESS)
         {
@@ -121,7 +133,7 @@ void WifiHandshake::handle(quint16 id, const QByteArray& payload)
         }
         else
         {
-            emit progress("failed", QString::fromStdString(aaw::Status_Name(status.status())));
+            emit progress("failed", QString::fromStdString(statusName(status.status())));
         }
         break;
     }
