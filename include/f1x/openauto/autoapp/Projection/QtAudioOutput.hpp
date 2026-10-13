@@ -18,6 +18,7 @@
 
 #pragma once
 
+#include <atomic>
 #include <QAudioSink>
 #include <QMediaDevices>
 #include <QAudioFormat>
@@ -63,6 +64,7 @@ private:
     QIODevice * audioBuffer_;
     std::unique_ptr<QAudioSink> audioOutput_;
     bool playbackStarted_;
+    std::atomic<uint64_t> droppedPackets_{0};
 };
 
 }

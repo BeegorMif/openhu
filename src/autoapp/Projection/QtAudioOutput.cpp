@@ -30,6 +30,13 @@ namespace autoapp
 namespace projection
 {
 
+namespace
+{
+// unplayed audio before a packet is written: normally what is left of the previous packet plus jitter
+// (a packet is 42.7 ms for media; 40 ms dropped a packet in normal playback once)
+constexpr qint64 cMaxQueuedUs = 60000;
+}
+
 QtAudioOutput::QtAudioOutput(uint32_t channelCount, uint32_t sampleSize, uint32_t sampleRate)
     : audioBuffer_(nullptr)
     , playbackStarted_(false)
@@ -63,10 +70,20 @@ bool QtAudioOutput::open()
 
 void QtAudioOutput::write(aasdk::messenger::Timestamp::ValueType, const aasdk::common::DataConstBuffer& buffer)
 {
-    if (audioBuffer_ != nullptr)
+    if (audioBuffer_ == nullptr)
     {
-        audioBuffer_->write(reinterpret_cast<const char*>(buffer.cdata), buffer.size);
+        return;
     }
+    // After a transmission stall the phone sends the late packets at once; playing them all would keep that
+    // delay for the rest of the stream (measured: 18 -> 210 ms after a 250 ms stall). With more unplayed audio
+    // than the jitter of a normal stream the packet is dropped instead: one skip, then the normal latency again.
+    const qint64 queued = audioOutput_->bufferSize() - audioOutput_->bytesFree();
+    if (queued > audioFormat_.bytesForDuration(cMaxQueuedUs))
+    {
+        ++droppedPackets_;
+        return;
+    }
+    audioBuffer_->write(reinterpret_cast<const char*>(buffer.cdata), buffer.size);
 }
 
 void QtAudioOutput::start()
@@ -119,6 +136,12 @@ void QtAudioOutput::onSuspendPlayback()
 
 void QtAudioOutput::onStopPlayback()
 {
+    if(droppedPackets_ > 0)
+    {
+        OPENAUTO_LOG(info) << "[QtAudioOutput] " << audioFormat_.sampleRate() << " Hz: " << droppedPackets_
+                           << " late packets dropped";
+        droppedPackets_ = 0;
+    }
     if(playbackStarted_)
     {
         audioOutput_->stop();
