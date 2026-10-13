@@ -16,6 +16,8 @@
 *  along with openauto. If not, see <http://www.gnu.org/licenses/>.
 */
 
+#include <algorithm>
+#include <cstring>
 #include <f1x/openauto/autoapp/Projection/RtAudioOutput.hpp>
 #include <f1x/openauto/Common/Log.hpp>
 
@@ -186,7 +188,13 @@ int RtAudioOutput::audioBufferReadHandler(void* outputBuffer, void* inputBuffer,
     std::lock_guard<decltype(self->mutex_)> lock(self->mutex_);
 
     const auto bufferSize = nBufferFrames * (self->sampleSize_ / 8) * self->channelCount_;
-    self->audioBuffer_.read(reinterpret_cast<char*>(outputBuffer), bufferSize);
+    const auto read = std::max<qint64>(0, self->audioBuffer_.read(reinterpret_cast<char*>(outputBuffer), bufferSize));
+    // RtAudio plays the whole buffer: what is not filled would repeat the previous period, e.g. the
+    // last moment of a song while the voice assistant runs (the phone stops sending media audio)
+    if(read < bufferSize)
+    {
+        std::memset(static_cast<char*>(outputBuffer) + read, 0, bufferSize - read);
+    }
     return 0;
 }
 
