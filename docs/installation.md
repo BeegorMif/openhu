@@ -62,7 +62,7 @@ blocks D-Bus otherwise) need it. Settings are stored in `docker/config/openhu.in
 
 OpenHU needs the `libaasdk` packages of the OpenHU fork, released at
 [average-web-dev/aasdk](https://github.com/average-web-dev/aasdk/releases) (tags `openhu-v<version>`). The `.deb`
-depends on `libaasdk (>= 1.3), libaasdk (<< 1.4)` (`OPENHU_AASDK_VERSION` in `CMakeLists.txt`): any release with the
+depends on `libaasdk (>= 1.4), libaasdk (<< 1.5)` (`OPENHU_AASDK_VERSION` in `CMakeLists.txt`): any release with the
 same major and minor version works (a new minor version of aasdk may change the ABI). `--with-aasdk` downloads and installs the newest one; `--aasdk-path ../aasdk-ref` packages
 a local source tree instead. Until the APT repository exists, `apt` cannot fetch aasdk by itself, so install the
 `libaasdk` packages together with OpenHU.
