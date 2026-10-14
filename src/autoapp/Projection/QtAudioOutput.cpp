@@ -199,8 +199,11 @@ void QtAudioOutput::onStopPlayback()
     std::lock_guard<std::mutex> lock(outputMutex_);
     if(playbackStarted_)
     {
-        // stop() invalidates the device start() returned: a later write() must not use it
-        audioOutput_->stop();
+        // reset(), not stop(): stop() drains the stream and waits for that in this (GUI) thread, without a
+        // timeout; after suspend() the stream is corked and never drains, OpenHU hung at the end of an Android
+        // Auto connection. reset() closes it right away, what is buffered is dropped (the connection ended).
+        // Both delete the device start() returned: a later write() must not use it.
+        audioOutput_->reset();
         audioBuffer_ = nullptr;
         playbackStarted_ = false;
     }
