@@ -116,16 +116,29 @@ void AaBridge::setVideoSink(QVideoSink* sink)
 
 void AaBridge::setVideoOutputActive(const void* output, bool active)
 {
+    // The sink keeps the last picture: without clearing it a new connection showed the previous session's
+    // last picture until its first frame was decoded (0.5-1 s). Cleared at the end and at the start, since a
+    // frame of the old session can still be queued for the GUI thread when it ends.
     if(active)
     {
         activeOutput_ = output;
+        this->clearVideoFrame();
         this->setVideoError(QString());
         this->setVideoActive(true);
     }
     else if(activeOutput_ == output)
     {
         activeOutput_ = nullptr;
+        this->clearVideoFrame();
         this->setVideoActive(false);
+    }
+}
+
+void AaBridge::clearVideoFrame()
+{
+    if(videoSink_ != nullptr)
+    {
+        videoSink_->setVideoFrame(QVideoFrame());
     }
 }
 
