@@ -23,6 +23,7 @@
 #include <QPointer>
 #include <QRect>
 #include <QSize>
+#include <QVideoFrame>
 #include <QVideoSink>
 #include <f1x/openauto/autoapp/Configuration/IConfiguration.hpp>
 #include <f1x/openauto/autoapp/Projection/InputEvent.hpp>
@@ -108,6 +109,7 @@ private:
     AaBridge() = default;
     void updateMargins();
     void setVideoActive(bool active);
+    void clearVideoFrame();
 
     QPointer<QVideoSink> videoSink_;
     const void* activeOutput_ = nullptr;

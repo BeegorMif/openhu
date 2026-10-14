@@ -174,6 +174,29 @@ private slots:
         QTRY_VERIFY(!AaBridge::instance().videoActive());
     }
 
+    // the last picture of a session must not show when the next one starts (before its first frame)
+    void staleFrameClearedForNewSession()
+    {
+        QVideoSink sink;
+        AaBridge::instance().setVideoSink(&sink);
+        int session = 0;
+        AaBridge::instance().setVideoOutputActive(&session, true);
+        QVideoFrame picture(QVideoFrameFormat(QSize(cWidth, cHeight), QVideoFrameFormat::Format_YUV420P));
+        sink.setVideoFrame(picture);
+        QVERIFY(sink.videoFrame().isValid());
+
+        AaBridge::instance().setVideoOutputActive(&session, false);
+        QVERIFY(!sink.videoFrame().isValid());
+
+        // a late frame of the old session, then the next session starts
+        sink.setVideoFrame(picture);
+        int next = 0;
+        AaBridge::instance().setVideoOutputActive(&next, true);
+        QVERIFY(!sink.videoFrame().isValid());
+        AaBridge::instance().setVideoOutputActive(&next, false);
+        AaBridge::instance().setVideoSink(nullptr);
+    }
+
     void newSessionAfterStop()
     {
         TestHome home;
