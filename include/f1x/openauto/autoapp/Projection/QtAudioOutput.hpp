@@ -18,6 +18,10 @@
 
 #pragma once
 
+#include <atomic>
+#include <chrono>
+#include <mutex>
+#include <string>
 #include <QAudioSink>
 #include <QMediaDevices>
 #include <QAudioFormat>
@@ -37,7 +41,8 @@ class QtAudioOutput: public QObject, public IAudioOutput
     Q_OBJECT
 
 public:
-    QtAudioOutput(uint32_t channelCount, uint32_t sampleSize, uint32_t sampleRate);
+    // name: the channel in the log (media, guidance, system)
+    QtAudioOutput(uint32_t channelCount, uint32_t sampleSize, uint32_t sampleRate, std::string name = "audio");
     bool open() override;
     void write(aasdk::messenger::Timestamp::ValueType, const aasdk::common::DataConstBuffer& buffer) override;
     void start() override;
@@ -63,6 +68,18 @@ private:
     QIODevice * audioBuffer_;
     std::unique_ptr<QAudioSink> audioOutput_;
     bool playbackStarted_;
+    std::atomic<uint64_t> droppedPackets_{0};
+
+    // stall watcher: packets that come much later than the stream's rhythm (while the phone did not stop it)
+    void watchPacket(qint64 bytes);
+    void logStreamEnd();
+    const std::string name_;
+    std::mutex watchMutex_;
+    bool streaming_ = false;
+    std::chrono::steady_clock::time_point streamStart_;
+    std::chrono::steady_clock::time_point lastPacket_;
+    uint64_t stalls_ = 0;
+    int64_t longestStallMs_ = 0;
 };
 
 }

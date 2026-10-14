@@ -108,7 +108,7 @@ namespace f1x::openauto::autoapp::service {
     if (configuration_->musicAudioChannelEnabled()) {
       OPENAUTO_LOG(info) << "[ServiceFactory] Media Audio Channel enabled";
       auto mediaAudioOutput =
-          projection::IAudioOutput::Pointer(new projection::QtAudioOutput(2, 16, 48000),
+          projection::IAudioOutput::Pointer(new projection::QtAudioOutput(2, 16, 48000, "media"),
                                             std::bind(&QObject::deleteLater, std::placeholders::_1));
 
       serviceList.emplace_back(
@@ -118,7 +118,7 @@ namespace f1x::openauto::autoapp::service {
     if (configuration_->guidanceAudioChannelEnabled()) {
       OPENAUTO_LOG(info) << "[ServiceFactory] Guidance Audio Channel enabled";
       auto guidanceAudioOutput =
-          projection::IAudioOutput::Pointer(new projection::QtAudioOutput(1, 16, 16000),
+          projection::IAudioOutput::Pointer(new projection::QtAudioOutput(1, 16, 16000, "guidance"),
                                             std::bind(&QObject::deleteLater, std::placeholders::_1));
 
       serviceList.emplace_back(
@@ -130,7 +130,7 @@ namespace f1x::openauto::autoapp::service {
     if (configuration_->telephonyAudioChannelEnabled()) {
       OPENAUTO_LOG(info) << "[ServiceFactory] Telephony Audio Channel enabled";
       auto telephonyAudioOutput =
-          projection::IAudioOutput::Pointer(new projection::QtAudioOutput(1, 16, 16000),
+          projection::IAudioOutput::Pointer(new projection::QtAudioOutput(1, 16, 16000, "telephony"),
                                             std::bind(&QObject::deleteLater, std::placeholders::_1));
 
       serviceList.emplace_back(
@@ -144,7 +144,7 @@ namespace f1x::openauto::autoapp::service {
 
     OPENAUTO_LOG(info) << "[ServiceFactory] System Audio Channel enabled";
     auto systemAudioOutput =
-        projection::IAudioOutput::Pointer(new projection::QtAudioOutput(1, 16, 16000),
+        projection::IAudioOutput::Pointer(new projection::QtAudioOutput(1, 16, 16000, "system"),
                                           std::bind(&QObject::deleteLater, std::placeholders::_1));
 
     serviceList.emplace_back(
