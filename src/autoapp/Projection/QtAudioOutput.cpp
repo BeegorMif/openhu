@@ -50,9 +50,8 @@ QtAudioOutput::QtAudioOutput(uint32_t channelCount, uint32_t sampleSize, uint32_
     // Android Auto sends and expects 16 bit PCM (sampleSize is always 16)
     audioFormat_.setSampleFormat(sampleSize == 16 ? QAudioFormat::Int16 : QAudioFormat::Int32);
 
-    QThread * th = QCoreApplication::instance()->thread();
-    this->moveToThread(th);
-    th->setPriority(QThread::TimeCriticalPriority);
+    // the sink lives in the GUI thread; write() comes from the io_service thread (outputMutex_)
+    this->moveToThread(QCoreApplication::instance()->thread());
 
     connect(this, &QtAudioOutput::startPlayback, this, &QtAudioOutput::onStartPlayback);
     connect(this, &QtAudioOutput::suspendPlayback, this, &QtAudioOutput::onSuspendPlayback);
@@ -64,6 +63,7 @@ QtAudioOutput::QtAudioOutput(uint32_t channelCount, uint32_t sampleSize, uint32_
 void QtAudioOutput::createAudioOutput()
 {
     OPENAUTO_LOG(info) << "[QtAudioOutput] createAudioOutput()";
+    std::lock_guard<std::mutex> lock(outputMutex_);
     audioOutput_ = std::make_unique<QAudioSink>(QMediaDevices::defaultAudioOutput(), audioFormat_);
 }
 
@@ -75,6 +75,7 @@ bool QtAudioOutput::open()
 void QtAudioOutput::write(aasdk::messenger::Timestamp::ValueType, const aasdk::common::DataConstBuffer& buffer)
 {
     this->watchPacket(qint64(buffer.size));
+    std::lock_guard<std::mutex> lock(outputMutex_);
     if (audioBuffer_ == nullptr)
     {
         return;
@@ -175,6 +176,7 @@ uint32_t QtAudioOutput::getSampleRate() const
 
 void QtAudioOutput::onStartPlayback()
 {
+    std::lock_guard<std::mutex> lock(outputMutex_);
     if(!playbackStarted_)
     {
         audioBuffer_ = audioOutput_->start();
@@ -188,14 +190,18 @@ void QtAudioOutput::onStartPlayback()
 
 void QtAudioOutput::onSuspendPlayback()
 {
+    std::lock_guard<std::mutex> lock(outputMutex_);
     audioOutput_->suspend();
 }
 
 void QtAudioOutput::onStopPlayback()
 {
+    std::lock_guard<std::mutex> lock(outputMutex_);
     if(playbackStarted_)
     {
+        // stop() invalidates the device start() returned: a later write() must not use it
         audioOutput_->stop();
+        audioBuffer_ = nullptr;
         playbackStarted_ = false;
     }
 }

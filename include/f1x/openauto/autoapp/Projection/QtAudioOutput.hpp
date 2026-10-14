@@ -65,6 +65,8 @@ protected slots:
 
 private:
     QAudioFormat audioFormat_;
+    // audioOutput_ and audioBuffer_: write() in the io_service thread, start/suspend/stop in the GUI thread
+    std::mutex outputMutex_;
     QIODevice * audioBuffer_;
     std::unique_ptr<QAudioSink> audioOutput_;
     bool playbackStarted_;
