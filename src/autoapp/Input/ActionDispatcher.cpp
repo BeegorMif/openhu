@@ -101,8 +101,16 @@ ActionDispatcher::ActionDispatcher(audio::VolumeController& volume, shell::Shell
     : QObject(parent)
     , volume_(volume)
     , shell_(shell)
+    , mediaSources_(core::EventBus::instance().last("media.status"))
 {
     this->loadKeymap();
+    // which media source owns the media keys (the one that started last)
+    connect(&core::EventBus::instance(), &core::EventBus::event, this, [this](const QString& topic, const QVariantMap& data) {
+        if(topic == QLatin1String("media.status"))
+        {
+            mediaSources_.update(data);
+        }
+    });
 }
 
 QVariantMap ActionDispatcher::actions()
@@ -204,9 +212,9 @@ bool ActionDispatcher::trigger(const QString& action, Phase phase)
         return true;
     }
 
-    // Media keys belong to the current media source. A local source (a plugin that publishes media.status with its
-    // own "source", e.g. the radio) gets them through input.action above; the phone must not get them too (play
-    // would start its music while the radio plays).
+    // Media keys belong to the media source that started last. A local source (a plugin that publishes media.status
+    // with its own "source", e.g. the radio) gets them through input.action above; the phone must not get them too
+    // (play would start its music while the radio plays).
     if(action.startsWith(QLatin1String("media.")) && localMediaSource())
     {
         return true;
@@ -221,10 +229,10 @@ bool ActionDispatcher::trigger(const QString& action, Phase phase)
     return true;
 }
 
-bool ActionDispatcher::localMediaSource()
+bool ActionDispatcher::localMediaSource() const
 {
-    const QString source = core::EventBus::instance().last("media.status").value("source").toString();
-    return !source.isEmpty() && source != QLatin1String("androidauto");
+    const QString owner = mediaSources_.owner();
+    return !owner.isEmpty() && owner != QLatin1String("androidauto");
 }
 
 bool ActionDispatcher::sendAaKey(const QString& action, Phase phase)

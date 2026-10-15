@@ -112,9 +112,14 @@ private slots:
         // other Android Auto keys still go to the phone (none connected: fails)
         QVERIFY(!actions.trigger("voice"));
 
-        // Android Auto music: the phone gets the key (none connected: fails)
+        // the radio plays again, the phone still reports "paused" afterwards (focus loss): the keys stay with the radio
+        EventBus::instance().publish("media.status", {{"state", "playing"}, {"source", "radio"}});
+        EventBus::instance().publish("media.status", {{"state", "paused"}, {"source", "androidauto"}});
+        QTRY_VERIFY(actions.trigger("media.next"));
+
+        // Android Auto music starts: the phone gets the key (none connected: fails)
         EventBus::instance().publish("media.status", {{"state", "playing"}, {"source", "androidauto"}});
-        QVERIFY(!actions.trigger("media.next"));
+        QTRY_VERIFY(!actions.trigger("media.next"));
         disconnect(connection);
     }
 

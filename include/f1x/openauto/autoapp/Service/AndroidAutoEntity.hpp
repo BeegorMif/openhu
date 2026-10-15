@@ -18,6 +18,8 @@
 
 #pragma once
 
+#include <QMetaObject>
+
 #include <atomic>
 #include <boost/asio.hpp>
 #include <aasdk/Transport/ITransport.hpp>
@@ -73,6 +75,9 @@ public:
     void onChannelError(const aasdk::error::Error& e) override;
 
 private:
+    // unsolicited AUDIO_FOCUS_STATE_LOSS: a local source (e.g. the radio plugin) started playing (#79)
+    void sendAudioFocusLoss(const std::string& source);
+    QMetaObject::Connection mediaConnection_;
     using std::enable_shared_from_this<AndroidAutoEntity>::shared_from_this;
     void triggerQuit();
     void schedulePing();
