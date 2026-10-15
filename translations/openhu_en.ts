@@ -323,6 +323,14 @@
         <source></source>
         <translation>Phone calls</translation>
     </message>
+    <message id="settings.aa.radio">
+        <source></source>
+        <translation>Radio</translation>
+    </message>
+    <message id="settings.aa.radio_description">
+        <source></source>
+        <translation>Radio plugin as a media source in Android Auto (only while the plugin runs)</translation>
+    </message>
     <message id="settings.aa.connection">
         <source></source>
         <translation>Connection</translation>

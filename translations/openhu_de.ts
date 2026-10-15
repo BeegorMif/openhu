@@ -323,6 +323,14 @@
         <source></source>
         <translation>Telefonate</translation>
     </message>
+    <message id="settings.aa.radio">
+        <source></source>
+        <translation>Radio</translation>
+    </message>
+    <message id="settings.aa.radio_description">
+        <source></source>
+        <translation>Radio-Plugin als Medienquelle in Android Auto (nur wenn das Plugin läuft)</translation>
+    </message>
     <message id="settings.aa.connection">
         <source></source>
         <translation>Verbindung</translation>
