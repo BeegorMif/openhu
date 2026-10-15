@@ -15,6 +15,7 @@
 *  along with openauto. If not, see <http://www.gnu.org/licenses/>.
 */
 
+#include <chrono>
 #include <cmath>
 #include <f1x/openauto/autoapp/Service/Radio/RadioService.hpp>
 #include <f1x/openauto/autoapp/Service/Radio/RadioMapping.hpp>
@@ -30,6 +31,9 @@ namespace f1x {
 
           // the phone gives up after 6 seconds
           constexpr int cTuneTimeoutMs = 5000;
+          // Android Auto sends the band scan action already when the FM tab is opened, not only for its refresh
+          // button. A scan silences the radio (one stick): at most every 5 minutes while stations are known.
+          constexpr auto cScanInterval = std::chrono::minutes(5);
 
           RadioService::RadioService(boost::asio::io_service &ioService, aasdk::messenger::IMessenger::Pointer messenger)
               : strand_(ioService),
@@ -133,8 +137,12 @@ namespace f1x {
           }
 
           void RadioService::onFavoriteToggleRequest(const msg::RadioFavoriteToggleRequest &request) {
-            // applies to the current station; the new list follows with radio.state
-            OPENAUTO_LOG(info) << "[RadioService] favorite " << request.is_favorite();
+            // applies to the current station; the answer (favorites and current station) follows with radio.state,
+            // also when nothing changed (the phone's star stays wrong otherwise)
+            OPENAUTO_LOG(info) << "[RadioService] favorite " << request.is_favorite() << " for "
+                               << state_.value("frequency").toString().toStdString() << " "
+                               << state_.value("band").toString().toStdString();
+            favoriteReplyPending_ = true;
             if (request.is_favorite()) {
               this->command({{"cmd", "savePreset"}});
             } else {
@@ -147,6 +155,13 @@ namespace f1x {
             if (request.action_id() != cScanFmAction) {
               return;
             }
+            const auto now = std::chrono::steady_clock::now();
+            const bool known = !state_.value("bands").toMap().value("fm").toMap().value("stations").toList().isEmpty();
+            if (known && now - lastScan_ < cScanInterval) {
+              OPENAUTO_LOG(info) << "[RadioService] scan skipped, the last one was less than 5 minutes ago";
+              return;
+            }
+            lastScan_ = now;
             if (state_.value("band").toString() != "fm") {
               this->command({{"cmd", "band"}, {"value", "fm"}});
             }
@@ -170,28 +185,37 @@ namespace f1x {
                 this->finishTune(msg::RADIO_TUNE_STATUS_SUCCESS);
               }
             }
-            this->sendState(false);
+            this->sendState(favoriteReplyPending_);
+            favoriteReplyPending_ = false;
           }
 
           void RadioService::sendState(bool force) {
             if (!open_ || state_.isEmpty()) {
               return;
             }
-            // order of the phone's own state replay: current station, station list, favorites
-            const auto info = programInfo(state_);
-            if (force || info.SerializeAsString() != lastProgramInfo_) {
-              lastProgramInfo_ = info.SerializeAsString();
-              channel_->sendProgramInfoNotification(info, this->promise());
+            // The phone decides whether the current station is a favorite when the station info arrives, with the
+            // favorites it knows by then: favorites and list first, and the station again after the favorites
+            // changed (tested with a Fairphone 4: otherwise the star shows the old state).
+            const auto favorites = favoriteList(state_);
+            const bool favoritesChanged = force || favorites.SerializeAsString() != lastFavorites_;
+            if (favoritesChanged) {
+              lastFavorites_ = favorites.SerializeAsString();
+              std::string list;
+              for (const auto &favorite: favorites.favorites()) {
+                list += " " + std::to_string(favorite.program_selector().primary_identifier().value());
+              }
+              OPENAUTO_LOG(info) << "[RadioService] favorites (kHz):" << list;
+              channel_->sendFavoriteListNotification(favorites, this->promise());
             }
             const auto list = programList(state_);
             if (force || list.SerializeAsString() != lastProgramList_) {
               lastProgramList_ = list.SerializeAsString();
               channel_->sendProgramListNotification(list, this->promise());
             }
-            const auto favorites = favoriteList(state_);
-            if (force || favorites.SerializeAsString() != lastFavorites_) {
-              lastFavorites_ = favorites.SerializeAsString();
-              channel_->sendFavoriteListNotification(favorites, this->promise());
+            const auto info = programInfo(state_);
+            if (favoritesChanged || info.SerializeAsString() != lastProgramInfo_) {
+              lastProgramInfo_ = info.SerializeAsString();
+              channel_->sendProgramInfoNotification(info, this->promise());
             }
           }
 

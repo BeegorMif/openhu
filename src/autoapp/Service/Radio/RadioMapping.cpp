@@ -105,6 +105,18 @@ void forEachStation(const QVariantMap& state, const QStringList& listNames, Call
 
 }
 
+bool isFavorite(const QVariantMap& state, const QString& band, double frequency)
+{
+    for(double preset: frequencies(bandOf(state, band).value("presets")))
+    {
+        if(std::abs(preset - frequency) < 1e-6)
+        {
+            return true;
+        }
+    }
+    return false;
+}
+
 uint64_t toKHz(const QString& band, double frequency)
 {
     return static_cast<uint64_t>(std::llround(band == "fm" ? frequency * 1000 : frequency));
@@ -192,17 +204,17 @@ msg::RadioProgramInfoNotification programInfo(const QVariantMap& state)
     const QString ps = rds.value("ps").toString().trimmed();
     fillProgram(notification.mutable_program_info(), band, frequency, ps.isEmpty() ? nameOf(state, band, frequency) : ps);
 
-    // RDS radiotext: as station text and as the title (the format "artist - title" is not reliable enough to split)
+    // RDS radiotext as the title (the format "artist - title" is not reliable enough to split). Not also as
+    // station text: Android Auto shows both, the same line twice.
     const QString radiotext = rds.value("rt").toString().trimmed();
     if(!radiotext.isEmpty())
     {
-        auto* metadata = notification.mutable_program_info()->mutable_metadata();
-        metadata->set_message(radiotext.toStdString());
-        metadata->mutable_song_metadata()->set_title(radiotext.toStdString());
+        notification.mutable_program_info()->mutable_metadata()->mutable_song_metadata()->set_title(radiotext.toStdString());
     }
-    const bool playing = state.value("playing").toBool();
-    notification.set_is_muted(!playing);
-    notification.set_has_audio_focus(playing);
+    notification.set_is_muted(!state.value("playing").toBool());
+    // Field 3 is called has_audio_focus in aasdk/open-android-auto, but Android Auto shows it as the favorite heart
+    // of the current station (tested with a Fairphone 4: set while playing, every station had a filled heart).
+    notification.set_has_audio_focus(isFavorite(state, band, frequency));
     return notification;
 }
 

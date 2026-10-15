@@ -47,6 +47,9 @@ extern const char* const cScanFmAction;
 
 uint64_t toKHz(const QString& band, double frequency);
 
+// the frequency is one of the plugin's favorites (presets) of that band
+bool isFavorite(const QVariantMap& state, const QString& band, double frequency);
+
 struct PluginFrequency
 {
     QString band;       // "fm", "am" or empty if the frequency is in neither band

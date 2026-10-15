@@ -3,7 +3,8 @@ import OpenHU 1.0
 import QtQuick.Layouts
 import "."
 
-// Current track from Android Auto (media.metadata / media.status).
+// Current track (media.metadata / media.status): from Android Auto or a local source such as the radio plugin
+// ("source": "radio", radio 2.3).
 Rectangle {
     id: card
     radius: Theme.radius
