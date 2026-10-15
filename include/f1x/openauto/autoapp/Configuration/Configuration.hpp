@@ -97,6 +97,8 @@ public:
     void setSystemAudioChannelEnabled(bool value) override;
     bool telephonyAudioChannelEnabled() const override;
     void setTelephonyAudioChannelEnabled(bool value) override;
+    bool radioServiceEnabled() const override;
+    void setRadioServiceEnabled(bool value) override;
 
     QString getParamFromFile(QString fileName, QString searchString) const override;
 
@@ -128,6 +130,7 @@ private:
     bool audioChannelEnabledGuidance_;
     bool audioChannelEnabledSystem_;
     bool audioChannelEnabledTelephony_;
+    bool radioServiceEnabled_;
 };
 
 }

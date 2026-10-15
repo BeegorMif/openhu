@@ -75,6 +75,7 @@ const std::string cAudioMediaKey = "AudioChannel.MediaEnabled";
 const std::string cAudioGuidanceKey = "AudioChannel.GuidanceEnabled";
 const std::string cAudioSystemKey = "AudioChannel.SystemEnabled";
 const std::string cAudioTelephonyKey = "AudioChannel.TelephonyEnabled";
+const std::string cRadioAndroidAutoKey = "Radio.AndroidAuto";
 
 }
 
@@ -147,6 +148,7 @@ void Configuration::load()
         audioChannelEnabledGuidance_ = ini.get<bool>(cAudioGuidanceKey, audioChannelEnabledGuidance_);
         audioChannelEnabledSystem_ = ini.get<bool>(cAudioSystemKey, audioChannelEnabledSystem_);
         audioChannelEnabledTelephony_ = ini.get<bool>(cAudioTelephonyKey, audioChannelEnabledTelephony_);
+        radioServiceEnabled_ = ini.get<bool>(cRadioAndroidAutoKey, radioServiceEnabled_);
     }
     catch(const boost::property_tree::ptree_error& e)
     {
@@ -185,6 +187,7 @@ void Configuration::reset()
     audioChannelEnabledGuidance_ = true;
     audioChannelEnabledSystem_ = true;
     audioChannelEnabledTelephony_ = true;
+    radioServiceEnabled_ = true;
 }
 
 void Configuration::save()
@@ -232,6 +235,7 @@ void Configuration::save()
     ini.put<bool>(cAudioGuidanceKey, audioChannelEnabledGuidance_);
     ini.put<bool>(cAudioSystemKey, audioChannelEnabledSystem_);
     ini.put<bool>(cAudioTelephonyKey, audioChannelEnabledTelephony_);
+    ini.put<bool>(cRadioAndroidAutoKey, radioServiceEnabled_);
 
     try
     {
@@ -523,6 +527,16 @@ bool Configuration::telephonyAudioChannelEnabled() const
 void Configuration::setTelephonyAudioChannelEnabled(bool value)
 {
     audioChannelEnabledTelephony_ = value;
+}
+
+bool Configuration::radioServiceEnabled() const
+{
+    return radioServiceEnabled_;
+}
+
+void Configuration::setRadioServiceEnabled(bool value)
+{
+    radioServiceEnabled_ = value;
 }
 
 QString Configuration::getParamFromFile(QString fileName, QString searchString) const

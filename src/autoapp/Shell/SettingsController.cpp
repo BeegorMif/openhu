@@ -137,6 +137,7 @@ QVariantMap SettingsController::keys()
         {"aa.audioMedia", flag(cReconnect)},
         {"aa.audioGuidance", flag(cReconnect)},
         {"aa.audioTelephony", flag(cReconnect)},
+        {"aa.radio", flag(cReconnect)},
         {"wireless.ssid", text("now", 32)},
         {"wireless.password", text("now", 63, true)},
         {"wireless.band", choice({"auto", "2.4", "5"}, "now")},
@@ -200,6 +201,7 @@ QVariantMap SettingsController::values() const
         {"aa.audioMedia", configuration_->musicAudioChannelEnabled()},
         {"aa.audioGuidance", configuration_->guidanceAudioChannelEnabled()},
         {"aa.audioTelephony", configuration_->telephonyAudioChannelEnabled()},
+        {"aa.radio", configuration_->radioServiceEnabled()},
         {"bluetooth.adapter", configuration_->getBluetoothAdapterType() == configuration::BluetoothAdapterType::NONE
                                   ? "none" : "local"},
         {"bluetooth.address", QString::fromStdString(configuration_->getBluetoothAdapterAddress())},
@@ -472,6 +474,11 @@ QString SettingsController::set(const QString& key, const QVariant& value)
     else if(key == "aa.audioTelephony")
     {
         configuration_->setTelephonyAudioChannelEnabled(value.toBool());
+        this->markPending(cReconnect);
+    }
+    else if(key == "aa.radio")
+    {
+        configuration_->setRadioServiceEnabled(value.toBool());
         this->markPending(cReconnect);
     }
     else if(key == "bluetooth.adapter")

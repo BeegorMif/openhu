@@ -32,6 +32,8 @@ namespace f1x {
           ServiceList create(aasdk::messenger::IMessenger::Pointer messenger) override;
 
         private:
+          // the radio plugin runs (radio.state) and is enabled: then the radio channel is announced
+          static bool radioPluginActive();
           IService::Pointer createBluetoothService(aasdk::messenger::IMessenger::Pointer messenger);
           IService::Pointer createInputService(aasdk::messenger::IMessenger::Pointer messenger);
 

@@ -1,0 +1,235 @@
+/*
+*  This file is part of openauto project.
+*
+*  openauto is free software: you can redistribute it and/or modify
+*  it under the terms of the GNU General Public License as published by
+*  the Free Software Foundation; either version 3 of the License, or
+*  (at your option) any later version.
+
+*  openauto is distributed in the hope that it will be useful,
+*  but WITHOUT ANY WARRANTY; without even the implied warranty of
+*  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+*  GNU General Public License for more details.
+*
+*  You should have received a copy of the GNU General Public License
+*  along with openauto. If not, see <http://www.gnu.org/licenses/>.
+*/
+
+#include <cmath>
+#include <f1x/openauto/autoapp/Service/Radio/RadioService.hpp>
+#include <f1x/openauto/autoapp/Service/Radio/RadioMapping.hpp>
+#include <f1x/openauto/autoapp/Core/EventBus.hpp>
+
+namespace f1x {
+  namespace openauto {
+    namespace autoapp {
+      namespace service {
+        namespace radio {
+
+          namespace msg = aap_protobuf::service::radio::message;
+
+          // the phone gives up after 6 seconds
+          constexpr int cTuneTimeoutMs = 5000;
+
+          RadioService::RadioService(boost::asio::io_service &ioService, aasdk::messenger::IMessenger::Pointer messenger)
+              : strand_(ioService),
+                tuneTimer_(ioService),
+                channel_(std::make_shared<aasdk::channel::radio::RadioService>(strand_, std::move(messenger))),
+                state_(core::EventBus::instance().last("radio.state")) {
+          }
+
+          void RadioService::start() {
+            strand_.dispatch([this, self = this->shared_from_this()]() {
+              OPENAUTO_LOG(info) << "[RadioService] start()";
+              std::weak_ptr<RadioService> weak = self;
+              busConnection_ = QObject::connect(&core::EventBus::instance(), &core::EventBus::event,
+                                                [weak](const QString &topic, const QVariantMap &data) {
+                if (topic != "radio.state") {
+                  return;
+                }
+                if (auto service = weak.lock()) {
+                  service->strand_.dispatch([service, data]() { service->onState(data); });
+                }
+              });
+              channel_->receive(this->shared_from_this());
+            });
+          }
+
+          void RadioService::stop() {
+            strand_.dispatch([this, self = this->shared_from_this()]() {
+              OPENAUTO_LOG(info) << "[RadioService] stop()";
+              QObject::disconnect(busConnection_);
+              tuneTimer_.cancel();
+              open_ = false;
+            });
+          }
+
+          void RadioService::pause() {
+          }
+
+          void RadioService::resume() {
+          }
+
+          void RadioService::fillFeatures(aap_protobuf::service::control::message::ServiceDiscoveryResponse &response) {
+            OPENAUTO_LOG(info) << "[RadioService] fillFeatures()";
+            auto *service = response.add_channels();
+            service->set_id(static_cast<uint32_t>(channel_->getId()));
+            fillService(*service->mutable_radio_service(), state_);
+          }
+
+          void RadioService::onChannelOpenRequest(const aap_protobuf::service::control::message::ChannelOpenRequest &request) {
+            OPENAUTO_LOG(info) << "[RadioService] onChannelOpenRequest(), priority " << request.priority();
+            aap_protobuf::service::control::message::ChannelOpenResponse response;
+            response.set_status(aap_protobuf::shared::MessageStatus::STATUS_SUCCESS);
+            channel_->sendChannelOpenResponse(response, this->promise());
+            channel_->receive(this->shared_from_this());
+
+            // the phone expects the whole state right away
+            open_ = true;
+            this->sendState(true);
+          }
+
+          void RadioService::onChannelError(const aasdk::error::Error &e) {
+            OPENAUTO_LOG(error) << "[RadioService] onChannelError(): " << e.what();
+          }
+
+          void RadioService::onMuteRequest(const msg::RadioMuteRequest &request) {
+            OPENAUTO_LOG(info) << "[RadioService] mute " << request.mute();
+            this->command({{"cmd", request.mute() ? "stop" : "play"}});
+            msg::RadioMuteResponse response;
+            response.set_is_muted(request.mute());
+            channel_->sendMuteResponse(response, this->promise());
+          }
+
+          void RadioService::onTuneRequest(const msg::RadioTuneRequest &request) {
+            const QList<QVariantMap> commands = tuneCommands(request.program_selector(), state_);
+            OPENAUTO_LOG(info) << "[RadioService] tune to "
+                               << request.program_selector().primary_identifier().value()
+                               << (commands.isEmpty() ? " (not supported)" : "");
+            if (commands.isEmpty()) {
+              msg::RadioTuneResponse response;
+              response.set_status(msg::RADIO_TUNE_STATUS_FAILURE);
+              channel_->sendTuneResponse(response, this->promise());
+              return;
+            }
+            const QVariantMap tune = commands.size() > 1 && commands.front().value("cmd") == "band" ? commands.at(1)
+                                                                                                    : commands.front();
+            const QString band = commands.front().value("cmd") == "band" ? commands.front().value("value").toString()
+                                                                          : state_.value("band").toString();
+            this->startTune(band, tune.value("value").toDouble());
+            for (const QVariantMap &command: commands) {
+              this->command(command);
+            }
+          }
+
+          void RadioService::onTuneDirectionRequest(const msg::RadioTuneDirectionRequest &request) {
+            const int direction = request.direction() == msg::RADIO_TUNE_DIRECTION_DOWN ? -1 : 1;
+            OPENAUTO_LOG(info) << "[RadioService] seek " << direction;
+            this->startTune(state_.value("band").toString(), -1);
+            this->command({{"cmd", "seek"}, {"value", direction}});
+            if (!state_.value("playing").toBool()) {
+              this->command({{"cmd", "play"}});
+            }
+          }
+
+          void RadioService::onFavoriteToggleRequest(const msg::RadioFavoriteToggleRequest &request) {
+            // applies to the current station; the new list follows with radio.state
+            OPENAUTO_LOG(info) << "[RadioService] favorite " << request.is_favorite();
+            if (request.is_favorite()) {
+              this->command({{"cmd", "savePreset"}});
+            } else {
+              this->command({{"cmd", "removePreset"}, {"value", state_.value("frequency")}});
+            }
+          }
+
+          void RadioService::onSearchRequest(const msg::RadioSearchRequest &request) {
+            OPENAUTO_LOG(info) << "[RadioService] action " << request.action_id();
+            if (request.action_id() != cScanFmAction) {
+              return;
+            }
+            if (state_.value("band").toString() != "fm") {
+              this->command({{"cmd", "band"}, {"value", "fm"}});
+            }
+            this->command({{"cmd", "scan"}});
+          }
+
+          void RadioService::onState(const QVariantMap &state) {
+            state_ = state;
+            if (!open_) {
+              return;
+            }
+            if (pendingTune_.active) {
+              const double frequency = state.value("frequency").toDouble();
+              const bool sameBand = state.value("band").toString() == pendingTune_.band;
+              const bool arrived = pendingTune_.frequency < 0
+                                   ? std::abs(frequency - pendingTune_.from) > 1e-6
+                                   : sameBand && std::abs(frequency - pendingTune_.frequency) < 1e-6;
+              if (!state.value("error").toString().isEmpty()) {
+                this->finishTune(msg::RADIO_TUNE_STATUS_FAILURE);
+              } else if (arrived) {
+                this->finishTune(msg::RADIO_TUNE_STATUS_SUCCESS);
+              }
+            }
+            this->sendState(false);
+          }
+
+          void RadioService::sendState(bool force) {
+            if (!open_ || state_.isEmpty()) {
+              return;
+            }
+            // order of the phone's own state replay: current station, station list, favorites
+            const auto info = programInfo(state_);
+            if (force || info.SerializeAsString() != lastProgramInfo_) {
+              lastProgramInfo_ = info.SerializeAsString();
+              channel_->sendProgramInfoNotification(info, this->promise());
+            }
+            const auto list = programList(state_);
+            if (force || list.SerializeAsString() != lastProgramList_) {
+              lastProgramList_ = list.SerializeAsString();
+              channel_->sendProgramListNotification(list, this->promise());
+            }
+            const auto favorites = favoriteList(state_);
+            if (force || favorites.SerializeAsString() != lastFavorites_) {
+              lastFavorites_ = favorites.SerializeAsString();
+              channel_->sendFavoriteListNotification(favorites, this->promise());
+            }
+          }
+
+          void RadioService::command(const QVariantMap &command) {
+            core::EventBus::instance().emitEvent("radio.command", command);
+          }
+
+          void RadioService::startTune(const QString &band, double frequency) {
+            if (pendingTune_.active) {
+              this->finishTune(msg::RADIO_TUNE_STATUS_CANCELLED);
+            }
+            pendingTune_ = {true, band, frequency, state_.value("frequency").toDouble()};
+            tuneTimer_.expires_from_now(boost::posix_time::milliseconds(cTuneTimeoutMs));
+            tuneTimer_.async_wait(strand_.wrap([this, self = this->shared_from_this()](const boost::system::error_code &error) {
+              if (!error && pendingTune_.active) {
+                OPENAUTO_LOG(warning) << "[RadioService] the radio did not tune in time";
+                this->finishTune(msg::RADIO_TUNE_STATUS_TIMEOUT);
+              }
+            }));
+          }
+
+          void RadioService::finishTune(msg::RadioTuneStatus status) {
+            pendingTune_.active = false;
+            tuneTimer_.cancel();
+            msg::RadioTuneResponse response;
+            response.set_status(status);
+            channel_->sendTuneResponse(response, this->promise());
+          }
+
+          aasdk::channel::SendPromise::Pointer RadioService::promise() {
+            auto promise = aasdk::channel::SendPromise::defer(strand_);
+            promise->then([]() {}, std::bind(&RadioService::onChannelError, this->shared_from_this(),
+                                             std::placeholders::_1));
+            return promise;
+          }
+
+        }
+      }
+    }
+  }
+}

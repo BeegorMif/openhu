@@ -39,6 +39,8 @@
 #include <f1x/openauto/autoapp/Service/NavigationStatus/NavigationStatusService.hpp>
 #include <f1x/openauto/autoapp/Service/MediaPlaybackStatus/MediaPlaybackStatusService.hpp>
 #include <f1x/openauto/autoapp/Service/PhoneStatus/PhoneStatusService.hpp>
+#include <f1x/openauto/autoapp/Service/Radio/RadioService.hpp>
+#include <f1x/openauto/autoapp/Core/EventBus.hpp>
 #include <f1x/openauto/autoapp/Projection/FfmpegVideoOutput.hpp>
 #include <f1x/openauto/autoapp/Projection/QtAudioOutput.hpp>
 #include <f1x/openauto/autoapp/Projection/QtAudioInput.hpp>
@@ -55,6 +57,21 @@ namespace f1x::openauto::autoapp::service {
 
   }
 
+  bool ServiceFactory::radioPluginActive() {
+    // radio.state stays on the bus after the plugin stopped: the plugin has to be enabled too
+    if (core::EventBus::instance().last("radio.state").isEmpty()) {
+      return false;
+    }
+    const QVariantList plugins = core::EventBus::instance().last("plugins.state").value("plugins").toList();
+    for (const QVariant &plugin: plugins) {
+      const QVariantMap map = plugin.toMap();
+      if (map.value("id").toString() == "org.openhu.radio") {
+        return map.value("enabled").toBool();
+      }
+    }
+    return false;
+  }
+
   ServiceList ServiceFactory::create(aasdk::messenger::IMessenger::Pointer messenger) {
     OPENAUTO_LOG(info) << "[ServiceFactory] create()";
     ServiceList serviceList;
@@ -67,6 +84,12 @@ namespace f1x::openauto::autoapp::service {
     serviceList.emplace_back(std::make_shared<navigationstatus::NavigationStatusService>(ioService_, messenger));
     serviceList.emplace_back(std::make_shared<mediaplaybackstatus::MediaPlaybackStatusService>(ioService_, messenger));
     serviceList.emplace_back(std::make_shared<phonestatus::PhoneStatusService>(ioService_, messenger));
+    if (configuration_->radioServiceEnabled() && radioPluginActive())
+    {
+        // The radio plugin as a media source in Android Auto (openhu#75). Announced only for connections while
+        // the plugin runs: the services cannot change during a connection.
+        serviceList.emplace_back(std::make_shared<radio::RadioService>(ioService_, messenger));
+    }
     if (configuration_->getWirelessProjectionEnabled()
         || configuration_->getBluetoothAdapterType() == configuration::BluetoothAdapterType::LOCAL)
     {

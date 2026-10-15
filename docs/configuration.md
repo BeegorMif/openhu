@@ -72,6 +72,12 @@ Where the keys are in the settings:
 |---|---|---|
 | `MediaEnabled`, `GuidanceEnabled`, `SystemEnabled`, `TelephonyEnabled` | `true` | Android Auto audio channels played by OpenHU |
 
+### [Radio]
+
+| Key | Default | |
+|---|---|---|
+| `AndroidAuto` | `true` | the radio plugin as a media source in Android Auto (radio channel); only announced while the plugin runs (`radio.state`) |
+
 ### [CarAudio]
 
 | Key | Default | |

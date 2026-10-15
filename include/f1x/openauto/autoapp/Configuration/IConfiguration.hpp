@@ -154,6 +154,10 @@ public:
     virtual bool telephonyAudioChannelEnabled() const = 0;
     virtual void setTelephonyAudioChannelEnabled(bool value) = 0;
 
+    // Radio plugin as a media source in Android Auto (radio channel, openhu#75)
+    virtual bool radioServiceEnabled() const = 0;
+    virtual void setRadioServiceEnabled(bool value) = 0;
+
     // "key=value" from a system file (wireless Android Auto reads the hotspot SSID/password from hostapd.conf)
     virtual QString getParamFromFile(QString fileName, QString searchString) const = 0;
 };

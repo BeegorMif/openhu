@@ -28,6 +28,7 @@ openhu_test(test_systemcontroller)
 openhu_test(test_video_decoder)
 openhu_test(test_translations)
 openhu_test(test_wificlient)
+openhu_test(test_radio)
 # a plugin translation
 set(test_plugin_qm ${CMAKE_CURRENT_BINARY_DIR}/plugin_de.qm)
 add_custom_command(OUTPUT ${test_plugin_qm}

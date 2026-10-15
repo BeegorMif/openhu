@@ -99,6 +99,11 @@ SettingsSection {
         title: qsTrId("settings.aa.phone_calls")
         key: "aa.audioTelephony"
     }
+    SettingSwitch {
+        title: qsTrId("settings.aa.radio")
+        description: qsTrId("settings.aa.radio_description")
+        key: "aa.radio"
+    }
 
     SectionTitle { text: qsTrId("settings.aa.connection") }
     SettingRow {
