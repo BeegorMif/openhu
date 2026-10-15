@@ -78,6 +78,8 @@ protected:
 
 private:
     bool sendAaKey(const QString& action, Phase phase);
+    // the last media.status comes from a local source (plugin), not from Android Auto
+    static bool localMediaSource();
     void loadKeymap();
     void saveOverrides() const;
     static QString keyName(int key);

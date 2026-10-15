@@ -204,6 +204,14 @@ bool ActionDispatcher::trigger(const QString& action, Phase phase)
         return true;
     }
 
+    // Media keys belong to the current media source. A local source (a plugin that publishes media.status with its
+    // own "source", e.g. the radio) gets them through input.action above; the phone must not get them too (play
+    // would start its music while the radio plays).
+    if(action.startsWith(QLatin1String("media.")) && localMediaSource())
+    {
+        return true;
+    }
+
     if(aaKeys().contains(action))
     {
         return this->sendAaKey(action, phase);
@@ -211,6 +219,12 @@ bool ActionDispatcher::trigger(const QString& action, Phase phase)
 
     // Unknown here: plugins may handle it via the "input.action" event.
     return true;
+}
+
+bool ActionDispatcher::localMediaSource()
+{
+    const QString source = core::EventBus::instance().last("media.status").value("source").toString();
+    return !source.isEmpty() && source != QLatin1String("androidauto");
 }
 
 bool ActionDispatcher::sendAaKey(const QString& action, Phase phase)

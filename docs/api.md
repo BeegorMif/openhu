@@ -65,7 +65,7 @@ networks you trust.
 | `audio.volume` | `volume` (0–100), `muted` |
 | `system.daynight` | `night` (bool) – switches Android Auto to night mode while Settings → Android Auto → Night mode is "Automatic" |
 | `system.nightMode` | `mode` (`auto`, `day`, `night`) – that setting (`General.NightMode`) |
-| `input.action` | `action`, `phase` (`click`, `press`, `release`) – every triggered action (one-shot event, no stored value) |
+| `input.action` | `action`, `phase` (`click`, `press`, `release`) – every triggered action (one-shot event, no stored value). Media keys (`media.*`) go to the current media source: to the phone while `media.status.source` is `androidauto` (or empty), otherwise only here, to the plugin that published `media.status` with its own `source` (e.g. `radio`) |
 | `ui.page` | `page` – page shown in the shell (`home`, `aa`, `settings`, `plugin:<id>`) |
 | `ui.language` | `language` (`de`, `en`), `available` – language of the shell; texts of plugin processes can follow it |
 | `projection.exit` | – one-shot: "exit" inside Android Auto, the shell shows its home page |
