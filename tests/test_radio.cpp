@@ -138,9 +138,11 @@ private slots:
         auto info = programInfo(state());
         QCOMPARE(info.program_info().program_selector().primary_identifier().value(), uint64_t(96200));
         QCOMPARE(info.program_info().metadata().station_name(), std::string("NDR 2"));
-        QCOMPARE(info.program_info().metadata().message(), std::string("Dreamer - Ozzy Osbourne"));
         QCOMPARE(info.program_info().metadata().song_metadata().title(), std::string("Dreamer - Ozzy Osbourne"));
+        // not twice: Android Auto shows the station text below the title
+        QVERIFY(!info.program_info().metadata().has_message());
         QVERIFY(!info.is_muted());
+        // field 3 (has_audio_focus) is the favorite heart in Android Auto: 96.2 is a preset
         QVERIFY(info.has_audio_focus());
 
         // stopped, no RDS yet: remembered name, muted
@@ -152,6 +154,7 @@ private slots:
         QCOMPARE(info.program_info().metadata().station_name(), std::string("NDR INFO"));
         QVERIFY(!info.program_info().metadata().has_message());
         QVERIFY(info.is_muted());
+        // 88.6 is no preset
         QVERIFY(!info.has_audio_focus());
     }
 

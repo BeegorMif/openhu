@@ -17,6 +17,7 @@
 
 #pragma once
 
+#include <chrono>
 #include <string>
 #include <QMetaObject>
 #include <QVariantMap>
@@ -61,7 +62,7 @@ namespace f1x {
             using std::enable_shared_from_this<RadioService>::shared_from_this;
 
             void onState(const QVariantMap &state);
-            // station list, current station and favorites; only what changed unless force
+            // favorites, station list and current station; only what changed unless force
             void sendState(bool force);
             void command(const QVariantMap &command);
 
@@ -76,6 +77,10 @@ namespace f1x {
             QMetaObject::Connection busConnection_;
             QVariantMap state_;
             bool open_ = false;
+            // a favorite request waits for radio.state, then favorites and station go out even if unchanged
+            bool favoriteReplyPending_ = false;
+            // start of the connection counts as a scan: opening the FM tab right away does not silence the radio
+            std::chrono::steady_clock::time_point lastScan_ = std::chrono::steady_clock::now();
             std::string lastProgramList_;
             std::string lastProgramInfo_;
             std::string lastFavorites_;
