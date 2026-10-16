@@ -64,6 +64,7 @@ namespace f1x {
 
             void onState(const QVariantMap &state);
             void onLogos(const QVariantMap &logos);
+            void setSlide(const QVariantMap &slide);
             // favorites, station list and current station; only what changed unless force
             void sendState(bool force);
             void command(const QVariantMap &command);
@@ -80,6 +81,10 @@ namespace f1x {
             QVariantMap state_;
             // station logos (radio.logos), scaled for the phone
             StationIcons icons_;
+            // DAB slideshow picture (radio.slide) and the station it belongs to
+            static constexpr int cSlideSize = 400;
+            std::string slide_;
+            QString slideStation_;
             bool open_ = false;
             // a favorite request waits for radio.state, then favorites and station go out even if unchanged
             bool favoriteReplyPending_ = false;

@@ -46,6 +46,14 @@ namespace radio
 
 // action id of the FM scan in the band group, sent back by the phone as RadioSearchRequest
 extern const char* const cScanFmAction;
+// the same for the DAB scan (radio 2.7)
+extern const char* const cScanDabAction;
+
+// DAB stations of the plugin are keyed by their service id: "0xD882" <-> 0xD882 (0 if invalid)
+uint64_t dabSid(const QString& key);
+QString dabKey(uint64_t sid);
+// key of the station that plays: "96.2" / "1008" / "0xD882" (radiolib.frequency_key)
+QString stationKey(const QVariantMap& state);
 
 // Station logos of the plugin (radio.logos: {fm: {"96.2": data URL}, am: {...}}) as images for Android Auto, key
 // "fm:96.2" / "am:1008". Scaled once when radio.logos changes, the station list is sent much more often.
@@ -57,7 +65,7 @@ std::string scaledIcon(const QString& dataUrl, int size = cStationIconSize);
 
 uint64_t toKHz(const QString& band, double frequency);
 
-// the frequency is one of the plugin's favorites (presets) of that band
+// the frequency is one of the plugin's favorites (presets) of that band; DAB (no frequency): the station that plays
 bool isFavorite(const QVariantMap& state, const QString& band, double frequency);
 
 // RDS PI code ("0xD382") the plugin remembered for a frequency, empty if none
@@ -78,13 +86,15 @@ void fillService(aap_protobuf::service::radio::RadioService& service, const QVar
 // with station_icon for the stations that have a logo
 aap_protobuf::service::radio::message::RadioProgramListNotification programList(const QVariantMap& state,
                                                                                 const StationIcons& icons = {});
+// picture: DAB slideshow picture of the station that plays (album art), empty if none
 aap_protobuf::service::radio::message::RadioProgramInfoNotification programInfo(const QVariantMap& state,
-                                                                                const StationIcons& icons = {});
+                                                                                const StationIcons& icons = {},
+                                                                                const std::string& picture = {});
 aap_protobuf::service::radio::message::RadioFavoriteListNotification favoriteList(const QVariantMap& state,
                                                                                   const StationIcons& icons = {});
 
-// radio.command events ({cmd, value}) for a tune request: by frequency ("tune") if the selector has one, else by RDS
-// PI ("tunePi"); empty if the plugin cannot tune it (DAB, ...)
+// radio.command events ({cmd, value}) for a tune request: by frequency ("tune") if the selector has one, else a DAB
+// service ("tune" in band "dab"), else by RDS PI ("tunePi"); empty if the plugin cannot tune it
 QList<QVariantMap> tuneCommands(const aap_protobuf::service::radio::message::RadioProgramSelector& selector,
                                 const QVariantMap& state);
 
@@ -92,9 +102,9 @@ QList<QVariantMap> tuneCommands(const aap_protobuf::service::radio::message::Rad
 struct TuneTarget
 {
     QString band;
-    double frequency = -1;  // < 0 and no pi: any other station than "from" (seek)
+    QString station;        // stationKey of the target; empty and no pi: any other station than "from" (seek)
     QString pi;             // tunePi: any FM frequency with this PI
-    double from = 0;
+    QString from;
 };
 // the target of the commands from tuneCommands, starting at the state before
 TuneTarget tuneTarget(const QList<QVariantMap>& commands, const QVariantMap& state);

@@ -37,6 +37,7 @@ namespace radio
 namespace msg = aap_protobuf::service::radio::message;
 
 const char* const cScanFmAction = "scan_fm";
+const char* const cScanDabAction = "scan_dab";
 
 namespace
 {
@@ -72,6 +73,93 @@ QList<double> frequencies(const QVariant& list)
 QString iconKey(const QString& band, double frequency)
 {
     return band + ":" + nameKey(band, frequency);
+}
+
+// Band III channels (ETSI EN 300 401) -> centre frequency in kHz, like the plugin's dablib.DAB_CHANNELS
+uint64_t dabChannelKHz(const QString& channel)
+{
+    static const QHash<QString, uint64_t> channels{
+        {"5A", 174928}, {"5B", 176640}, {"5C", 178352}, {"5D", 180064}, {"6A", 181936}, {"6B", 183648},
+        {"6C", 185360}, {"6D", 187072}, {"7A", 188928}, {"7B", 190640}, {"7C", 192352}, {"7D", 194064},
+        {"8A", 195936}, {"8B", 197648}, {"8C", 199360}, {"8D", 201072}, {"9A", 202928}, {"9B", 204640},
+        {"9C", 206352}, {"9D", 208064}, {"10A", 209936}, {"10B", 211648}, {"10C", 213360}, {"10D", 215072},
+        {"11A", 216928}, {"11B", 218640}, {"11C", 220352}, {"11D", 222064}, {"12A", 223936}, {"12B", 225648},
+        {"12C", 227360}, {"12D", 229072}, {"13A", 230784}, {"13B", 232496}, {"13C", 234208}, {"13D", 235776},
+        {"13E", 237488}, {"13F", 239200}};
+    return channels.value(channel.toUpper(), 0);
+}
+
+uint64_t hexValue(const QString& text)
+{
+    bool ok = false;
+    const uint64_t value = text.toULongLong(&ok, 16);
+    return ok ? value : 0;
+}
+
+// A DAB station of the plugin (radio 2.7): bands.dab.services[key] = {label, channel, ensemble, ecc, ...}
+void fillDabProgram(msg::RadioProgramInfo* program, const QString& key, const QVariantMap& service,
+                    const QString& name, const StationIcons& icons)
+{
+    // Android's ProgramSelector DAB_SID_EXT: SId in bits 0-15, ECC in bits 16-23, SCIdS (0) in bits 24-27. The
+    // encoding inside Android Auto is not documented (open-android-auto names only the type), to be checked.
+    const uint64_t sid = dabSid(key);
+    auto* identifier = program->mutable_program_selector()->mutable_primary_identifier();
+    identifier->set_type(msg::RADIO_IDENTIFIER_TYPE_DAB_SID_EXT);
+    identifier->set_value(sid | ((hexValue(service.value("ecc").toString()) & 0xFF) << 16));
+    const uint64_t ensemble = hexValue(service.value("ensemble").toString());
+    if(ensemble > 0)
+    {
+        auto* secondary = program->mutable_program_selector()->add_secondary_identifiers();
+        secondary->set_type(msg::RADIO_IDENTIFIER_TYPE_DAB_ENSEMBLE);
+        secondary->set_value(ensemble);
+    }
+    const uint64_t kHz = dabChannelKHz(service.value("channel").toString());
+    if(kHz > 0)
+    {
+        auto* secondary = program->mutable_program_selector()->add_secondary_identifiers();
+        secondary->set_type(msg::RADIO_IDENTIFIER_TYPE_DAB_FREQUENCY);
+        secondary->set_value(kHz);
+    }
+    auto* metadata = program->mutable_metadata();
+    const QString label = name.isEmpty() ? service.value("label").toString() : name;
+    metadata->set_station_name((label.isEmpty() ? key : label).toStdString());
+    if(!service.value("label").toString().isEmpty())
+    {
+        metadata->set_service_name(service.value("label").toString().toStdString());
+    }
+    const auto icon = icons.constFind("dab:" + key);
+    if(icon != icons.constEnd())
+    {
+        metadata->mutable_station_icon()->set_image_data(*icon);
+    }
+}
+
+QVariantMap dabServiceOf(const QVariantMap& state, const QString& key)
+{
+    return bandOf(state, "dab").value("services").toMap().value(key).toMap();
+}
+
+// DAB stations of the given lists in the plugin's order (channel, name), each once
+QStringList dabStations(const QVariantMap& state, const QStringList& listNames)
+{
+    QStringList keys;
+    for(const QString& listName: listNames)
+    {
+        for(const QVariant& value: bandOf(state, "dab").value(listName).toList())
+        {
+            const uint64_t sid = dabSid(value.toString());
+            if(sid > 0 && !keys.contains(dabKey(sid)))
+            {
+                keys << dabKey(sid);
+            }
+        }
+    }
+    return keys;
+}
+
+QString dabName(const QVariantMap& state, const QString& key)
+{
+    return bandOf(state, "dab").value("names").toMap().value(key).toString();
 }
 
 QString piString(uint64_t pi)
@@ -158,9 +246,41 @@ std::string scaledIcon(const QString& dataUrl, int size)
     return scaled.toStdString();
 }
 
+uint64_t dabSid(const QString& key)
+{
+    return hexValue(key);
+}
+
+QString dabKey(uint64_t sid)
+{
+    const int digits = sid > 0xFFFF ? 8 : 4;
+    return "0x" + QString::number(sid, 16).toUpper().rightJustified(digits, '0');
+}
+
+QString stationKey(const QVariantMap& state)
+{
+    const QString band = state.value("band").toString();
+    if(band == "dab")
+    {
+        const uint64_t sid = dabSid(state.value("frequency").toString());
+        return sid > 0 ? dabKey(sid) : QString();
+    }
+    return nameKey(band, state.value("frequency").toDouble());
+}
+
 StationIcons stationIcons(const QVariantMap& logos)
 {
     StationIcons icons;
+    const QVariantMap dabLogos = logos.value("dab").toMap();
+    for(auto logo = dabLogos.constBegin(); logo != dabLogos.constEnd(); ++logo)
+    {
+        const std::string icon = scaledIcon(logo.value().toString());
+        const uint64_t sid = dabSid(logo.key());
+        if(!icon.empty() && sid > 0)
+        {
+            icons.insert("dab:" + dabKey(sid), icon);
+        }
+    }
     for(const QString& band: cBands)
     {
         const QVariantMap bandLogos = logos.value(band).toMap();
@@ -191,6 +311,19 @@ QString currentPi(const QVariantMap& state)
 
 bool isFavorite(const QVariantMap& state, const QString& band, double frequency)
 {
+    if(band == "dab")
+    {
+        // DAB presets are service ids, there is no frequency: the station that plays
+        const QString key = stationKey(state);
+        for(const QVariant& preset: bandOf(state, band).value("presets").toList())
+        {
+            if(!key.isEmpty() && dabKey(dabSid(preset.toString())) == key)
+            {
+                return true;
+            }
+        }
+        return false;
+    }
     for(double preset: frequencies(bandOf(state, band).value("presets")))
     {
         if(std::abs(preset - frequency) < 1e-6)
@@ -259,6 +392,15 @@ void fillService(aap_protobuf::service::radio::RadioService& service, const QVar
             group->set_band_scan_action(cScanFmAction);
         }
     }
+
+    // DAB (radio 2.7) only with a decoder (welle-cli) on the head unit; no v1 tuner, it is frequency based
+    if(state.value("dabAvailable").toBool() && !bandOf(state, "dab").isEmpty())
+    {
+        auto* group = service.mutable_bands()->add_groups();
+        group->add_band_types(msg::RADIO_BAND_TYPE_DAB);
+        group->set_hide_empty_group(false);
+        group->set_band_scan_action(cScanDabAction);
+    }
 }
 
 msg::RadioProgramListNotification programList(const QVariantMap& state, const StationIcons& icons)
@@ -268,6 +410,10 @@ msg::RadioProgramListNotification programList(const QVariantMap& state, const St
         fillProgram(notification.add_programs(), band, frequency, nameOf(state, band, frequency), icons,
                     piOf(state, band, frequency));
     });
+    for(const QString& key: dabStations(state, {"stations", "presets"}))
+    {
+        fillDabProgram(notification.add_programs(), key, dabServiceOf(state, key), dabName(state, key), icons);
+    }
     return notification;
 }
 
@@ -278,18 +424,38 @@ msg::RadioFavoriteListNotification favoriteList(const QVariantMap& state, const 
         fillProgram(notification.add_favorites(), band, frequency, nameOf(state, band, frequency), icons,
                     piOf(state, band, frequency));
     });
+    for(const QString& key: dabStations(state, {"presets"}))
+    {
+        fillDabProgram(notification.add_favorites(), key, dabServiceOf(state, key), dabName(state, key), icons);
+    }
     return notification;
 }
 
-msg::RadioProgramInfoNotification programInfo(const QVariantMap& state, const StationIcons& icons)
+msg::RadioProgramInfoNotification programInfo(const QVariantMap& state, const StationIcons& icons,
+                                              const std::string& picture)
 {
     msg::RadioProgramInfoNotification notification;
     const QString band = state.value("band").toString();
     const double frequency = state.value("frequency").toDouble();
     const QVariantMap rds = state.value("rds").toMap();
     const QString ps = rds.value("ps").toString().trimmed();
-    fillProgram(notification.mutable_program_info(), band, frequency, ps.isEmpty() ? nameOf(state, band, frequency) : ps,
-                icons, currentPi(state));
+    if(band == "dab")
+    {
+        // DAB: service label as rds.ps, DLS as rds.rt, the slideshow picture as album art
+        const QString key = stationKey(state);
+        fillDabProgram(notification.mutable_program_info(), key, dabServiceOf(state, key),
+                       ps.isEmpty() ? dabName(state, key) : ps, icons);
+        if(!picture.empty())
+        {
+            notification.mutable_program_info()->mutable_metadata()->mutable_song_metadata()->mutable_album_art()
+                ->set_image_data(picture);
+        }
+    }
+    else
+    {
+        fillProgram(notification.mutable_program_info(), band, frequency,
+                    ps.isEmpty() ? nameOf(state, band, frequency) : ps, icons, currentPi(state));
+    }
 
     // RDS radiotext as the title (the format "artist - title" is not reliable enough to split). Not also as
     // station text: Android Auto shows both, the same line twice.
@@ -309,7 +475,7 @@ TuneTarget tuneTarget(const QList<QVariantMap>& commands, const QVariantMap& sta
 {
     TuneTarget target;
     target.band = state.value("band").toString();
-    target.from = state.value("frequency").toDouble();
+    target.from = stationKey(state);
     for(const QVariantMap& command: commands)
     {
         const QString cmd = command.value("cmd").toString();
@@ -319,7 +485,8 @@ TuneTarget tuneTarget(const QList<QVariantMap>& commands, const QVariantMap& sta
         }
         else if(cmd == "tune")
         {
-            target.frequency = command.value("value").toDouble();
+            const QVariant value = command.value("value");
+            target.station = target.band == "dab" ? dabKey(dabSid(value.toString())) : nameKey(target.band, value.toDouble());
         }
         else if(cmd == "tunePi")
         {
@@ -332,17 +499,16 @@ TuneTarget tuneTarget(const QList<QVariantMap>& commands, const QVariantMap& sta
 
 bool tuneArrived(const TuneTarget& target, const QVariantMap& state)
 {
-    const double frequency = state.value("frequency").toDouble();
     const bool sameBand = state.value("band").toString() == target.band;
     if(!target.pi.isEmpty())
     {
         return sameBand && currentPi(state).compare(target.pi, Qt::CaseInsensitive) == 0;
     }
-    if(target.frequency < 0)
+    if(target.station.isEmpty())
     {
-        return std::abs(frequency - target.from) > 1e-6;
+        return stationKey(state) != target.from;
     }
-    return sameBand && std::abs(frequency - target.frequency) < 1e-6;
+    return sameBand && stationKey(state) == target.station;
 }
 
 QList<QVariantMap> tuneCommands(const msg::RadioProgramSelector& selector, const QVariantMap& state)
@@ -350,6 +516,7 @@ QList<QVariantMap> tuneCommands(const msg::RadioProgramSelector& selector, const
     // the frequency (primary identifier or one of the secondary ones), else the RDS PI
     PluginFrequency target{QString(), 0};
     uint64_t pi = 0;
+    uint64_t sid = 0;
     std::vector<msg::RadioProgramIdentifier> identifiers{selector.primary_identifier()};
     identifiers.insert(identifiers.end(), selector.secondary_identifiers().begin(), selector.secondary_identifiers().end());
     for(const auto& identifier: identifiers)
@@ -362,14 +529,33 @@ QList<QVariantMap> tuneCommands(const msg::RadioProgramSelector& selector, const
         {
             pi = identifier.value();
         }
+        else if(identifier.type() == msg::RADIO_IDENTIFIER_TYPE_DAB_SID_EXT && sid == 0)
+        {
+            // as sent in the station list: SId in the low 16 bits (ECC, SCIdS above)
+            sid = identifier.value() & 0xFFFF;
+        }
+        else if(identifier.type() == msg::RADIO_IDENTIFIER_TYPE_DAB_DMB_SID_EXT && sid == 0)
+        {
+            // Android's DAB_DMB_SID_EXT: 32 bit SId in the low bits
+            sid = identifier.value() & 0xFFFFFFFF;
+        }
     }
-    if(target.band.isEmpty() && pi == 0)
+    if(target.band.isEmpty() && pi == 0 && sid == 0)
     {
         return {};
     }
 
     QList<QVariantMap> commands;
-    if(target.band.isEmpty())
+    if(target.band.isEmpty() && sid != 0)
+    {
+        // a DAB service of the plugin (radio 2.7)
+        if(state.value("band").toString() != "dab")
+        {
+            commands << QVariantMap{{"cmd", "band"}, {"value", "dab"}};
+        }
+        commands << QVariantMap{{"cmd", "tune"}, {"value", dabKey(sid)}};
+    }
+    else if(target.band.isEmpty())
     {
         // the plugin (radio 2.6) switches to FM and picks the frequency of the programme itself
         commands << QVariantMap{{"cmd", "tunePi"}, {"value", piString(pi)}};
