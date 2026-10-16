@@ -18,6 +18,8 @@
 #include <algorithm>
 #include <cmath>
 #include <vector>
+#include <QBuffer>
+#include <QImage>
 #include <QStringList>
 #include <f1x/openauto/autoapp/Service/Radio/RadioMapping.hpp>
 
@@ -67,7 +69,13 @@ QList<double> frequencies(const QVariant& list)
     return result;
 }
 
-void fillProgram(msg::RadioProgramInfo* program, const QString& band, double frequency, const QString& name)
+QString iconKey(const QString& band, double frequency)
+{
+    return band + ":" + nameKey(band, frequency);
+}
+
+void fillProgram(msg::RadioProgramInfo* program, const QString& band, double frequency, const QString& name,
+                 const StationIcons& icons)
 {
     auto* identifier = program->mutable_program_selector()->mutable_primary_identifier();
     identifier->set_type(msg::RADIO_IDENTIFIER_TYPE_AMFM_FREQUENCY);
@@ -76,6 +84,11 @@ void fillProgram(msg::RadioProgramInfo* program, const QString& band, double fre
     if(!name.isEmpty())
     {
         program->mutable_metadata()->set_station_name(name.toStdString());
+    }
+    const auto icon = icons.constFind(iconKey(band, frequency));
+    if(icon != icons.constEnd())
+    {
+        program->mutable_metadata()->mutable_station_icon()->set_image_data(*icon);
     }
 }
 
@@ -103,6 +116,51 @@ void forEachStation(const QVariantMap& state, const QStringList& listNames, Call
     }
 }
 
+}
+
+std::string scaledIcon(const QString& dataUrl, int size)
+{
+    // data:image/png;base64,....
+    const int comma = dataUrl.indexOf(',');
+    if(!dataUrl.startsWith("data:image/") || comma < 0 || !dataUrl.left(comma).endsWith(";base64"))
+    {
+        return {};
+    }
+    const QByteArray bytes = QByteArray::fromBase64(dataUrl.mid(comma + 1).toLatin1());
+    QImage image;
+    if(!image.loadFromData(bytes))
+    {
+        return {};
+    }
+    const bool known = bytes.startsWith("\x89PNG") || bytes.startsWith("\xff\xd8\xff");
+    if(known && image.width() <= size && image.height() <= size)
+    {
+        return bytes.toStdString();
+    }
+    QByteArray scaled;
+    QBuffer buffer(&scaled);
+    buffer.open(QIODevice::WriteOnly);
+    image.scaled(size, size, Qt::KeepAspectRatio, Qt::SmoothTransformation).save(&buffer, "PNG");
+    return scaled.toStdString();
+}
+
+StationIcons stationIcons(const QVariantMap& logos)
+{
+    StationIcons icons;
+    for(const QString& band: cBands)
+    {
+        const QVariantMap bandLogos = logos.value(band).toMap();
+        for(auto logo = bandLogos.constBegin(); logo != bandLogos.constEnd(); ++logo)
+        {
+            const std::string icon = scaledIcon(logo.value().toString());
+            if(!icon.empty())
+            {
+                // the key as the plugin wrote it ("96.2"), normalised like the station keys
+                icons.insert(iconKey(band, logo.key().toDouble()), icon);
+            }
+        }
+    }
+    return icons;
 }
 
 bool isFavorite(const QVariantMap& state, const QString& band, double frequency)
@@ -177,32 +235,33 @@ void fillService(aap_protobuf::service::radio::RadioService& service, const QVar
     }
 }
 
-msg::RadioProgramListNotification programList(const QVariantMap& state)
+msg::RadioProgramListNotification programList(const QVariantMap& state, const StationIcons& icons)
 {
     msg::RadioProgramListNotification notification;
     forEachStation(state, {"stations", "presets"}, [&](const QString& band, double frequency) {
-        fillProgram(notification.add_programs(), band, frequency, nameOf(state, band, frequency));
+        fillProgram(notification.add_programs(), band, frequency, nameOf(state, band, frequency), icons);
     });
     return notification;
 }
 
-msg::RadioFavoriteListNotification favoriteList(const QVariantMap& state)
+msg::RadioFavoriteListNotification favoriteList(const QVariantMap& state, const StationIcons& icons)
 {
     msg::RadioFavoriteListNotification notification;
     forEachStation(state, {"presets"}, [&](const QString& band, double frequency) {
-        fillProgram(notification.add_favorites(), band, frequency, nameOf(state, band, frequency));
+        fillProgram(notification.add_favorites(), band, frequency, nameOf(state, band, frequency), icons);
     });
     return notification;
 }
 
-msg::RadioProgramInfoNotification programInfo(const QVariantMap& state)
+msg::RadioProgramInfoNotification programInfo(const QVariantMap& state, const StationIcons& icons)
 {
     msg::RadioProgramInfoNotification notification;
     const QString band = state.value("band").toString();
     const double frequency = state.value("frequency").toDouble();
     const QVariantMap rds = state.value("rds").toMap();
     const QString ps = rds.value("ps").toString().trimmed();
-    fillProgram(notification.mutable_program_info(), band, frequency, ps.isEmpty() ? nameOf(state, band, frequency) : ps);
+    fillProgram(notification.mutable_program_info(), band, frequency, ps.isEmpty() ? nameOf(state, band, frequency) : ps,
+                icons);
 
     // RDS radiotext as the title (the format "artist - title" is not reliable enough to split). Not also as
     // station text: Android Auto shows both, the same line twice.

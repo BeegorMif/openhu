@@ -18,6 +18,8 @@
 // Radio plugin state <-> Android Auto radio channel (openhu#75)
 
 #include <QtTest>
+#include <QBuffer>
+#include <QImage>
 #include <f1x/openauto/autoapp/Service/Radio/RadioMapping.hpp>
 
 using namespace f1x::openauto::autoapp::service::radio;
@@ -37,6 +39,29 @@ QVariantMap state()
     return {{"band", "fm"}, {"frequency", 96.2}, {"playing", true}, {"rdsAvailable", true},
             {"rds", QVariantMap{{"ps", "NDR 2"}, {"rt", "Dreamer - Ozzy Osbourne"}}},
             {"bands", QVariantMap{{"fm", fm}, {"am", am}}}};
+}
+
+// image of the given size as a data URL, like the plugin's radio.logos
+QString dataUrl(int width, int height, const char* format = "PNG", QByteArray* bytes = nullptr)
+{
+    QImage image(width, height, QImage::Format_ARGB32);
+    image.fill(QColor(255, 183, 77));
+    QByteArray data;
+    QBuffer buffer(&data);
+    buffer.open(QIODevice::WriteOnly);
+    image.save(&buffer, format);
+    if(bytes)
+    {
+        *bytes = data;
+    }
+    return QStringLiteral("data:image/%1;base64,").arg(QString(format).toLower()) + QString::fromLatin1(data.toBase64());
+}
+
+QImage decoded(const std::string& bytes)
+{
+    QImage image;
+    image.loadFromData(QByteArray::fromStdString(bytes));
+    return image;
 }
 
 msg::RadioProgramSelector selector(msg::RadioIdentifierType type, uint64_t value)
@@ -156,6 +181,49 @@ private slots:
         QVERIFY(info.is_muted());
         // 88.6 is no preset
         QVERIFY(!info.has_audio_focus());
+    }
+
+    void stationIcons()
+    {
+        // big logo: scaled to fit 128x128, aspect ratio kept
+        const QImage big = decoded(scaledIcon(dataUrl(400, 200)));
+        QCOMPARE(big.size(), QSize(128, 64));
+        // small enough: the original bytes
+        QByteArray small;
+        const QString smallUrl = dataUrl(100, 100, "PNG", &small);
+        QCOMPARE(scaledIcon(smallUrl), small.toStdString());
+        QByteArray jpeg;
+        const QString jpegUrl = dataUrl(64, 48, "JPEG", &jpeg);
+        QCOMPARE(scaledIcon(jpegUrl), jpeg.toStdString());
+        // not an image
+        QVERIFY(scaledIcon("data:image/png;base64,AAAA").empty());
+        QVERIFY(scaledIcon("file:///logo.png").empty());
+        QVERIFY(scaledIcon("").empty());
+
+        const QVariantMap logos{{"fm", QVariantMap{{"96.2", dataUrl(300, 300)}, {"88.6", dataUrl(64, 64)},
+                                                   {"101.9", "data:image/png;base64,AAAA"}}},
+                                {"am", QVariantMap{{"1008", dataUrl(32, 32, "JPEG")}}}};
+        const StationIcons icons = f1x::openauto::autoapp::service::radio::stationIcons(logos);
+        QCOMPARE(icons.size(), 3);
+        QCOMPARE(decoded(icons.value("fm:96.2")).size(), QSize(128, 128));
+        QVERIFY(icons.contains("fm:88.6"));
+        QVERIFY(icons.contains("am:1008"));
+        QVERIFY(!icons.contains("fm:101.9"));
+
+        // in the station list, the favorites and the current station
+        const auto list = f1x::openauto::autoapp::service::radio::programList(state(), icons);
+        QCOMPARE(list.programs(0).metadata().station_icon().image_data(), icons.value("fm:88.6"));
+        QCOMPARE(list.programs(1).metadata().station_icon().image_data(), icons.value("fm:96.2"));
+        QVERIFY(!list.programs(2).metadata().has_station_icon());
+        QCOMPARE(list.programs(4).metadata().station_icon().image_data(), icons.value("am:1008"));
+        const auto favorites = favoriteList(state(), icons);
+        QCOMPARE(favorites.favorites(0).metadata().station_icon().image_data(), icons.value("fm:96.2"));
+        QVERIFY(!favorites.favorites(1).metadata().has_station_icon());
+        const auto info = programInfo(state(), icons);
+        QCOMPARE(info.program_info().metadata().station_icon().image_data(), icons.value("fm:96.2"));
+        QCOMPARE(info.program_info().metadata().station_name(), std::string("NDR 2"));
+        // without logos no icon
+        QVERIFY(!programInfo(state()).program_info().metadata().has_station_icon());
     }
 
     void tune()

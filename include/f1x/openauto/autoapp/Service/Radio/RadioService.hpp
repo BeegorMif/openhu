@@ -26,6 +26,7 @@
 #include <aasdk/Channel/Radio/RadioService.hpp>
 #include <aasdk/Messenger/IMessenger.hpp>
 #include <f1x/openauto/autoapp/Service/IService.hpp>
+#include <f1x/openauto/autoapp/Service/Radio/RadioMapping.hpp>
 
 namespace f1x {
   namespace openauto {
@@ -62,6 +63,7 @@ namespace f1x {
             using std::enable_shared_from_this<RadioService>::shared_from_this;
 
             void onState(const QVariantMap &state);
+            void onLogos(const QVariantMap &logos);
             // favorites, station list and current station; only what changed unless force
             void sendState(bool force);
             void command(const QVariantMap &command);
@@ -76,6 +78,8 @@ namespace f1x {
             aasdk::channel::radio::RadioService::Pointer channel_;
             QMetaObject::Connection busConnection_;
             QVariantMap state_;
+            // station logos (radio.logos), scaled for the phone
+            StationIcons icons_;
             bool open_ = false;
             // a favorite request waits for radio.state, then favorites and station go out even if unchanged
             bool favoriteReplyPending_ = false;
