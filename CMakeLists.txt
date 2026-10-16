@@ -219,15 +219,13 @@ endif()
 
 # Install rules
 # The program in libexec, /usr/bin/openhu links to it (OpenHU OS removes the link: there only openhu-session starts
-# it, the command line is openhu-cli). /usr/bin/autoapp is the old name, kept for one release.
+# it, the command line is openhu-cli).
 install(TARGETS openhu
     RUNTIME DESTINATION libexec/openhu
 )
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/links)
-foreach(openhu_link openhu autoapp)
-    file(CREATE_LINK ../libexec/openhu/openhu ${CMAKE_CURRENT_BINARY_DIR}/links/${openhu_link} SYMBOLIC)
-    install(FILES ${CMAKE_CURRENT_BINARY_DIR}/links/${openhu_link} DESTINATION bin)
-endforeach()
+file(CREATE_LINK ../libexec/openhu/openhu ${CMAKE_CURRENT_BINARY_DIR}/links/openhu SYMBOLIC)
+install(FILES ${CMAKE_CURRENT_BINARY_DIR}/links/openhu DESTINATION bin)
 
 # Install udev rules
 install(FILES packaging/udev/99-openhu.rules
@@ -288,7 +286,7 @@ set(CPACK_DEBIAN_PACKAGE_MAINTAINER "OpenCarDev Team <opencardevuk@gmail.com>")
 set(CPACK_DEBIAN_PACKAGE_SECTION "utils")
 set(CPACK_DEBIAN_PACKAGE_PRIORITY "optional")
 set(CPACK_DEBIAN_PACKAGE_HOMEPAGE "https://github.com/average-web-dev/openhu")
-# /usr/bin/autoapp as in the openauto package
+# Replaces the openauto package (OpenHU is its successor; openauto shipped /usr/bin/autoapp)
 set(CPACK_DEBIAN_PACKAGE_CONFLICTS "openauto")
 set(CPACK_DEBIAN_PACKAGE_REPLACES "openauto")
 set(CPACK_DEBIAN_PACKAGE_SHLIBDEPS ON)
