@@ -465,9 +465,9 @@ msg::RadioProgramInfoNotification programInfo(const QVariantMap& state, const St
         notification.mutable_program_info()->mutable_metadata()->mutable_song_metadata()->set_title(radiotext.toStdString());
     }
     notification.set_is_muted(!state.value("playing").toBool());
-    // Field 3 is called has_audio_focus in aasdk/open-android-auto, but Android Auto shows it as the favorite heart
+    // Field 3 is called has_audio_focus in open-android-auto (is_favorite in aasdk), but Android Auto shows it as the favorite heart
     // of the current station (tested with a Fairphone 4: set while playing, every station had a filled heart).
-    notification.set_has_audio_focus(isFavorite(state, band, frequency));
+    notification.set_is_favorite(isFavorite(state, band, frequency));
     return notification;
 }
 

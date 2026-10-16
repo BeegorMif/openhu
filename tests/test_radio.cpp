@@ -188,8 +188,8 @@ private slots:
         // not twice: Android Auto shows the station text below the title
         QVERIFY(!info.program_info().metadata().has_message());
         QVERIFY(!info.is_muted());
-        // field 3 (has_audio_focus) is the favorite heart in Android Auto: 96.2 is a preset
-        QVERIFY(info.has_audio_focus());
+        // field 3 (is_favorite) is the favorite heart in Android Auto: 96.2 is a preset
+        QVERIFY(info.is_favorite());
 
         // stopped, no RDS yet: remembered name, muted
         QVariantMap stopped = state();
@@ -201,7 +201,7 @@ private slots:
         QVERIFY(!info.program_info().metadata().has_message());
         QVERIFY(info.is_muted());
         // 88.6 is no preset
-        QVERIFY(!info.has_audio_focus());
+        QVERIFY(!info.is_favorite());
     }
 
     void rdsPi()
@@ -305,14 +305,14 @@ private slots:
         QCOMPARE(info.program_info().metadata().station_name(), std::string("NDR 2 NDS"));
         QCOMPARE(info.program_info().metadata().song_metadata().title(), std::string("Dreamer - Ozzy Osbourne"));
         QCOMPARE(info.program_info().metadata().song_metadata().album_art().image_data(), std::string("picture"));
-        QVERIFY(info.has_audio_focus());
+        QVERIFY(info.is_favorite());
         QVariantMap other = dabState();
         other["frequency"] = "0xD210";
         other["rds"] = QVariantMap();
         info = programInfo(other);
         QCOMPARE(info.program_info().metadata().station_name(), std::string("Dlf"));
         QVERIFY(!info.program_info().metadata().song_metadata().has_album_art());
-        QVERIFY(!info.has_audio_focus());
+        QVERIFY(!info.is_favorite());
 
         // tune requests: SID_EXT as sent, or Android's DMB form with a 32 bit SId
         auto commands = tuneCommands(selector(msg::RADIO_IDENTIFIER_TYPE_DAB_SID_EXT, 0xE0D383), dabState());
