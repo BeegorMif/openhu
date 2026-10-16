@@ -86,6 +86,43 @@ private slots:
         QVERIFY(ActionDispatcher::actions().contains("media.next"));
     }
 
+    void mediaKeysGoToTheCurrentSource()
+    {
+        TestHome home;
+        VolumeController volume;
+        ShellController shell;
+        ActionDispatcher actions(volume, shell);
+        QVariantMap received;
+        auto connection = connect(&EventBus::instance(), &EventBus::event, this,
+                                  [&received](const QString& topic, const QVariantMap& data) {
+            if(topic == "input.action")
+            {
+                received = data;
+            }
+        });
+
+        // a local source (radio plugin): handled by it through input.action, not sent to the phone
+        EventBus::instance().publish("media.status", {{"state", "playing"}, {"source", "radio"}});
+        QVERIFY(actions.trigger("media.next"));
+        QTRY_COMPARE(received.value("action").toString(), QString("media.next"));
+        QVERIFY(actions.trigger("media.play_pause"));
+        // also after the local source stopped: play resumes it
+        EventBus::instance().publish("media.status", {{"state", "stopped"}, {"source", "radio"}});
+        QVERIFY(actions.trigger("media.play"));
+        // other Android Auto keys still go to the phone (none connected: fails)
+        QVERIFY(!actions.trigger("voice"));
+
+        // the radio plays again, the phone still reports "paused" afterwards (focus loss): the keys stay with the radio
+        EventBus::instance().publish("media.status", {{"state", "playing"}, {"source", "radio"}});
+        EventBus::instance().publish("media.status", {{"state", "paused"}, {"source", "androidauto"}});
+        QTRY_VERIFY(actions.trigger("media.next"));
+
+        // Android Auto music starts: the phone gets the key (none connected: fails)
+        EventBus::instance().publish("media.status", {{"state", "playing"}, {"source", "androidauto"}});
+        QTRY_VERIFY(!actions.trigger("media.next"));
+        disconnect(connection);
+    }
+
     void defaultKeymap()
     {
         TestHome home;

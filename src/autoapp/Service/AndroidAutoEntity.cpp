@@ -17,6 +17,7 @@
 */
 
 #include <f1x/openauto/autoapp/Core/EventBus.hpp>
+#include <f1x/openauto/autoapp/Service/AudioFocusPolicy.hpp>
 #include <QVariantList>
 #include <aasdk/Channel/Control/ControlServiceChannel.hpp>
 #include <f1x/openauto/autoapp/Service/AndroidAutoEntity.hpp>
@@ -53,6 +54,22 @@ namespace f1x {
             eventHandler_ = eventHandler;
             std::for_each(serviceList_.begin(), serviceList_.end(), std::bind(&IService::start, std::placeholders::_1));
 
+            // A local source (radio plugin) starts playing: take the audio focus, the phone pauses its music (#79).
+            // Without it both play: Android Auto does not pause its music when its own radio source is chosen.
+            std::weak_ptr<AndroidAutoEntity> weak = this->shared_from_this();
+            auto policy = std::make_shared<AudioFocusPolicy>(core::EventBus::instance().last("media.status"));
+            mediaConnection_ = QObject::connect(&core::EventBus::instance(), &core::EventBus::event,
+                                                [weak, policy](const QString &topic, const QVariantMap &data) {
+              if (topic != "media.status") {
+                return;
+              }
+              const bool started = policy->update(data);
+              if (auto entity = weak.lock(); entity && started) {
+                const std::string source = data.value("source").toString().toStdString();
+                entity->strand_.dispatch([entity, source]() { entity->sendAudioFocusLoss(source); });
+              }
+            });
+
             auto versionRequestPromise = aasdk::channel::SendPromise::defer(strand_);
             versionRequestPromise->then([]() {  }, std::bind(&AndroidAutoEntity::onChannelError, this->shared_from_this(),
                                                            std::placeholders::_1));
@@ -68,6 +85,7 @@ namespace f1x {
           stopping_.store(true, std::memory_order_relaxed);
           strand_.dispatch([this, self = this->shared_from_this()]() {
             OPENAUTO_LOG(info) << "[AndroidAutoEntity] stop()";
+            QObject::disconnect(mediaConnection_);
             core::EventBus::instance().publish("projection.state",
                                                {{"connected", false}, {"endedByUser", endedByUser_.load()}});
             // Data of the finished session is no longer valid
@@ -262,6 +280,20 @@ namespace f1x {
                         [capture0 = this->shared_from_this()](auto && PH1) { capture0->onChannelError(std::forward<decltype(PH1)>(PH1)); });
           controlServiceChannel_->sendAudioFocusResponse(response, std::move(promise));
           controlServiceChannel_->receive(this->shared_from_this());
+        }
+
+        void AndroidAutoEntity::sendAudioFocusLoss(const std::string &source) {
+          if (stopping_.load(std::memory_order_relaxed)) {
+            return;
+          }
+          OPENAUTO_LOG(info) << "[AndroidAutoEntity] " << source << " plays: audio focus loss to the phone";
+          aap_protobuf::service::control::message::AudioFocusNotification notification;
+          notification.set_focus_state(aap_protobuf::service::control::message::AudioFocusStateType::AUDIO_FOCUS_STATE_LOSS);
+          notification.set_unsolicited(true);
+          auto promise = aasdk::channel::SendPromise::defer(strand_);
+          promise->then([]() {  },
+                        [capture0 = this->shared_from_this()](auto && PH1) { capture0->onChannelError(std::forward<decltype(PH1)>(PH1)); });
+          controlServiceChannel_->sendAudioFocusResponse(notification, std::move(promise));
         }
 
         void AndroidAutoEntity::onByeByeRequest(

@@ -22,6 +22,7 @@
 #include <QStringList>
 #include <f1x/openauto/autoapp/Audio/VolumeController.hpp>
 #include <f1x/openauto/autoapp/Shell/ShellController.hpp>
+#include <f1x/openauto/autoapp/Service/AudioFocusPolicy.hpp>
 
 namespace f1x
 {
@@ -78,12 +79,15 @@ protected:
 
 private:
     bool sendAaKey(const QString& action, Phase phase);
+    // the media source that started last is a local one (plugin), not Android Auto
+    bool localMediaSource() const;
     void loadKeymap();
     void saveOverrides() const;
     static QString keyName(int key);
 
     audio::VolumeController& volume_;
     shell::ShellController& shell_;
+    service::AudioFocusPolicy mediaSources_;
     QHash<int, QString> keymap_;
     QVariantMap overrides_;  // differences to the defaults, "" removes a default key
     bool capturing_ = false;
