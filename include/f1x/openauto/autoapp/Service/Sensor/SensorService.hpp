@@ -22,6 +22,9 @@
 #include <atomic>
 #include <aap_protobuf/service/sensorsource/message/DrivingStatus.pb.h>
 #include <aap_protobuf/service/sensorsource/message/SensorType.pb.h>
+#include <aap_protobuf/service/sensorsource/message/Gear.pb.h>
+#include <optional>
+#include <QMetaObject>
 #include <aasdk/Channel/SensorSource/SensorSourceService.hpp>
 #include <f1x/openauto/autoapp/Service/IService.hpp>
 #include <boost/asio/io_service.hpp>
@@ -67,6 +70,9 @@ namespace f1x::openauto::autoapp::service::sensor {
 
     void sendGPSLocationData();
 
+    // SENSOR_GEAR from "vehicle.gear" (#76): only when the gear changed since the last one sent
+    void sendGearData();
+
     bool isNightMode();
 
     void sensorPolling();
@@ -78,6 +84,10 @@ namespace f1x::openauto::autoapp::service::sensor {
     aasdk::channel::sensorsource::SensorSourceService::Pointer channel_;
     struct gps_data_t gpsData_{};
     bool gpsEnabled_ = false;
+    // strand only: the phone asked for SENSOR_GEAR, the gear sent last
+    bool gearRequested_ = false;
+    std::optional<aap_protobuf::service::sensorsource::message::Gear> sentGear_;
+    QMetaObject::Connection gearConnection_;
   };
 
 }

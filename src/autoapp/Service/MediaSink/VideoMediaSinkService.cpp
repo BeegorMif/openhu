@@ -38,6 +38,28 @@ namespace f1x {
               OPENAUTO_LOG(info) << "[VideoMediaSinkService] Channel "
                                  << aasdk::messenger::channelIdToString(channel_->getId());
               channel_->receive(this->shared_from_this());
+
+              // The shell covers Android Auto (plugin overlay like the reverse camera, or a plugin page instead of
+              // the Android Auto page): tell the phone with an unsolicited video focus indication (#76)
+              auto &bus = core::EventBus::instance();
+              focusPolicy_ = VideoFocusPolicy(bus.last("ui.page").value("page").toString(), bus.last("ui.overlay"));
+              std::weak_ptr<VideoMediaSinkService> weak = this->shared_from_this();
+              busConnection_ = QObject::connect(&bus, &core::EventBus::event,
+                                                [weak](const QString &topic, const QVariantMap &data) {
+                if (topic != "ui.page" && topic != "ui.overlay") {
+                  return;
+                }
+                if (auto service = weak.lock()) {
+                  service->strand_.dispatch([service, topic, data]() {
+                    const auto mode = topic == "ui.page"
+                                      ? service->focusPolicy_.setPage(data.value("page").toString())
+                                      : service->focusPolicy_.setOverlays(data);
+                    if (mode) {
+                      service->sendVideoFocusIndication(*mode, true);
+                    }
+                  });
+                }
+              });
             });
           }
 
@@ -46,6 +68,7 @@ namespace f1x {
               OPENAUTO_LOG(info) << "[VideoMediaSinkService] stop()";
               OPENAUTO_LOG(info) << "[VideoMediaSinkService] Channel "
                                  << aasdk::messenger::channelIdToString(channel_->getId());
+              QObject::disconnect(busConnection_);
               videoOutput_->stop();
             });
           }
@@ -119,7 +142,10 @@ namespace f1x {
             response.add_configuration_indices(0);
 
             auto promise = aasdk::channel::SendPromise::defer(strand_);
-            promise->then(std::bind(&VideoMediaSinkService::sendVideoFocusIndication, this->shared_from_this()),
+            promise->then([this, self = this->shared_from_this()]() {
+                            // as before #76 not marked unsolicited, although the phone did not ask for it
+                            this->sendVideoFocusIndication(focusPolicy_.setup(), false);
+                          },
                           std::bind(&VideoMediaSinkService::onChannelError, this->shared_from_this(),
                                     std::placeholders::_1));
 
@@ -214,6 +240,10 @@ namespace f1x {
             OPENAUTO_LOG(info) << "[VideoMediaSinkService] Display index: " << request.disp_channel_id() << ", focus mode: " << VideoFocusMode_Name(request.mode()) << ", focus reason: " << VideoFocusReason_Name(request.reason());
             #pragma GCC diagnostic pop
 
+            // Answer with the resulting mode (oaa video.md, "Sequence: HU Switches to Native UI"): NATIVE for the
+            // phone's NATIVE request (before #76 OpenHU answered PROJECTED), NATIVE also while the camera covers the
+            // projection, even if the phone asks for PROJECTED.
+            const auto mode = focusPolicy_.request(request.mode());
             if (request.mode() ==
                 aap_protobuf::service::media::video::message::VideoFocusMode::VIDEO_FOCUS_NATIVE) {
               // "Exit" in Android Auto: the shell shows its home page
@@ -221,17 +251,18 @@ namespace f1x {
               core::EventBus::instance().emitEvent("projection.exit", {});
             }
 
-            this->sendVideoFocusIndication();
+            this->sendVideoFocusIndication(mode, false);
             channel_->receive(this->shared_from_this());
           }
 
-          void VideoMediaSinkService::sendVideoFocusIndication() {
-            OPENAUTO_LOG(info) << "[VideoMediaSinkService] sendVideoFocusIndication()";
+          void VideoMediaSinkService::sendVideoFocusIndication(
+              aap_protobuf::service::media::video::message::VideoFocusMode mode, bool unsolicited) {
+            OPENAUTO_LOG(info) << "[VideoMediaSinkService] sendVideoFocusIndication(): " << VideoFocusMode_Name(mode)
+                               << (unsolicited ? ", unsolicited" : "");
 
             aap_protobuf::service::media::video::message::VideoFocusNotification videoFocusIndication;
-            videoFocusIndication.set_focus(
-                aap_protobuf::service::media::video::message::VideoFocusMode::VIDEO_FOCUS_PROJECTED);
-            videoFocusIndication.set_unsolicited(false);
+            videoFocusIndication.set_focus(mode);
+            videoFocusIndication.set_unsolicited(unsolicited);
 
             auto promise = aasdk::channel::SendPromise::defer(strand_);
             promise->then([]() { }, std::bind(&VideoMediaSinkService::onChannelError, this->shared_from_this(),

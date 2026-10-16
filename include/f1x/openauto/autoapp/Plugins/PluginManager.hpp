@@ -105,6 +105,8 @@ private:
     void onProcessFinished(const QString& id, int exitCode, QProcess::ExitStatus status);
     QVariantMap toVariant(const Plugin& plugin) const;
     void saveState() const;
+    // "ui.overlay" {overlays: ids of the plugins whose overlay is shown}
+    void publishOverlays();
     QVariantMap loadState() const;
 
     quint16 apiPort_;
