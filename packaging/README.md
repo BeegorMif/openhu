@@ -13,7 +13,7 @@ packaging/
 
 | | |
 |---|---|
-| Program | `/usr/libexec/openhu/openhu`, started as `/usr/bin/openhu` (link). `/usr/bin/autoapp`, the old name, links to it for one more release. OpenHU OS removes both links (its command line is `openhu-cli`) |
+| Program | `/usr/libexec/openhu/openhu`, started as `/usr/bin/openhu` (link). OpenHU OS removes the link (its command line is `openhu-cli`) |
 | Single instance | a second OpenHU ends right away: lock `/run/lock/openhu.lock` (holds the pid) |
 | Service | `openhu.service` (enabled on install, not started) |
 | Depends | Qt 6 (Quick, Multimedia, WebSockets), FFmpeg, `pulseaudio-utils` |
