@@ -74,12 +74,26 @@ QString iconKey(const QString& band, double frequency)
     return band + ":" + nameKey(band, frequency);
 }
 
+QString piString(uint64_t pi)
+{
+    return "0x" + QString::number(pi, 16).toUpper().rightJustified(4, '0');
+}
+
 void fillProgram(msg::RadioProgramInfo* program, const QString& band, double frequency, const QString& name,
-                 const StationIcons& icons)
+                 const StationIcons& icons, const QString& pi = QString())
 {
     auto* identifier = program->mutable_program_selector()->mutable_primary_identifier();
     identifier->set_type(msg::RADIO_IDENTIFIER_TYPE_AMFM_FREQUENCY);
     identifier->set_value(toKHz(band, frequency));
+    // the programme behind the frequency (Android's ProgramSelector: RDS PI as secondary identifier of AM/FM)
+    bool ok = false;
+    const uint64_t code = pi.toULongLong(&ok, 16);
+    if(ok && code > 0 && code <= 0xFFFF)
+    {
+        auto* secondary = program->mutable_program_selector()->add_secondary_identifiers();
+        secondary->set_type(msg::RADIO_IDENTIFIER_TYPE_RDS_PI);
+        secondary->set_value(code);
+    }
     // without a name the phone shows the frequency itself
     if(!name.isEmpty())
     {
@@ -163,6 +177,18 @@ StationIcons stationIcons(const QVariantMap& logos)
     return icons;
 }
 
+QString piOf(const QVariantMap& state, const QString& band, double frequency)
+{
+    return bandOf(state, band).value("pis").toMap().value(nameKey(band, frequency)).toString();
+}
+
+QString currentPi(const QVariantMap& state)
+{
+    const QString rds = state.value("rds").toMap().value("pi").toString();
+    return !rds.isEmpty() ? rds
+                          : piOf(state, state.value("band").toString(), state.value("frequency").toDouble());
+}
+
 bool isFavorite(const QVariantMap& state, const QString& band, double frequency)
 {
     for(double preset: frequencies(bandOf(state, band).value("presets")))
@@ -239,7 +265,8 @@ msg::RadioProgramListNotification programList(const QVariantMap& state, const St
 {
     msg::RadioProgramListNotification notification;
     forEachStation(state, {"stations", "presets"}, [&](const QString& band, double frequency) {
-        fillProgram(notification.add_programs(), band, frequency, nameOf(state, band, frequency), icons);
+        fillProgram(notification.add_programs(), band, frequency, nameOf(state, band, frequency), icons,
+                    piOf(state, band, frequency));
     });
     return notification;
 }
@@ -248,7 +275,8 @@ msg::RadioFavoriteListNotification favoriteList(const QVariantMap& state, const 
 {
     msg::RadioFavoriteListNotification notification;
     forEachStation(state, {"presets"}, [&](const QString& band, double frequency) {
-        fillProgram(notification.add_favorites(), band, frequency, nameOf(state, band, frequency), icons);
+        fillProgram(notification.add_favorites(), band, frequency, nameOf(state, band, frequency), icons,
+                    piOf(state, band, frequency));
     });
     return notification;
 }
@@ -261,7 +289,7 @@ msg::RadioProgramInfoNotification programInfo(const QVariantMap& state, const St
     const QVariantMap rds = state.value("rds").toMap();
     const QString ps = rds.value("ps").toString().trimmed();
     fillProgram(notification.mutable_program_info(), band, frequency, ps.isEmpty() ? nameOf(state, band, frequency) : ps,
-                icons);
+                icons, currentPi(state));
 
     // RDS radiotext as the title (the format "artist - title" is not reliable enough to split). Not also as
     // station text: Android Auto shows both, the same line twice.
@@ -277,31 +305,83 @@ msg::RadioProgramInfoNotification programInfo(const QVariantMap& state, const St
     return notification;
 }
 
+TuneTarget tuneTarget(const QList<QVariantMap>& commands, const QVariantMap& state)
+{
+    TuneTarget target;
+    target.band = state.value("band").toString();
+    target.from = state.value("frequency").toDouble();
+    for(const QVariantMap& command: commands)
+    {
+        const QString cmd = command.value("cmd").toString();
+        if(cmd == "band")
+        {
+            target.band = command.value("value").toString();
+        }
+        else if(cmd == "tune")
+        {
+            target.frequency = command.value("value").toDouble();
+        }
+        else if(cmd == "tunePi")
+        {
+            target.band = "fm";
+            target.pi = command.value("value").toString();
+        }
+    }
+    return target;
+}
+
+bool tuneArrived(const TuneTarget& target, const QVariantMap& state)
+{
+    const double frequency = state.value("frequency").toDouble();
+    const bool sameBand = state.value("band").toString() == target.band;
+    if(!target.pi.isEmpty())
+    {
+        return sameBand && currentPi(state).compare(target.pi, Qt::CaseInsensitive) == 0;
+    }
+    if(target.frequency < 0)
+    {
+        return std::abs(frequency - target.from) > 1e-6;
+    }
+    return sameBand && std::abs(frequency - target.frequency) < 1e-6;
+}
+
 QList<QVariantMap> tuneCommands(const msg::RadioProgramSelector& selector, const QVariantMap& state)
 {
-    // the frequency: primary identifier or one of the secondary ones
+    // the frequency (primary identifier or one of the secondary ones), else the RDS PI
     PluginFrequency target{QString(), 0};
+    uint64_t pi = 0;
     std::vector<msg::RadioProgramIdentifier> identifiers{selector.primary_identifier()};
     identifiers.insert(identifiers.end(), selector.secondary_identifiers().begin(), selector.secondary_identifiers().end());
     for(const auto& identifier: identifiers)
     {
-        if(identifier.type() == msg::RADIO_IDENTIFIER_TYPE_AMFM_FREQUENCY)
+        if(identifier.type() == msg::RADIO_IDENTIFIER_TYPE_AMFM_FREQUENCY && target.band.isEmpty())
         {
             target = fromKHz(identifier.value());
-            break;
+        }
+        else if(identifier.type() == msg::RADIO_IDENTIFIER_TYPE_RDS_PI && pi == 0 && identifier.value() <= 0xFFFF)
+        {
+            pi = identifier.value();
         }
     }
-    if(target.band.isEmpty())
+    if(target.band.isEmpty() && pi == 0)
     {
         return {};
     }
 
     QList<QVariantMap> commands;
-    if(state.value("band").toString() != target.band)
+    if(target.band.isEmpty())
     {
-        commands << QVariantMap{{"cmd", "band"}, {"value", target.band}};
+        // the plugin (radio 2.6) switches to FM and picks the frequency of the programme itself
+        commands << QVariantMap{{"cmd", "tunePi"}, {"value", piString(pi)}};
     }
-    commands << QVariantMap{{"cmd", "tune"}, {"value", target.frequency}};
+    else
+    {
+        if(state.value("band").toString() != target.band)
+        {
+            commands << QVariantMap{{"cmd", "band"}, {"value", target.band}};
+        }
+        commands << QVariantMap{{"cmd", "tune"}, {"value", target.frequency}};
+    }
     // a station chosen in Android Auto should be heard
     if(!state.value("playing").toBool())
     {

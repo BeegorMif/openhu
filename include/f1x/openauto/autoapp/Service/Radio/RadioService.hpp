@@ -69,7 +69,7 @@ namespace f1x {
             void command(const QVariantMap &command);
 
             // a tune or seek waits for radio.state with the new station, then answers the phone
-            void startTune(const QString &band, double frequency);
+            void startTune(const TuneTarget &target);
             void finishTune(aap_protobuf::service::radio::message::RadioTuneStatus status);
             aasdk::channel::SendPromise::Pointer promise();
 
@@ -91,9 +91,7 @@ namespace f1x {
 
             struct PendingTune {
               bool active = false;
-              QString band;
-              double frequency = 0;   // < 0: any other station (seek)
-              double from = 0;
+              TuneTarget target;
             } pendingTune_;
           };
 

@@ -60,6 +60,11 @@ uint64_t toKHz(const QString& band, double frequency);
 // the frequency is one of the plugin's favorites (presets) of that band
 bool isFavorite(const QVariantMap& state, const QString& band, double frequency);
 
+// RDS PI code ("0xD382") the plugin remembered for a frequency, empty if none
+QString piOf(const QVariantMap& state, const QString& band, double frequency);
+// PI of the station that plays: from RDS (rds.pi), else the remembered one of its frequency
+QString currentPi(const QVariantMap& state);
+
 struct PluginFrequency
 {
     QString band;       // "fm", "am" or empty if the frequency is in neither band
@@ -78,9 +83,22 @@ aap_protobuf::service::radio::message::RadioProgramInfoNotification programInfo(
 aap_protobuf::service::radio::message::RadioFavoriteListNotification favoriteList(const QVariantMap& state,
                                                                                   const StationIcons& icons = {});
 
-// radio.command events ({cmd, value}) for a tune request; empty if the plugin cannot tune it (RDS PI, DAB, ...)
+// radio.command events ({cmd, value}) for a tune request: by frequency ("tune") if the selector has one, else by RDS
+// PI ("tunePi"); empty if the plugin cannot tune it (DAB, ...)
 QList<QVariantMap> tuneCommands(const aap_protobuf::service::radio::message::RadioProgramSelector& selector,
                                 const QVariantMap& state);
+
+// What a tune or seek waits for before the phone gets its answer: radio.state with this station
+struct TuneTarget
+{
+    QString band;
+    double frequency = -1;  // < 0 and no pi: any other station than "from" (seek)
+    QString pi;             // tunePi: any FM frequency with this PI
+    double from = 0;
+};
+// the target of the commands from tuneCommands, starting at the state before
+TuneTarget tuneTarget(const QList<QVariantMap>& commands, const QVariantMap& state);
+bool tuneArrived(const TuneTarget& target, const QVariantMap& state);
 
 }
 }
