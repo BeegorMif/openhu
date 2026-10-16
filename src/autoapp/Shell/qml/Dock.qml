@@ -1,5 +1,6 @@
 import QtQuick
 import OpenHU 1.0
+import "PluginText.js" as PluginText
 import "."
 
 Rectangle {
@@ -40,7 +41,7 @@ Rectangle {
             DockButton {
                 visible: modelData.enabled && modelData.dock && modelData.page !== ""
                 icon: modelData.icon || "qrc:/list-hot.png"
-                label: modelData.name
+                label: PluginText.name(modelData)
                 active: dock.currentPage === "plugin:" + modelData.id
                 onClicked: dock.pageSelected("plugin:" + modelData.id)
             }

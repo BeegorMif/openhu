@@ -2,6 +2,7 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 import OpenHU 1.0
+import "PluginText.js" as PluginText
 
 // Plugin store: packages from the sources in ~/.openhu/sources.list
 Item {
@@ -121,7 +122,7 @@ Item {
 
                         Text {
                             anchors.centerIn: parent
-                            text: (modelData.name || modelData.id).charAt(0).toUpperCase()
+                            text: PluginText.name(modelData).charAt(0).toUpperCase()
                             color: Theme.primary
                             font.pixelSize: Theme.fontLarge
                             font.bold: true
@@ -134,7 +135,7 @@ Item {
 
                         Text {
                             Layout.fillWidth: true
-                            text: (modelData.name || modelData.id) + "  " + (modelData.installed && modelData.updateAvailable
+                            text: PluginText.name(modelData) + "  " + (modelData.installed && modelData.updateAvailable
                                     ? modelData.installedVersion + " → " + modelData.version
                                     : (modelData.installedVersion || modelData.version || ""))
                             color: Theme.text
@@ -145,7 +146,7 @@ Item {
                         Text {
                             Layout.fillWidth: true
                             visible: text !== ""
-                            text: modelData.description || ""
+                            text: PluginText.description(modelData)
                             color: Theme.textDim
                             font.pixelSize: Theme.fontSmall
                             wrapMode: Text.WordWrap

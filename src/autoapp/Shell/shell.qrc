@@ -10,6 +10,7 @@
         <file>qml/AaPage.qml</file>
         <file>qml/BusTopic.qml</file>
         <file>qml/Maneuver.js</file>
+        <file>qml/PluginText.js</file>
         <file>qml/NavigationCard.qml</file>
         <file>qml/NowPlayingCard.qml</file>
         <file>qml/VolumePanel.qml</file>

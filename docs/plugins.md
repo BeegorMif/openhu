@@ -68,6 +68,11 @@ other plugins. Every language, English too, is `i18n/<language>.qm` in the plugi
 `i18n/de.qm`); the shell loads the one of its language and switches with it, without a restart. An ID without a
 translation shows as the ID, so the English file has to be complete.
 
+The name and description of the manifest are the English ones. The IDs `<plugin id>.name` and
+`<plugin id>.description` (e.g. `org.example.speed.name`) translate them in the dock and the store once the plugin is
+installed; a plugin without them shows the manifest's texts. They are not used in the plugin's QML, so add them to
+the `.ts` files by hand (lupdate keeps them as `vanished`, which lrelease leaves out: remove that attribute).
+
 ```sh
 /usr/lib/qt6/bin/lupdate -locations none -target-language en qml -ts i18n/en.ts   # collect the IDs (once per language)
 linguist i18n/en.ts i18n/de.ts                                                   # write the texts, side by side

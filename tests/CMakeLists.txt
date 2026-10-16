@@ -43,5 +43,6 @@ add_custom_command(OUTPUT ${test_plugin_qm}
                    DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/data/plugin_de.ts VERBATIM)
 add_custom_target(test_translations_qm DEPENDS ${test_plugin_qm})
 add_dependencies(test_translations test_translations_qm)
-target_compile_definitions(test_translations PRIVATE OPENHU_TEST_QM="${test_plugin_qm}")
+target_compile_definitions(test_translations PRIVATE OPENHU_TEST_QM="${test_plugin_qm}"
+                           OPENHU_SHELL_QML_DIR="${CMAKE_SOURCE_DIR}/src/autoapp/Shell/qml")
 target_link_libraries(test_video_decoder PRIVATE ${CMAKE_DL_LIBS})
