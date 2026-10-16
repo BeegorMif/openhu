@@ -16,6 +16,7 @@
 *  along with openauto. If not, see <http://www.gnu.org/licenses/>.
 */
 
+#include <algorithm>
 #include <fstream>
 #include <boost/property_tree/ini_parser.hpp>
 #include <QCryptographicHash>
@@ -76,6 +77,7 @@ const std::string cAudioGuidanceKey = "AudioChannel.GuidanceEnabled";
 const std::string cAudioSystemKey = "AudioChannel.SystemEnabled";
 const std::string cAudioTelephonyKey = "AudioChannel.TelephonyEnabled";
 const std::string cRadioAndroidAutoKey = "Radio.AndroidAuto";
+const std::string cAudioDuckLevelKey = "Audio.DuckLevel";
 
 }
 
@@ -149,6 +151,7 @@ void Configuration::load()
         audioChannelEnabledSystem_ = ini.get<bool>(cAudioSystemKey, audioChannelEnabledSystem_);
         audioChannelEnabledTelephony_ = ini.get<bool>(cAudioTelephonyKey, audioChannelEnabledTelephony_);
         radioServiceEnabled_ = ini.get<bool>(cRadioAndroidAutoKey, radioServiceEnabled_);
+        duckLevel_ = std::clamp(ini.get<int>(cAudioDuckLevelKey, duckLevel_), 0, 100);
     }
     catch(const boost::property_tree::ptree_error& e)
     {
@@ -188,6 +191,7 @@ void Configuration::reset()
     audioChannelEnabledSystem_ = true;
     audioChannelEnabledTelephony_ = true;
     radioServiceEnabled_ = true;
+    duckLevel_ = 20;
 }
 
 void Configuration::save()
@@ -236,6 +240,7 @@ void Configuration::save()
     ini.put<bool>(cAudioSystemKey, audioChannelEnabledSystem_);
     ini.put<bool>(cAudioTelephonyKey, audioChannelEnabledTelephony_);
     ini.put<bool>(cRadioAndroidAutoKey, radioServiceEnabled_);
+    ini.put<int>(cAudioDuckLevelKey, duckLevel_);
 
     try
     {
@@ -537,6 +542,16 @@ bool Configuration::radioServiceEnabled() const
 void Configuration::setRadioServiceEnabled(bool value)
 {
     radioServiceEnabled_ = value;
+}
+
+int Configuration::duckLevel() const
+{
+    return duckLevel_;
+}
+
+void Configuration::setDuckLevel(int value)
+{
+    duckLevel_ = std::clamp(value, 0, 100);
 }
 
 QString Configuration::getParamFromFile(QString fileName, QString searchString) const

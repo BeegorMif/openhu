@@ -17,6 +17,7 @@
 */
 
 #include <f1x/openauto/Common/Log.hpp>
+#include <f1x/openauto/autoapp/Audio/DuckingController.hpp>
 #include <f1x/openauto/autoapp/Service/MediaSource/MediaSourceService.hpp>
 
 
@@ -40,6 +41,7 @@ namespace f1x::openauto::autoapp::service::mediasource {
     strand_.dispatch([this, self = this->shared_from_this()]() {
       OPENAUTO_LOG(info) << "[MediaSourceService] stop()";
       audioInput_->stop();
+      audio::AndroidAutoAudio::instance().reportMicrophone(false);
     });
   }
 
@@ -178,6 +180,9 @@ namespace f1x::openauto::autoapp::service::mediasource {
     OPENAUTO_LOG(info) << "[MediaSourceService] Request to Open?: " << request.open() << ", anc: "
                        << request.anc_enabled() << ", ec: " << request.ec_enabled() << ", max unacked: "
                        << request.max_unacked();
+
+    // the phone listens (Assistant, dictation): local sources stay silent meanwhile (#93)
+    audio::AndroidAutoAudio::instance().reportMicrophone(request.open());
 
     if (request.open()) {
       // Request for Channel Open

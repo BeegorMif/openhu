@@ -1775,5 +1775,17 @@
         <source></source>
         <translation>Wirklich? Alte Anmeldungen enden</translation>
     </message>
+    <message id="settings.audio.duck_level">
+        <source></source>
+        <translation>Lokale Quellen bei Ansagen absenken (%)</translation>
+    </message>
+    <message id="settings.audio.duck_level_description">
+        <source></source>
+        <translation>Radio und andere lokale Quellen während Navigationsansagen von Android Auto, in % ihrer Lautstärke. Beim Assistant sind sie stumm.</translation>
+    </message>
+    <message id="settings.error.duck_level_between_0_100">
+        <source></source>
+        <translation>Absenkung zwischen 0 und 100 %</translation>
+    </message>
 </context>
 </TS>

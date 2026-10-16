@@ -66,6 +66,8 @@ namespace f1x {
 
           protected:
             using std::enable_shared_from_this<AudioMediaSinkService>::shared_from_this;
+            // guidance channel only: tells the ducking of local sources (audio::AndroidAutoAudio)
+            void reportGuidance(bool playing);
             boost::asio::io_service::strand strand_;
             aasdk::channel::mediasink::audio::IAudioMediaSinkService::Pointer channel_;
             projection::IAudioOutput::Pointer audioOutput_;

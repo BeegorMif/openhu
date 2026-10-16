@@ -158,6 +158,10 @@ public:
     virtual bool radioServiceEnabled() const = 0;
     virtual void setRadioServiceEnabled(bool value) = 0;
 
+    // Loudness of local sources (radio) during Android Auto navigation prompts in %, 0-100 (openhu#93)
+    virtual int duckLevel() const = 0;
+    virtual void setDuckLevel(int value) = 0;
+
     // "key=value" from a system file (wireless Android Auto reads the hotspot SSID/password from hostapd.conf)
     virtual QString getParamFromFile(QString fileName, QString searchString) const = 0;
 };

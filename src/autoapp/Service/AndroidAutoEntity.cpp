@@ -16,6 +16,7 @@
 *  along with openauto. If not, see <http://www.gnu.org/licenses/>.
 */
 
+#include <f1x/openauto/autoapp/Audio/DuckingController.hpp>
 #include <f1x/openauto/autoapp/Core/EventBus.hpp>
 #include <f1x/openauto/autoapp/Service/AudioFocusPolicy.hpp>
 #include <QVariantList>
@@ -86,6 +87,8 @@ namespace f1x {
           strand_.dispatch([this, self = this->shared_from_this()]() {
             OPENAUTO_LOG(info) << "[AndroidAutoEntity] stop()";
             QObject::disconnect(mediaConnection_);
+            // local sources lowered for a prompt come back
+            audio::AndroidAutoAudio::instance().reportSessionEnded();
             core::EventBus::instance().publish("projection.state",
                                                {{"connected", false}, {"endedByUser", endedByUser_.load()}});
             // Data of the finished session is no longer valid
@@ -245,9 +248,10 @@ namespace f1x {
 
         void AndroidAutoEntity::onAudioFocusRequest(
             const aap_protobuf::service::control::message::AudioFocusRequest &request) {
-          OPENAUTO_LOG(info) << "[AndroidAutoEntity] onAudioFocusRequest()";
-          OPENAUTO_LOG(debug) << "[AndroidAutoEntity] AudioFocusRequestType received: "
+          // at info: which type the Assistant and navigation prompts send decides the ducking of local sources (#93)
+          OPENAUTO_LOG(info) << "[AndroidAutoEntity] onAudioFocusRequest(): "
                              << AudioFocusRequestType_Name(request.audio_focus_type());
+          audio::AndroidAutoAudio::instance().reportFocusRequest(static_cast<int>(request.audio_focus_type()));
 
           /*
            * When the MD starts playing music for example, it sends a gain request. The HU replies:

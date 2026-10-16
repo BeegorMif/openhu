@@ -99,6 +99,8 @@ public:
     void setTelephonyAudioChannelEnabled(bool value) override;
     bool radioServiceEnabled() const override;
     void setRadioServiceEnabled(bool value) override;
+    int duckLevel() const override;
+    void setDuckLevel(int value) override;
 
     QString getParamFromFile(QString fileName, QString searchString) const override;
 
@@ -131,6 +133,7 @@ private:
     bool audioChannelEnabledSystem_;
     bool audioChannelEnabledTelephony_;
     bool radioServiceEnabled_;
+    int duckLevel_;
 };
 
 }

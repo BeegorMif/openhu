@@ -2,7 +2,7 @@ import QtQuick
 import QtQuick.Controls
 import OpenHU 1.0
 
-// Settings → Audio: volume, output, sound to the Bluetooth car radio.
+// Settings → Audio: volume, local sources during announcements, sound to the Bluetooth car radio.
 SettingsSection {
     id: audioSettings
 
@@ -27,6 +27,16 @@ SettingsSection {
                 onToggled: volume.muted = checked
             }
         }
+    }
+
+    // radio and other local sources during Android Auto navigation prompts (the Assistant mutes them)
+    SettingNumber {
+        title: qsTrId("settings.audio.duck_level")
+        description: qsTrId("settings.audio.duck_level_description")
+        key: "audio.duckLevel"
+        from: 0
+        to: 100
+        stepSize: 5
     }
 
     Column {
