@@ -1,6 +1,8 @@
 #include <QCoreApplication>
 #include <QDir>
 #include <QFile>
+#include <QQmlComponent>
+#include <QQmlEngine>
 #include <QSignalSpy>
 #include <QTemporaryDir>
 #include <QtTest>
@@ -94,6 +96,43 @@ private slots:
 
         translations.setLanguage("en");
         QCOMPARE(qtTrId("org.example.speed.main.top_speed"), QString("org.example.speed.main.top_speed"));
+    }
+
+    // dock and store: the plugin's translation of "<id>.name", otherwise the manifest's name; follows a switch
+    void pluginName()
+    {
+        QTemporaryDir plugins;
+        QVERIFY(QDir().mkpath(plugins.filePath("org.example.speed/i18n")));
+        QVERIFY(QFile::copy(OPENHU_TEST_QM, plugins.filePath("org.example.speed/i18n/de.qm")));
+
+        QQmlEngine engine;
+        Translations translations(OPENHU_QM_DIR);
+        translations.setEngine(&engine);
+        translations.setPluginsDir(plugins.path());
+        translations.setLanguage("en");
+
+        QQmlComponent component(&engine);
+        component.setData("import QtQml\n"
+                          "import \"PluginText.js\" as PluginText\n"
+                          "QtObject {\n"
+                          "    property var plugin: ({id: \"org.example.speed\", name: \"Speed\", description: \"Top speed\"})\n"
+                          "    property string name: PluginText.name(plugin)\n"
+                          "    property string description: PluginText.description(plugin)\n"
+                          "    property string other: PluginText.name({id: \"org.example.other\"})\n"
+                          "}\n",
+                          QUrl::fromLocalFile(OPENHU_SHELL_QML_DIR "/Test.qml"));
+        std::unique_ptr<QObject> object(component.create());
+        QVERIFY2(object, qPrintable(component.errorString()));
+        QCOMPARE(object->property("name").toString(), QString("Speed"));
+        QCOMPARE(object->property("other").toString(), QString("org.example.other"));
+
+        translations.setLanguage("de");
+        QCOMPARE(object->property("name").toString(), QString("Tempo"));
+        // no translation of the description: the manifest's text
+        QCOMPARE(object->property("description").toString(), QString("Top speed"));
+
+        translations.setLanguage("en");
+        QCOMPARE(object->property("name").toString(), QString("Speed"));
     }
 };
 

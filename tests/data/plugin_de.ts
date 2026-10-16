@@ -7,5 +7,9 @@
         <source></source>
         <translation>Höchstgeschwindigkeit</translation>
     </message>
+    <message id="org.example.speed.name">
+        <source></source>
+        <translation>Tempo</translation>
+    </message>
 </context>
 </TS>
