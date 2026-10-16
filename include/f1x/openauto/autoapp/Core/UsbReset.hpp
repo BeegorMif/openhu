@@ -34,6 +34,10 @@ namespace core
 // reset device.
 QStringList resetAndroidUsbDevices(bool accessoryOnly = false);
 
+// Phones on USB right now: devices in Android accessory mode and devices of common Android vendors, each as
+// "vendor:product@bus-device" (sysfs, no access to the devices needed). The USB watchdog (App) uses it.
+QStringList androidUsbDevices();
+
 }
 }
 }

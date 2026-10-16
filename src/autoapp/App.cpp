@@ -22,6 +22,7 @@
 #include <aasdk/TCP/TCPEndpoint.hpp>
 #include <f1x/openauto/autoapp/App.hpp>
 #include <f1x/openauto/autoapp/Core/EventBus.hpp>
+#include <f1x/openauto/autoapp/Core/UsbReset.hpp>
 #include <f1x/openauto/Common/Log.hpp>
 
 namespace f1x::openauto::autoapp {
@@ -29,14 +30,23 @@ namespace f1x::openauto::autoapp {
   App::App(boost::asio::io_service &ioService, aasdk::usb::USBWrapper &usbWrapper, aasdk::tcp::ITCPWrapper &tcpWrapper,
            service::IAndroidAutoEntityFactory &androidAutoEntityFactory,
            aasdk::usb::IUSBHub::Pointer usbHub,
-           aasdk::usb::IConnectedAccessoriesEnumerator::Pointer connectedAccessoriesEnumerator)
+           aasdk::usb::IConnectedAccessoriesEnumerator::Pointer connectedAccessoriesEnumerator,
+           unsigned short wirelessPort)
       : ioService_(ioService), usbWrapper_(usbWrapper), tcpWrapper_(tcpWrapper), strand_(ioService_),
         androidAutoEntityFactory_(androidAutoEntityFactory), usbHub_(std::move(usbHub)),
         connectedAccessoriesEnumerator_(std::move(connectedAccessoriesEnumerator)),
-        acceptor_(ioService, boost::asio::ip::tcp::endpoint(boost::asio::ip::tcp::v4(), 5000)), isStopped_(false) {
+        acceptor_(ioService, boost::asio::ip::tcp::endpoint(boost::asio::ip::tcp::v4(), wirelessPort)), isStopped_(false),
+        usbRetryTimer_(ioService), usbWatchdogTimer_(ioService), usbDeviceProbe_(&core::androidUsbDevices) {
       // not inherited by child processes (plugins, pactl), so a restart can bind the port again
       ::fcntl(acceptor_.native_handle(), F_SETFD, FD_CLOEXEC);
 
+  }
+
+  void App::setUsbWatchdog(std::function<QStringList()> probe, std::chrono::steady_clock::duration interval,
+                           core::UsbWatchdog watchdog) {
+    usbDeviceProbe_ = std::move(probe);
+    usbWatchdogInterval_ = interval;
+    usbWatchdog_ = watchdog;
   }
 
   void App::waitForUSBDevice() {
@@ -47,13 +57,10 @@ namespace f1x::openauto::autoapp {
       catch (...) {
         OPENAUTO_LOG(error) << "[App] waitForUSBDevice() -exception caused by this->waitForDevice();";
       }
-      try {
-        this->enumerateDevices();
-      }
-      catch (...) {
-        OPENAUTO_LOG(error) << "[App] waitForUSBDevice() exception caused by this->enumerateDevices()";
-      }
-
+      // No ConnectedAccessoriesEnumerator here any more: the hub's registration (LIBUSB_HOTPLUG_ENUMERATE) already
+      // sends the accessory mode requests to every connected phone. Both at once sent two interleaved request
+      // chains to the same phone at startup (openhu#80).
+      this->scheduleUsbWatchdog();
     });
   }
 
@@ -105,6 +112,9 @@ namespace f1x::openauto::autoapp {
   void App::stop() {
     strand_.dispatch([this, self = this->shared_from_this()]() {
       isStopped_ = true;
+      boost::system::error_code ec;
+      usbRetryTimer_.cancel(ec);
+      usbWatchdogTimer_.cancel(ec);
       try {
         connectedAccessoriesEnumerator_->cancel();
       } catch (...) {
@@ -147,6 +157,8 @@ namespace f1x::openauto::autoapp {
     }
     if (androidAutoEntity_ != nullptr) {
       OPENAUTO_LOG(warning) << "[App] android auto entity is still running.";
+      // keep waiting: the hub drops every device while nobody waits
+      this->armUsbWait(false, "a session is running");
       return;
     }
 
@@ -163,36 +175,50 @@ namespace f1x::openauto::autoapp {
         androidAutoEntity_->start(*this);
       } else {
         OPENAUTO_LOG(info) << "[App] Start Android Auto not allowed - skip.";
+        this->armUsbWait(false, "autostart disabled");
       }
     }
     catch (const aasdk::error::Error &error) {
       OPENAUTO_LOG(error) << "[App] USB AndroidAutoEntity create error: " << error.what();
 
       androidAutoEntity_.reset();
-      this->waitForDevice();
+      usbSession_ = false;
+      this->armUsbWait(false, "the accessory could not be used");
     }
-  }
+    catch (const std::exception &error) {
+      // anything else would leave the hub without a waiting promise: USB stays deaf until a restart
+      OPENAUTO_LOG(error) << "[App] USB AndroidAutoEntity create error: " << error.what();
 
-  void App::enumerateDevices() {
-    auto promise = aasdk::usb::IConnectedAccessoriesEnumerator::Promise::defer(strand_);
-    promise->then([this, self = this->shared_from_this()](auto result) {
-                    OPENAUTO_LOG(info) << "[App] Devices enumeration result: " << result;
-                  },
-                  [this, self = this->shared_from_this()](auto e) {
-                    OPENAUTO_LOG(error) << "[App] Devices enumeration failed: " << e.what();
-                  });
-
-    connectedAccessoriesEnumerator_->enumerate(std::move(promise));
+      androidAutoEntity_.reset();
+      usbSession_ = false;
+      this->armUsbWait(false, "the accessory could not be used");
+    }
   }
 
   void App::waitForDevice() {
     OPENAUTO_LOG(info) << "[App] Waiting for device...";
 
     startServerSocket();
+    armUsbWait(false, "waiting for a device");
+  }
+
+  void App::armUsbWait(bool reregister, const char *reason) {
+    if (isStopped_) {
+      return;
+    }
+    const auto generation = ++usbWaitGeneration_;
+    OPENAUTO_LOG(info) << "[App] USB wait armed (" << reason << (reregister ? ", reporting connected devices" : "")
+                       << ")";
+    if (reregister) {
+      // the hub registers its hotplug callback again with LIBUSB_HOTPLUG_ENUMERATE: connected phones are reported
+      usbHub_->cancel();
+    }
 
     auto promise = aasdk::usb::IUSBHub::Promise::defer(strand_);
     promise->then(std::bind(&App::aoapDeviceHandler, this->shared_from_this(), std::placeholders::_1),
-                  std::bind(&App::onUSBHubError, this->shared_from_this(), std::placeholders::_1));
+                  [this, self = this->shared_from_this(), generation](const aasdk::error::Error &error) {
+                    this->onUSBHubError(generation, error);
+                  });
     // Not on our strand: usbHub_->start() runs inline and can take many seconds (hotplug enumeration opens every
     // USB device). Meanwhile a wireless phone would connect, the session could not start (it needs this strand)
     // and the phone gives up after 10 s.
@@ -260,9 +286,10 @@ namespace f1x::openauto::autoapp {
         // (LIBUSB_HOTPLUG_ENUMERATE) reports the phones that are plugged in right now: one that came back during
         // the session end (USB reset, AA ended on the phone) or stayed in accessory mode would otherwise only be
         // found after replugging.
-        usbHub_->cancel();
         try {
-          this->waitForDevice();
+          OPENAUTO_LOG(info) << "[App] Waiting for device...";
+          this->startServerSocket();
+          this->armUsbWait(true, "session ended");
         } catch (...) {
           OPENAUTO_LOG(error) << "[App] onAndroidAutoQuit: exception caused by this->waitForDevice();";
         }
@@ -270,18 +297,69 @@ namespace f1x::openauto::autoapp {
     });
   }
 
-  void App::onUSBHubError(const aasdk::error::Error &error) {
-    OPENAUTO_LOG(error) << "[App] onUSBHubError(): " << error.what();
+  void App::onUSBHubError(unsigned generation, const aasdk::error::Error &error) {
+    if (generation != usbWaitGeneration_) {
+      // replaced by a newer wait (start() rejects the old promise): nothing to do
+      OPENAUTO_LOG(debug) << "[App] earlier USB wait ended: " << error.what();
+      return;
+    }
+    if (isStopped_ || error == aasdk::error::ErrorCode::OPERATION_ABORTED) {
+      OPENAUTO_LOG(info) << "[App] USB wait cancelled";
+      return;
+    }
 
-//    if(error != aasdk::error::ErrorCode::OPERATION_ABORTED &&
-//       error != aasdk::error::ErrorCode::OPERATION_IN_PROGRESS)
-//    {
-//        try {
-//            this->waitForDevice();
-//        } catch (...) {
-//            OPENAUTO_LOG(error) << "[App] onUSBHubError: exception caused by this->waitForDevice();";
-//        }
-//    }
+    // e.g. the hotplug callback could not be registered: nobody would find a phone, so try again
+    OPENAUTO_LOG(error) << "[App] onUSBHubError(): " << error.what() << ", waiting again in "
+                        << std::chrono::duration_cast<std::chrono::milliseconds>(usbRetryDelay_).count() << " ms";
+    usbRetryTimer_.expires_after(usbRetryDelay_);
+    usbRetryTimer_.async_wait(strand_.wrap([this, self = this->shared_from_this(), generation](
+        const boost::system::error_code &ec) {
+      if (!ec && generation == usbWaitGeneration_ && androidAutoEntity_ == nullptr) {
+        this->armUsbWait(true, "the USB hub failed");
+      }
+    }));
+  }
+
+  void App::scheduleUsbWatchdog() {
+    if (isStopped_ || !usbDeviceProbe_) {
+      return;
+    }
+    usbWatchdogTimer_.expires_after(usbWatchdogInterval_);
+    usbWatchdogTimer_.async_wait(strand_.wrap([this, self = this->shared_from_this()](
+        const boost::system::error_code &ec) {
+      if (ec || isStopped_) {
+        return;
+      }
+      this->checkUsbWatchdog();
+      this->scheduleUsbWatchdog();
+    }));
+  }
+
+  void App::checkUsbWatchdog() {
+    const auto devices = usbDeviceProbe_();
+    const bool session = androidAutoEntity_ != nullptr;
+    const auto now = core::UsbWatchdog::Clock::now();
+    if (devices != usbWatchdogDevices_) {
+      usbWatchdogDevices_ = devices;
+      OPENAUTO_LOG(debug) << "[App] USB watchdog: phones on USB: "
+                          << (devices.isEmpty() ? std::string("none") : devices.join(", ").toStdString())
+                          << (session ? " (session running)" : "");
+    }
+
+    switch (usbWatchdog_.update(devices, session, now)) {
+      case core::UsbWatchdog::Action::Rearm:
+        OPENAUTO_LOG(warning) << "[App] USB watchdog: " << devices.join(", ").toStdString()
+                              << " on USB without an Android Auto session, arming the USB wait again (attempt "
+                              << usbWatchdog_.attempts() << "/" << usbWatchdog_.maxAttempts() << ")";
+        this->armUsbWait(true, "USB watchdog");
+        break;
+      case core::UsbWatchdog::Action::GiveUp:
+        OPENAUTO_LOG(warning) << "[App] USB watchdog: still no session after " << usbWatchdog_.maxAttempts()
+                              << " attempts, waiting until the phone is plugged in again";
+        break;
+      case core::UsbWatchdog::Action::None:
+        break;
+    }
   }
 
 }

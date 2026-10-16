@@ -106,6 +106,20 @@ bool reset(const UsbDevice& device)
 
 }
 
+QStringList androidUsbDevices()
+{
+    QStringList result;
+    for(const auto& device: usbDevices())
+    {
+        if(isAccessory(device) || isAndroidVendor(device))
+        {
+            result.append(QString("%1:%2@%3-%4").arg(device.vendor, device.product).arg(device.bus).arg(device.number));
+        }
+    }
+    result.sort();
+    return result;
+}
+
 QStringList resetAndroidUsbDevices(bool accessoryOnly)
 {
     const auto devices = usbDevices();

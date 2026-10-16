@@ -90,6 +90,11 @@ source `file /opt/openhu-plugins`.
 - The aasdk USBHub drops hotplug events while no promise is waiting. After a session ends the phone often comes
   back exactly then (USB reset, AA ended on the phone) or stays in AOA mode without a new event; so
   `App::onAndroidAutoQuit()` resets the hub, and the new registration reports all plugged-in devices.
+  `App::armUsbWait()` arms the hub again on every outcome that is not a USB session (hub error, device during a
+  wireless session, unusable accessory). The USB watchdog (`core::UsbWatchdog`, every 5 s) arms it again with a
+  new registration when a phone (accessory or Android vendor, sysfs) is on USB for 15 s without a session, at most
+  3 times until the phone is unplugged or a session starts (openhu#80). The `ConnectedAccessoriesEnumerator` is not
+  used any more: together with the hub's registration it sent two request chains to the same phone at startup.
 - Status services have to call `channel_->receive()` in `start()`, otherwise OpenHU does not answer the
   channel opening and the phone sends no video (that was the cause of the black picture).
 - In the container aasdk lives only in the volume under `/opt/aasdk` (`CPATH`/`LD_LIBRARY_PATH` in the image), not in
