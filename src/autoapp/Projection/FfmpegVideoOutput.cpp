@@ -17,10 +17,12 @@
 
 #include <algorithm>
 #include <chrono>
+#include <cstdlib>
 #include <cstring>
 #include <QCoreApplication>
 #include <QThread>
 #include <QVideoFrameFormat>
+#include <boost/log/keywords/severity.hpp>
 #include <f1x/openauto/autoapp/Projection/FfmpegVideoOutput.hpp>
 #include <f1x/openauto/autoapp/Shell/AaBridge.hpp>
 #include <f1x/openauto/Common/Log.hpp>
@@ -53,6 +55,13 @@ constexpr int cMaxSendAttempts = 50;
 constexpr int64_t cStatsIntervalMs = 10000;
 // SPS/PPS are a few bytes; more without a picture is not a codec configuration
 constexpr qsizetype cMaxConfigBytes = 64 * 1024;
+// After a stream (re)start, frames with decode errors are held back at most this long (the sink keeps the last
+// picture meanwhile); a phone that never sends a clean frame still gets its picture shown.
+constexpr int64_t cMaxHoldMs = 1000;
+// Messages and frames after a stream (re)start are logged in detail (debug) for this long
+constexpr int64_t cDiagnosticMs = 2000;
+// Every n-th pixel in both directions for the mean luma and the change between frames
+constexpr int cLumaStep = 8;
 
 int64_t nowMs()
 {
@@ -89,6 +98,58 @@ bool containsPicture(const QByteArray& data)
 bool containsKeyframe(const QByteArray& data)
 {
     return containsNal(data, 5, 5);
+}
+
+// OPENHU_LOG=debug (or lower): the diagnostics after a stream start are logged
+bool debugLogEnabled()
+{
+    return static_cast<bool>(boost::log::trivial::logger::get().open_record(
+        boost::log::keywords::severity = boost::log::trivial::debug));
+}
+
+// NAL unit types in the access unit, e.g. "7,8" for SPS/PPS or "5" for an IDR picture
+std::string nalTypes(const QByteArray& data)
+{
+    std::string types;
+    const auto* bytes = reinterpret_cast<const uint8_t*>(data.constData());
+    int count = 0;
+    for(qsizetype i = 0; i + 3 < data.size() && count < 12; ++i)
+    {
+        if(bytes[i] == 0 && bytes[i + 1] == 0 && bytes[i + 2] == 1)
+        {
+            types += (types.empty() ? "" : ",") + std::to_string(bytes[i + 3] & 0x1f);
+            ++count;
+            i += 2;
+        }
+    }
+    return types.empty() ? "none" : types;
+}
+
+// Subsampled luma plane of a planar 8-bit YUV frame, empty for other formats
+std::vector<uint8_t> lumaSamples(const AVFrame* frame)
+{
+    std::vector<uint8_t> samples;
+    switch(static_cast<AVPixelFormat>(frame->format))
+    {
+    case AV_PIX_FMT_YUV420P:
+    case AV_PIX_FMT_YUVJ420P:
+    case AV_PIX_FMT_YUV422P:
+    case AV_PIX_FMT_YUVJ422P:
+    case AV_PIX_FMT_NV12:
+        break;
+    default:
+        return samples;
+    }
+    samples.reserve(static_cast<size_t>((frame->width / cLumaStep + 1) * (frame->height / cLumaStep + 1)));
+    for(int y = 0; y < frame->height; y += cLumaStep)
+    {
+        const uint8_t* row = frame->data[0] + static_cast<ptrdiff_t>(y) * frame->linesize[0];
+        for(int x = 0; x < frame->width; x += cLumaStep)
+        {
+            samples.push_back(row[x]);
+        }
+    }
+    return samples;
 }
 
 // In the GUI thread, waiting for it when called from another thread.
@@ -151,6 +212,9 @@ bool FfmpegVideoOutput::init()
         running_ = true;
         waitForKeyframe_ = false;
         droppedMessages_ = 0;
+        streamStopped_ = false;
+        pendingStartMs_ = -1;
+        pendingRestart_ = false;
         queue_.clear();
         queuedBytes_ = 0;
     }
@@ -177,13 +241,13 @@ void FfmpegVideoOutput::write(uint64_t, const aasdk::common::DataConstBuffer& bu
         // The pictures are dropped, the codec configuration (SPS/PPS, no picture) is kept: without it
         // no later picture could be decoded.
         const size_t before = queue_.size();
-        std::deque<QByteArray> kept;
+        std::deque<Message> kept;
         queuedBytes_ = 0;
         for(auto& queued: queue_)
         {
-            if(!containsPicture(queued))
+            if(!containsPicture(queued.data))
             {
-                queuedBytes_ += queued.size();
+                queuedBytes_ += queued.data.size();
                 kept.push_back(std::move(queued));
             }
         }
@@ -204,9 +268,33 @@ void FfmpegVideoOutput::write(uint64_t, const aasdk::common::DataConstBuffer& bu
         waitForKeyframe_ = false;
         OPENAUTO_LOG(info) << "[FfmpegVideoOutput] IDR frame after " << droppedMessages_ << " dropped messages";
     }
-    queuedBytes_ += data.size();
-    queue_.push_back(std::move(data));
+    Message message;
+    message.data = std::move(data);
+    if(pendingStartMs_ >= 0)
+    {
+        message.streamStartMs = pendingStartMs_;
+        message.restart = pendingRestart_;
+        pendingStartMs_ = -1;
+    }
+    queuedBytes_ += message.data.size();
+    queue_.push_back(std::move(message));
     wake_.notify_one();
+}
+
+void FfmpegVideoOutput::streamStopped()
+{
+    std::lock_guard<std::mutex> lock(mutex_);
+    streamStopped_ = true;
+    pendingStartMs_ = -1;
+}
+
+void FfmpegVideoOutput::streamStarted()
+{
+    std::lock_guard<std::mutex> lock(mutex_);
+    // The decoder and the sink keep running: the last picture stays until the new stream shows one (#88)
+    pendingStartMs_ = nowMs();
+    pendingRestart_ = streamStopped_;
+    streamStopped_ = false;
 }
 
 void FfmpegVideoOutput::stop()
@@ -316,6 +404,10 @@ void FfmpegVideoOutput::decodeLoop()
     AVPacket* packet = av_packet_alloc();
     stats_ = Stats();
     statsSince_ = nowMs();
+    streamStart_ = StreamStart();
+    lastFormat_ = QVideoFrameFormat();
+    debugLog_ = debugLogEnabled();
+    lastLuma_.clear();
     // Messages until the first picture, replayed into the software decoder if the hardware one fails
     std::vector<QByteArray> history;
     bool pictureSeen = false;
@@ -333,10 +425,20 @@ void FfmpegVideoOutput::decodeLoop()
                 break;
             }
             stats_.maxBacklog = std::max(stats_.maxBacklog, queue_.size());
-            data = std::move(queue_.front());
+            Message& message = queue_.front();
+            if(message.streamStartMs >= 0)
+            {
+                debugLog_ = debugLogEnabled();
+                streamStart_ = StreamStart();
+                streamStart_.active = true;
+                streamStart_.restart = message.restart;
+                streamStart_.startedMs = message.streamStartMs;
+            }
+            data = std::move(message.data);
             queue_.pop_front();
             queuedBytes_ -= data.size();
         }
+        this->logMessageAfterStart(data);
 
         if(!containsPicture(data) && config.size() + data.size() <= cMaxConfigBytes)
         {
@@ -431,10 +533,101 @@ bool FfmpegVideoOutput::receiveFrames()
     {
         gotFrame = true;
         ++stats_.frames;
-        this->present(this->toVideoFrame(frame_));
+        if(this->showAfterStart(frame_))
+        {
+            this->present(this->toVideoFrame(frame_));
+        }
         av_frame_unref(frame_);
     }
     return gotFrame;
+}
+
+void FfmpegVideoOutput::logMessageAfterStart(const QByteArray& data)
+{
+    if(!streamStart_.active)
+    {
+        return;
+    }
+    ++streamStart_.messages;
+    const bool keyframe = containsKeyframe(data);
+    streamStart_.idrSeen = streamStart_.idrSeen || keyframe;
+    const int64_t elapsed = nowMs() - streamStart_.startedMs;
+    if(elapsed < cDiagnosticMs)
+    {
+        OPENAUTO_LOG(debug) << "[FfmpegVideoOutput] +" << elapsed << " ms after the stream "
+                            << (streamStart_.restart ? "restart" : "start") << ": message " << streamStart_.messages
+                            << ", " << data.size() << " bytes, NAL types " << nalTypes(data);
+    }
+}
+
+bool FfmpegVideoOutput::showAfterStart(const AVFrame* frame)
+{
+    // With OPENHU_LOG=debug the luma of every frame is sampled, so the first frame after a restart can be compared
+    // with the last one before the stop (the picture the sink kept)
+    std::vector<uint8_t> luma;
+    if(debugLog_)
+    {
+        luma = lumaSamples(frame);
+    }
+    if(!streamStart_.active)
+    {
+        lastLuma_ = std::move(luma);
+        return true;
+    }
+    const int64_t elapsed = nowMs() - streamStart_.startedMs;
+    ++streamStart_.frames;
+    // Reference frames missing or slices lost: FFmpeg conceals the errors, the picture is partly wrong
+    const bool corrupt = (frame->flags & AV_FRAME_FLAG_CORRUPT) != 0 || frame->decode_error_flags != 0;
+    const bool show = streamStart_.shown || !corrupt || elapsed >= cMaxHoldMs;
+
+    if(elapsed < cDiagnosticMs)
+    {
+        // A dark or very different frame among these is what the user sees as a flicker. "change": mean absolute
+        // luma difference to the previous decoded frame (for the first one: the last frame before the stop).
+        double mean = -1;
+        double change = -1;
+        if(!luma.empty())
+        {
+            double sum = 0;
+            double diff = 0;
+            const bool comparable = lastLuma_.size() == luma.size();
+            for(size_t i = 0; i < luma.size(); ++i)
+            {
+                sum += luma[i];
+                if(comparable)
+                {
+                    diff += std::abs(int(luma[i]) - int(lastLuma_[i]));
+                }
+            }
+            mean = sum / luma.size();
+            change = comparable ? diff / luma.size() : -1;
+        }
+        OPENAUTO_LOG(debug) << "[FfmpegVideoOutput] +" << elapsed << " ms after the stream "
+                            << (streamStart_.restart ? "restart" : "start") << ": frame " << streamStart_.frames
+                            << " " << frame->width << "x" << frame->height << ", type "
+                            << av_get_picture_type_char(frame->pict_type) << (corrupt ? ", decode errors" : "")
+                            << ", mean luma " << mean << ", change " << change << (show ? "" : ", held back");
+    }
+    lastLuma_ = std::move(luma);
+
+    if(!show)
+    {
+        ++streamStart_.held;
+        return false;
+    }
+    if(!streamStart_.shown)
+    {
+        streamStart_.shown = true;
+        OPENAUTO_LOG(info) << "[FfmpegVideoOutput] first picture after the stream "
+                           << (streamStart_.restart ? "restart" : "start") << ": " << elapsed << " ms, "
+                           << streamStart_.messages << " messages, " << (streamStart_.idrSeen ? "IDR" : "no IDR")
+                           << ", " << streamStart_.held << " frames with decode errors held back";
+    }
+    if(elapsed >= cDiagnosticMs)
+    {
+        streamStart_.active = false;
+    }
+    return true;
 }
 
 void FfmpegVideoOutput::failed(const QString& error)
@@ -465,6 +658,16 @@ QVideoFrame FfmpegVideoOutput::toVideoFrame(const AVFrame* frame)
                              ? QVideoFrameFormat::ColorRange_Full : QVideoFrameFormat::ColorRange_Video);
     format.setColorSpace(frame->colorspace == AVCOL_SPC_BT709 ? QVideoFrameFormat::ColorSpace_BT709
                                                               : QVideoFrameFormat::ColorSpace_BT601);
+    // The VideoOutput sets up its rendering again for another format: rare, a candidate for a visible flicker
+    if(lastFormat_.isValid()
+       && (lastFormat_.frameSize() != format.frameSize() || lastFormat_.pixelFormat() != format.pixelFormat()
+           || lastFormat_.colorSpace() != format.colorSpace() || lastFormat_.colorRange() != format.colorRange()))
+    {
+        OPENAUTO_LOG(info) << "[FfmpegVideoOutput] video format changed: " << width << "x" << height << ", "
+                           << QVideoFrameFormat::pixelFormatToString(format.pixelFormat()).toStdString()
+                           << ", color space " << format.colorSpace() << ", range " << format.colorRange();
+    }
+    lastFormat_ = format;
 
     QVideoFrame result(format);
     if(!result.map(QVideoFrame::WriteOnly))
