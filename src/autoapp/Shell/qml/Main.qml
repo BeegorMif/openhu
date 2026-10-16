@@ -15,7 +15,12 @@ Window {
     property string page: "home"
     property string settingsCategory: "general"
 
-    function navigate(name) {
+    // fromApi: ui.navigate (e.g. a plugin leaving its page), otherwise chosen by the user
+    function navigate(name, fromApi) {
+        if (fromApi)
+            name = shell.pageOnNavigate(page, name)
+        else
+            shell.pageChosenByUser()
         // a category of the settings: "settings/wifi"; apps and store live in the settings
         if (name.startsWith("settings/")) {
             settingsCategory = name.slice(9)
@@ -74,14 +79,12 @@ Window {
     onWidthChanged: updateScale()
     onHeightChanged: updateScale()
 
-    // Show Android Auto as soon as the phone starts projecting, fall back to home when it stops.
+    // Show Android Auto as soon as the phone starts projecting, fall back to home when it stops. A plugin page (the
+    // reverse camera) stays: Android Auto takes the screen when the plugin leaves its page (#87).
     Connections {
         target: aaBridge
         function onVideoActiveChanged() {
-            if (aaBridge.videoActive)
-                root.page = "aa"
-            else if (root.page === "aa")
-                root.page = "home"
+            root.page = shell.pageOnVideo(root.page, aaBridge.videoActive)
         }
     }
 
@@ -89,7 +92,10 @@ Window {
     Connections {
         target: eventBus
         function onEvent(topic, data) {
-            if (topic === "projection.exit" && root.page === "aa")
+            if (topic !== "projection.exit")
+                return
+            shell.pageChosenByUser()
+            if (root.page === "aa")
                 root.page = "home"
         }
     }
@@ -97,7 +103,7 @@ Window {
     // Requests from the API (ui.navigate, ui.toast)
     Connections {
         target: shell
-        function onNavigateRequested(page) { root.navigate(page) }
+        function onNavigateRequested(page) { root.navigate(page, true) }
         function onToastRequested(text, durationMs) { toast.show(text, durationMs) }
     }
 
@@ -174,7 +180,7 @@ Window {
                 HomePage {
                     anchors.fill: parent
                     visible: root.page === "home"
-                    onOpenAndroidAuto: root.page = "aa"
+                    onOpenAndroidAuto: root.navigate("aa")
                 }
 
                 AaPage {

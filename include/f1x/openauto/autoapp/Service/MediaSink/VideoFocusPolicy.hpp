@@ -39,7 +39,8 @@ namespace mediasink
 // NATIVE while
 // - a plugin overlay (e.g. the reverse camera, "ui.overlay") is shown above everything, including Android Auto,
 // - a plugin page replaced the Android Auto page (camera in "page" mode: "aa" -> "plugin:<id>"), until the Android
-//   Auto page is shown again,
+//   Auto page is shown again; also a plugin page shown when the session starts: the shell keeps it instead of
+//   switching to Android Auto (#87, the phone connects or restarts its stream while the camera page is shown),
 // - the phone asked for NATIVE ("Exit" in Android Auto, the shell shows its home page), until the user opens the
 //   Android Auto page again.
 // PROJECTED otherwise. Leaving Android Auto for the home or settings page by hand does not count: the phone keeps
@@ -54,7 +55,7 @@ public:
     using Mode = aap_protobuf::service::media::video::message::VideoFocusMode;
 
     explicit VideoFocusPolicy(const QString& page = QString(), const QVariantMap& overlays = QVariantMap())
-        : page_(page), overlay_(overlayShown(overlays))
+        : page_(page), overlay_(overlayShown(overlays)), pageCovers_(page.startsWith(QLatin1String("plugin:")))
     {
     }
 
