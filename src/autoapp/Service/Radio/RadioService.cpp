@@ -113,19 +113,16 @@ namespace f1x {
           void RadioService::onTuneRequest(const msg::RadioTuneRequest &request) {
             const QList<QVariantMap> commands = tuneCommands(request.program_selector(), state_);
             OPENAUTO_LOG(info) << "[RadioService] tune to "
-                               << request.program_selector().primary_identifier().value()
-                               << (commands.isEmpty() ? " (not supported)" : "");
+                               << request.program_selector().primary_identifier().value() << " (type "
+                               << request.program_selector().primary_identifier().type() << ")"
+                               << (commands.isEmpty() ? ", not supported" : "");
             if (commands.isEmpty()) {
               msg::RadioTuneResponse response;
               response.set_status(msg::RADIO_TUNE_STATUS_FAILURE);
               channel_->sendTuneResponse(response, this->promise());
               return;
             }
-            const QVariantMap tune = commands.size() > 1 && commands.front().value("cmd") == "band" ? commands.at(1)
-                                                                                                    : commands.front();
-            const QString band = commands.front().value("cmd") == "band" ? commands.front().value("value").toString()
-                                                                          : state_.value("band").toString();
-            this->startTune(band, tune.value("value").toDouble());
+            this->startTune(tuneTarget(commands, state_));
             for (const QVariantMap &command: commands) {
               this->command(command);
             }
@@ -134,7 +131,7 @@ namespace f1x {
           void RadioService::onTuneDirectionRequest(const msg::RadioTuneDirectionRequest &request) {
             const int direction = request.direction() == msg::RADIO_TUNE_DIRECTION_DOWN ? -1 : 1;
             OPENAUTO_LOG(info) << "[RadioService] seek " << direction;
-            this->startTune(state_.value("band").toString(), -1);
+            this->startTune(tuneTarget({}, state_));
             this->command({{"cmd", "seek"}, {"value", direction}});
             if (!state_.value("playing").toBool()) {
               this->command({{"cmd", "play"}});
@@ -179,14 +176,9 @@ namespace f1x {
               return;
             }
             if (pendingTune_.active) {
-              const double frequency = state.value("frequency").toDouble();
-              const bool sameBand = state.value("band").toString() == pendingTune_.band;
-              const bool arrived = pendingTune_.frequency < 0
-                                   ? std::abs(frequency - pendingTune_.from) > 1e-6
-                                   : sameBand && std::abs(frequency - pendingTune_.frequency) < 1e-6;
               if (!state.value("error").toString().isEmpty()) {
                 this->finishTune(msg::RADIO_TUNE_STATUS_FAILURE);
-              } else if (arrived) {
+              } else if (tuneArrived(pendingTune_.target, state)) {
                 this->finishTune(msg::RADIO_TUNE_STATUS_SUCCESS);
               }
             }
@@ -237,11 +229,11 @@ namespace f1x {
             core::EventBus::instance().emitEvent("radio.command", command);
           }
 
-          void RadioService::startTune(const QString &band, double frequency) {
+          void RadioService::startTune(const TuneTarget &target) {
             if (pendingTune_.active) {
               this->finishTune(msg::RADIO_TUNE_STATUS_CANCELLED);
             }
-            pendingTune_ = {true, band, frequency, state_.value("frequency").toDouble()};
+            pendingTune_ = {true, target};
             tuneTimer_.expires_from_now(boost::posix_time::milliseconds(cTuneTimeoutMs));
             tuneTimer_.async_wait(strand_.wrap([this, self = this->shared_from_this()](const boost::system::error_code &error) {
               if (!error && pendingTune_.active) {

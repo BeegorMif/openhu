@@ -33,7 +33,8 @@ QVariantMap state()
 {
     const QVariantMap fm{{"min", 87.5}, {"max", 108.0}, {"step", 0.1}, {"unit", "MHz"},
                          {"stations", QVariantList{101.9, 88.6, 96.2}}, {"presets", QVariantList{96.2, 104.9}},
-                         {"names", QVariantMap{{"96.2", "NDR 2"}, {"88.6", "NDR INFO"}}}};
+                         {"names", QVariantMap{{"96.2", "NDR 2"}, {"88.6", "NDR INFO"}}},
+                         {"pis", QVariantMap{{"96.2", "0xD382"}, {"88.6", "0xD384"}}}};
     const QVariantMap am{{"min", 531}, {"max", 1602}, {"step", 9}, {"unit", "kHz"},
                          {"stations", QVariantList{}}, {"presets", QVariantList{1008}}, {"names", QVariantMap{}}};
     return {{"band", "fm"}, {"frequency", 96.2}, {"playing", true}, {"rdsAvailable", true},
@@ -183,6 +184,67 @@ private slots:
         QVERIFY(!info.has_audio_focus());
     }
 
+    void rdsPi()
+    {
+        QCOMPARE(piOf(state(), "fm", 96.2), QString("0xD382"));
+        QVERIFY(piOf(state(), "fm", 101.9).isEmpty());
+        QVERIFY(piOf(state(), "am", 1008).isEmpty());
+        // RDS of the station that plays first, else the remembered PI
+        QVariantMap playing = state();
+        QCOMPARE(currentPi(playing), QString("0xD382"));
+        playing["frequency"] = 101.9;
+        QVERIFY(currentPi(playing).isEmpty());
+        playing["rds"] = QVariantMap{{"pi", "0xD388"}};
+        QCOMPARE(currentPi(playing), QString("0xD388"));
+
+        // PI as secondary identifier where it is known
+        const auto list = f1x::openauto::autoapp::service::radio::programList(state());
+        QCOMPARE(list.programs(0).program_selector().secondary_identifiers_size(), 1);
+        QCOMPARE(list.programs(0).program_selector().secondary_identifiers(0).type(), msg::RADIO_IDENTIFIER_TYPE_RDS_PI);
+        QCOMPARE(list.programs(0).program_selector().secondary_identifiers(0).value(), uint64_t(0xD384));
+        QCOMPARE(list.programs(1).program_selector().secondary_identifiers(0).value(), uint64_t(0xD382));
+        QCOMPARE(list.programs(2).program_selector().secondary_identifiers_size(), 0);
+        QCOMPARE(favoriteList(state()).favorites(0).program_selector().secondary_identifiers(0).value(),
+                 uint64_t(0xD382));
+        const auto info = programInfo(playing);
+        QCOMPARE(info.program_info().program_selector().secondary_identifiers(0).value(), uint64_t(0xD388));
+    }
+
+    void tuneArrival()
+    {
+        // tune: same band and frequency
+        QVariantMap before = state();
+        TuneTarget target = tuneTarget({{{"cmd", "band"}, {"value", "am"}}, {{"cmd", "tune"}, {"value", 1008}}}, before);
+        QCOMPARE(target.band, QString("am"));
+        QCOMPARE(target.frequency, 1008.0);
+        QVERIFY(!tuneArrived(target, before));
+        QVariantMap after = before;
+        after["band"] = "am";
+        after["frequency"] = 1008;
+        QVERIFY(tuneArrived(target, after));
+
+        // seek: any other frequency
+        target = tuneTarget({}, before);
+        QVERIFY(target.frequency < 0);
+        QVERIFY(!tuneArrived(target, before));
+        after = before;
+        after["frequency"] = 101.9;
+        QVERIFY(tuneArrived(target, after));
+
+        // tunePi: FM with that PI, from RDS or remembered for the frequency
+        target = tuneTarget({{{"cmd", "tunePi"}, {"value", "0xD384"}}}, before);
+        QCOMPARE(target.band, QString("fm"));
+        QCOMPARE(target.pi, QString("0xD384"));
+        QVERIFY(!tuneArrived(target, before));
+        after = before;
+        after["frequency"] = 88.6;
+        after["rds"] = QVariantMap();
+        QVERIFY(tuneArrived(target, after));
+        after["frequency"] = 101.9;
+        after["rds"] = QVariantMap{{"pi", "0xd384"}};
+        QVERIFY(tuneArrived(target, after));
+    }
+
     void stationIcons()
     {
         // big logo: scaled to fit 128x128, aspect ratio kept
@@ -252,8 +314,16 @@ private slots:
         QCOMPARE(commands.size(), 1);
         QCOMPARE(commands[0].value("value").toDouble(), 88.6);
 
-        // only RDS PI or DAB: the plugin cannot tune it (openhu-plugins#7)
-        QVERIFY(tuneCommands(selector(msg::RADIO_IDENTIFIER_TYPE_RDS_PI, 0xD3C2), state()).isEmpty());
+        // only RDS PI: the plugin finds the frequency (tunePi, radio 2.6), also from AM; play if stopped
+        commands = tuneCommands(selector(msg::RADIO_IDENTIFIER_TYPE_RDS_PI, 0xD384), state());
+        QCOMPARE(commands, (QList<QVariantMap>{{{"cmd", "tunePi"}, {"value", "0xD384"}}}));
+        QVariantMap am = stopped;
+        am["band"] = "am";
+        commands = tuneCommands(selector(msg::RADIO_IDENTIFIER_TYPE_RDS_PI, 0x1B82), am);
+        QCOMPARE(commands, (QList<QVariantMap>{{{"cmd", "tunePi"}, {"value", "0x1B82"}}, {{"cmd", "play"}}}));
+        // no 16 bit PI
+        QVERIFY(tuneCommands(selector(msg::RADIO_IDENTIFIER_TYPE_RDS_PI, 0x1D3C2), state()).isEmpty());
+        // DAB: not yet
         QVERIFY(tuneCommands(selector(msg::RADIO_IDENTIFIER_TYPE_DAB_SID_EXT, 0x1D3C2), state()).isEmpty());
         QVERIFY(tuneCommands(selector(msg::RADIO_IDENTIFIER_TYPE_AMFM_FREQUENCY, 200000), state()).isEmpty());
     }
