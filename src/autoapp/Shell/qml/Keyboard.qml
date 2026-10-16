@@ -39,5 +39,11 @@ InputPanel {
         NumberAnimation { duration: 150; easing.type: Easing.OutQuad }
     }
 
-    Component.onCompleted: applyLanguage()
+    Component.onCompleted: {
+        // Only one layout is active, so the language (globe) key would only be greyed out: hide it (the other
+        // keys of its row take its width). The hide key stays. Long press on a key would list hidden functions, but
+        // changing the language is not available with one layout, so nothing is listed.
+        VirtualKeyboardSettings.visibleFunctionKeys = QtVirtualKeyboard.KeyboardFunctionKeys.Hide
+        applyLanguage()
+    }
 }
