@@ -90,6 +90,7 @@ SystemController::SystemController(const QString& osVersion, QObject* parent, co
     this->readUsbUpdate();
     this->refreshSsh();
     this->refreshTime();
+    this->refreshEthernet();
 }
 
 void SystemController::readBootStatus()
@@ -476,6 +477,71 @@ void SystemController::setTimeState(const QVariantMap& values)
     time_.insert("offset", zone.isValid() ? zone.offsetFromUtc(QDateTime::currentDateTimeUtc()) : 0);
     emit timeChanged();
     core::EventBus::instance().publish("system.time", time_);
+}
+
+void SystemController::refreshEthernet()
+{
+    // not while a mode change runs: its answer comes anyway
+    if(!this->available() || ethernet_.value("busy").toBool())
+    {
+        return;
+    }
+    this->run("ethernet", {"status"}, {}, [this](const QVariantMap& result) {
+        // a mode change started meanwhile: its answer is newer
+        if(ethernet_.value("busy").toBool())
+        {
+            return;
+        }
+        if(result.contains("error"))
+        {
+            ethernet_ = {{"busy", false}, {"error", result.value("error")}};
+            emit ethernetChanged();
+            return;
+        }
+        this->setEthernet(result);
+    });
+}
+
+QString SystemController::setEthernetMode(const QString& mode)
+{
+    if(!this->available())
+    {
+        return qtTrId("system.only_openhu_os");
+    }
+    if(mode != "client" && mode != "server")
+    {
+        return qtTrId("system.ethernet_unknown_mode").arg(mode);
+    }
+    if(ethernet_.value("busy").toBool())
+    {
+        return qtTrId("system.ethernet_busy");
+    }
+    // never two DHCP servers on one network
+    if(mode == "server" && ethernet_.value("mode").toString() != "server" && ethernet_.contains("serverAllowed")
+       && !ethernet_.value("serverAllowed").toBool())
+    {
+        return qtTrId("system.ethernet_other_dhcp_server");
+    }
+    OPENAUTO_LOG(info) << "[SystemController] Ethernet mode " << mode.toStdString();
+    ethernet_.insert("busy", true);
+    emit ethernetChanged();
+    this->run("ethernet", {"mode", mode}, {}, [this](const QVariantMap& result) { this->setEthernet(result); });
+    return {};
+}
+
+void SystemController::setEthernet(const QVariantMap& values)
+{
+    if(values.contains("error"))
+    {
+        emit ethernetError(values.value("error").toString());
+        ethernet_.insert("busy", false);
+        this->refreshEthernet();  // the controls show what really is
+        return;
+    }
+    ethernet_ = values;
+    ethernet_.insert("busy", false);
+    emit ethernetChanged();
+    core::EventBus::instance().publish("system.ethernet", ethernet_);
 }
 
 void SystemController::run(const QString& command, const QStringList& args, const QByteArray& input,
