@@ -41,6 +41,7 @@ namespace f1x {
                 channel_(std::make_shared<aasdk::channel::radio::RadioService>(strand_, std::move(messenger))),
                 state_(core::EventBus::instance().last("radio.state")),
                 icons_(stationIcons(core::EventBus::instance().last("radio.logos"))) {
+            this->setSlide(core::EventBus::instance().last("radio.slide"));
           }
 
           void RadioService::start() {
@@ -49,11 +50,16 @@ namespace f1x {
               std::weak_ptr<RadioService> weak = self;
               busConnection_ = QObject::connect(&core::EventBus::instance(), &core::EventBus::event,
                                                 [weak](const QString &topic, const QVariantMap &data) {
-                if (topic != "radio.state" && topic != "radio.logos") {
+                if (topic != "radio.state" && topic != "radio.logos" && topic != "radio.slide") {
                   return;
                 }
                 if (auto service = weak.lock()) {
-                  if (topic == "radio.logos") {
+                  if (topic == "radio.slide") {
+                    service->strand_.dispatch([service, data]() {
+                      service->setSlide(data);
+                      service->sendState(false);
+                    });
+                  } else if (topic == "radio.logos") {
                     service->strand_.dispatch([service, data]() { service->onLogos(data); });
                   } else {
                     service->strand_.dispatch([service, data]() { service->onState(data); });
@@ -154,6 +160,19 @@ namespace f1x {
 
           void RadioService::onSearchRequest(const msg::RadioSearchRequest &request) {
             OPENAUTO_LOG(info) << "[RadioService] action " << request.action_id();
+            if (request.action_id() == cScanDabAction) {
+              // like FM, the phone may send it already when the DAB tab opens, and a DAB scan takes minutes: only
+              // while no DAB station is known (later scans from the plugin page)
+              if (!state_.value("bands").toMap().value("dab").toMap().value("stations").toList().isEmpty()) {
+                OPENAUTO_LOG(info) << "[RadioService] DAB scan skipped, stations are known";
+                return;
+              }
+              if (state_.value("band").toString() != "dab") {
+                this->command({{"cmd", "band"}, {"value", "dab"}});
+              }
+              this->command({{"cmd", "scan"}});
+              return;
+            }
             if (request.action_id() != cScanFmAction) {
               return;
             }
@@ -193,6 +212,13 @@ namespace f1x {
             this->sendState(false);
           }
 
+          void RadioService::setSlide(const QVariantMap &slide) {
+            const uint64_t sid = dabSid(slide.value("station").toString());
+            slideStation_ = sid > 0 ? dabKey(sid) : QString();
+            // slideshow pictures are small (MOT SLS: 320x240, at most 50 KB); bigger ones are scaled
+            slide_ = scaledIcon(slide.value("image").toString(), cSlideSize);
+          }
+
           void RadioService::sendState(bool force) {
             if (!open_ || state_.isEmpty()) {
               return;
@@ -218,7 +244,9 @@ namespace f1x {
                                  << lastProgramList_.size() / 1024 << " KB";
               channel_->sendProgramListNotification(list, this->promise());
             }
-            const auto info = programInfo(state_, icons_);
+            // the slideshow picture belongs to one DAB station
+            const bool slideOfStation = state_.value("band").toString() == "dab" && slideStation_ == stationKey(state_);
+            const auto info = programInfo(state_, icons_, slideOfStation ? slide_ : std::string());
             if (favoritesChanged || info.SerializeAsString() != lastProgramInfo_) {
               lastProgramInfo_ = info.SerializeAsString();
               channel_->sendProgramInfoNotification(info, this->promise());

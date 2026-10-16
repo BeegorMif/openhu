@@ -65,6 +65,26 @@ QImage decoded(const std::string& bytes)
     return image;
 }
 
+// radio 2.7 with DAB: two services in 7A, one in 5C; NDR 2 is a favorite
+QVariantMap dabState()
+{
+    QVariantMap result = state();
+    QVariantMap bands = result.value("bands").toMap();
+    const QVariantMap services{
+        {"0xD210", QVariantMap{{"label", "Dlf"}, {"channel", "5C"}, {"ensemble", "0x10BC"}, {"ecc", "0xE0"}}},
+        {"0xD882", QVariantMap{{"label", "NDR 2 NDS"}, {"channel", "7A"}, {"ensemble", "0x1188"}, {"ecc", "0xE0"}}},
+        {"0xD383", QVariantMap{{"label", "NDR Kultur"}, {"channel", "7A"}, {"ensemble", "0x1188"}, {"ecc", "0xE0"}}}};
+    bands["dab"] = QVariantMap{{"unit", ""}, {"stations", QVariantList{"0xD210", "0xD383", "0xD882"}},
+                               {"presets", QVariantList{"0xD882"}}, {"services", services},
+                               {"names", QVariantMap{{"0xD210", "Dlf"}, {"0xD882", "NDR 2 NDS"}, {"0xD383", "NDR Kultur"}}}};
+    result["bands"] = bands;
+    result["dabAvailable"] = true;
+    result["band"] = "dab";
+    result["frequency"] = "0xD882";
+    result["rds"] = QVariantMap{{"ps", "NDR 2 NDS"}, {"rt", "Dreamer - Ozzy Osbourne"}};
+    return result;
+}
+
 msg::RadioProgramSelector selector(msg::RadioIdentifierType type, uint64_t value)
 {
     msg::RadioProgramSelector selector;
@@ -216,7 +236,7 @@ private slots:
         QVariantMap before = state();
         TuneTarget target = tuneTarget({{{"cmd", "band"}, {"value", "am"}}, {{"cmd", "tune"}, {"value", 1008}}}, before);
         QCOMPARE(target.band, QString("am"));
-        QCOMPARE(target.frequency, 1008.0);
+        QCOMPARE(target.station, QString("1008"));
         QVERIFY(!tuneArrived(target, before));
         QVariantMap after = before;
         after["band"] = "am";
@@ -225,7 +245,8 @@ private slots:
 
         // seek: any other frequency
         target = tuneTarget({}, before);
-        QVERIFY(target.frequency < 0);
+        QVERIFY(target.station.isEmpty());
+        QCOMPARE(target.from, QString("96.2"));
         QVERIFY(!tuneArrived(target, before));
         after = before;
         after["frequency"] = 101.9;
@@ -243,6 +264,80 @@ private slots:
         after["frequency"] = 101.9;
         after["rds"] = QVariantMap{{"pi", "0xd384"}};
         QVERIFY(tuneArrived(target, after));
+    }
+
+    void dab()
+    {
+        // band group only with a decoder
+        aap_protobuf::service::radio::RadioService service;
+        fillService(service, dabState());
+        QCOMPARE(service.bands().groups_size(), 3);
+        QCOMPARE(service.bands().groups(2).band_types(0), msg::RADIO_BAND_TYPE_DAB);
+        QCOMPARE(QString::fromStdString(service.bands().groups(2).band_scan_action()), QString(cScanDabAction));
+        QCOMPARE(service.radio_properties_size(), 2);
+        QVariantMap without = dabState();
+        without["dabAvailable"] = false;
+        aap_protobuf::service::radio::RadioService plain;
+        fillService(plain, without);
+        QCOMPARE(plain.bands().groups_size(), 2);
+
+        // after FM/AM in the plugin's order: SID_EXT (SId | ECC << 16), ensemble and frequency
+        const auto list = f1x::openauto::autoapp::service::radio::programList(dabState());
+        QCOMPARE(list.programs_size(), 8);
+        const auto& dlf = list.programs(5);
+        QCOMPARE(dlf.program_selector().primary_identifier().type(), msg::RADIO_IDENTIFIER_TYPE_DAB_SID_EXT);
+        QCOMPARE(dlf.program_selector().primary_identifier().value(), uint64_t(0xE0D210));
+        QCOMPARE(dlf.program_selector().secondary_identifiers(0).type(), msg::RADIO_IDENTIFIER_TYPE_DAB_ENSEMBLE);
+        QCOMPARE(dlf.program_selector().secondary_identifiers(0).value(), uint64_t(0x10BC));
+        QCOMPARE(dlf.program_selector().secondary_identifiers(1).type(), msg::RADIO_IDENTIFIER_TYPE_DAB_FREQUENCY);
+        QCOMPARE(dlf.program_selector().secondary_identifiers(1).value(), uint64_t(178352));
+        QCOMPARE(dlf.metadata().station_name(), std::string("Dlf"));
+        QCOMPARE(dlf.metadata().service_name(), std::string("Dlf"));
+        QCOMPARE(list.programs(6).program_selector().primary_identifier().value(), uint64_t(0xE0D383));
+        QCOMPARE(list.programs(7).program_selector().secondary_identifiers(1).value(), uint64_t(188928));
+        const auto favorites = favoriteList(dabState());
+        QCOMPARE(favorites.favorites_size(), 4);
+        QCOMPARE(favorites.favorites(3).program_selector().primary_identifier().value(), uint64_t(0xE0D882));
+
+        // current station: DLS as title, slideshow picture as album art, favorite heart from the DAB presets
+        auto info = programInfo(dabState(), {}, "picture");
+        QCOMPARE(info.program_info().program_selector().primary_identifier().value(), uint64_t(0xE0D882));
+        QCOMPARE(info.program_info().metadata().station_name(), std::string("NDR 2 NDS"));
+        QCOMPARE(info.program_info().metadata().song_metadata().title(), std::string("Dreamer - Ozzy Osbourne"));
+        QCOMPARE(info.program_info().metadata().song_metadata().album_art().image_data(), std::string("picture"));
+        QVERIFY(info.has_audio_focus());
+        QVariantMap other = dabState();
+        other["frequency"] = "0xD210";
+        other["rds"] = QVariantMap();
+        info = programInfo(other);
+        QCOMPARE(info.program_info().metadata().station_name(), std::string("Dlf"));
+        QVERIFY(!info.program_info().metadata().song_metadata().has_album_art());
+        QVERIFY(!info.has_audio_focus());
+
+        // tune requests: SID_EXT as sent, or Android's DMB form with a 32 bit SId
+        auto commands = tuneCommands(selector(msg::RADIO_IDENTIFIER_TYPE_DAB_SID_EXT, 0xE0D383), dabState());
+        QCOMPARE(commands, (QList<QVariantMap>{{{"cmd", "tune"}, {"value", "0xD383"}}}));
+        commands = tuneCommands(selector(msg::RADIO_IDENTIFIER_TYPE_DAB_DMB_SID_EXT, 0xD210), state());
+        QCOMPARE(commands, (QList<QVariantMap>{{{"cmd", "band"}, {"value", "dab"}}, {{"cmd", "tune"}, {"value", "0xD210"}}}));
+
+        // arrival: the service id; seek: any other station
+        TuneTarget target = tuneTarget(commands, state());
+        QCOMPARE(target.band, QString("dab"));
+        QCOMPARE(target.station, QString("0xD210"));
+        QVERIFY(tuneArrived(target, other));
+        QVERIFY(!tuneArrived(target, dabState()));
+        target = tuneTarget({}, dabState());
+        QCOMPARE(target.from, QString("0xD882"));
+        QVERIFY(!tuneArrived(target, dabState()));
+        QVERIFY(tuneArrived(target, other));
+
+        // logos by service id
+        const StationIcons icons = f1x::openauto::autoapp::service::radio::stationIcons(
+            QVariantMap{{"dab", QVariantMap{{"0xd882", dataUrl(64, 64)}}}});
+        QVERIFY(icons.contains("dab:0xD882"));
+        QVERIFY(programInfo(dabState(), icons).program_info().metadata().has_station_icon());
+        QCOMPARE(dabKey(dabSid("0xd882")), QString("0xD882"));
+        QCOMPARE(stationKey(dabState()), QString("0xD882"));
     }
 
     void stationIcons()
@@ -323,8 +418,10 @@ private slots:
         QCOMPARE(commands, (QList<QVariantMap>{{{"cmd", "tunePi"}, {"value", "0x1B82"}}, {{"cmd", "play"}}}));
         // no 16 bit PI
         QVERIFY(tuneCommands(selector(msg::RADIO_IDENTIFIER_TYPE_RDS_PI, 0x1D3C2), state()).isEmpty());
-        // DAB: not yet
-        QVERIFY(tuneCommands(selector(msg::RADIO_IDENTIFIER_TYPE_DAB_SID_EXT, 0x1D3C2), state()).isEmpty());
+        // DAB (radio 2.7): the service id from the low 16 bits; an unknown one fails in the plugin
+        commands = tuneCommands(selector(msg::RADIO_IDENTIFIER_TYPE_DAB_SID_EXT, 0x1D3C2), state());
+        QCOMPARE(commands, (QList<QVariantMap>{{{"cmd", "band"}, {"value", "dab"}}, {{"cmd", "tune"}, {"value", "0xD3C2"}}}));
+        QVERIFY(tuneCommands(selector(msg::RADIO_IDENTIFIER_TYPE_HD_STATION_ID_EXT, 1), state()).isEmpty());
         QVERIFY(tuneCommands(selector(msg::RADIO_IDENTIFIER_TYPE_AMFM_FREQUENCY, 200000), state()).isEmpty());
     }
 };
