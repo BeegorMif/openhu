@@ -67,8 +67,10 @@ networks you trust.
 | `system.nightMode` | `mode` (`auto`, `day`, `night`) – that setting (`General.NightMode`) |
 | `input.action` | `action`, `phase` (`click`, `press`, `release`) – every triggered action (one-shot event, no stored value). Media keys (`media.*`) go to the current media source: to the phone while `media.status.source` is `androidauto` (or empty), otherwise only here, to the plugin that published `media.status` with its own `source` (e.g. `radio`) |
 | `ui.page` | `page` – page shown in the shell (`home`, `aa`, `settings`, `plugin:<id>`) |
+| `ui.overlay` | `overlays` – ids of the plugins whose overlay is shown (`ui.overlay.show`) |
 | `ui.language` | `language` (`de`, `en`), `available` – language of the shell; texts of plugin processes can follow it |
 | `projection.exit` | – one-shot: "exit" inside Android Auto, the shell shows its home page |
+| `vehicle.gear` | published by a plugin (e.g. the CAN plugin): `reverse` (bool) and/or `gear` (`park`, `reverse`, `neutral`, `drive` or a number 0–10; wins over `reverse`). While it has a value when the phone connects, Android Auto gets the gear as a sensor (`reverse: false` without `gear` counts as drive) |
 | `plugins.state` | `plugins` – installed plugins after (re)loading |
 | `store.state` | `busy`, `status`, `error` – progress of store operations |
 | `wireless.state` | `enabled`, `wifiAvailable` (a WiFi card is there), `wifiInterface`, `bluetoothAvailable` (a Bluetooth adapter is there; wireless Android Auto needs both and starts by itself when one is plugged in later), `running`, `hotspot` (`off`, `starting`, `on`, `error`), `hotspotMode` (`always`, `demand`), `hotspotError`, `hotspotRoom` (the hotspot leaves the card to WiFi networks: `search`, `client`, empty), `searchUntil` (ms since 1970), `wifiOff`, `interface`, `channel`, `ssid`, `bluetooth` (`off`, `on`, `error`), `bluetoothError`, `phase` (`idle`, `waiting`, `hotspot`, `handshake`, `joining`, `connected`, `error`), `phaseText`, `device` |
@@ -82,6 +84,11 @@ networks you trust.
 | `system.time` | OpenHU OS only: `zone` (`Europe/Berlin`, `UTC`), `offset` (seconds east of UTC), `ntp` (time from the internet), `synchronized`, `time` (seconds since 1970), `busy` |
 
 Plugins publish their own topics with `bus.publish` (e.g. `vehicle.speed`).
+
+Android Auto is told when the head unit covers it (video focus `NATIVE`, the phone may stop rendering): while a
+plugin overlay is shown, and while a plugin page replaced the Android Auto page (`aa` → `plugin:<id>`, e.g. the camera
+in page mode) until the Android Auto page is shown again. Leaving Android Auto for another page by hand does not
+change it. After "Exit" inside Android Auto the phone renders again when the Android Auto page is opened.
 
 API clients on the wireless hotspot network are refused unless "API auch im WLAN-Hotspot" is switched on
 (the hotspot is meant for the phone; connect API devices over Ethernet). If they are allowed, they need the token too.
@@ -115,7 +122,7 @@ API clients on the wireless hotspot network are refused unless "API auch im WLAN
 | `plugin.enable` / `plugin.disable` | `id` | plugin |
 | `plugin.restart` | `id` | plugin – restarts its process |
 | `plugin.setDock` | `id`, `dock` (bool) | plugin – page as dock entry |
-| `ui.overlay.show` / `ui.overlay.hide` | `id` | `{}` – plugin overlay above everything |
+| `ui.overlay.show` / `ui.overlay.hide` | `id` | `{}` – plugin overlay above everything, including Android Auto (the phone is told, see above) |
 | `store.list` | – | packages of all sources with `installed`, `installedVersion`, `updateAvailable`, `source`, `official` |
 | `store.refresh` | – | `{queued}` – reload `index.json` of all sources |
 | `store.install` | `id` | `{queued}` – install or update |

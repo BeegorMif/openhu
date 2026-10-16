@@ -20,6 +20,7 @@
 #include <f1x/openauto/Common/Log.hpp>
 #include <f1x/openauto/autoapp/Service/Sensor/SensorService.hpp>
 #include <f1x/openauto/autoapp/Core/EventBus.hpp>
+#include <f1x/openauto/autoapp/Service/Sensor/VehicleGear.hpp>
 #include <fstream>
 #include <cmath>
 #include <gps.h>
@@ -50,6 +51,22 @@ namespace f1x::openauto::autoapp::service::sensor {
 
       OPENAUTO_LOG(info) << "[SensorService] start()";
       channel_->receive(this->shared_from_this());
+
+      // the gear from a plugin (CAN bus), sent while the phone asked for it
+      std::weak_ptr<SensorService> weak = this->shared_from_this();
+      gearConnection_ = QObject::connect(&core::EventBus::instance(), &core::EventBus::event,
+                                         [weak](const QString &topic, const QVariantMap &) {
+        if (topic != "vehicle.gear") {
+          return;
+        }
+        if (auto service = weak.lock()) {
+          service->strand_.dispatch([service]() {
+            if (service->gearRequested_) {
+              service->sendGearData();
+            }
+          });
+        }
+      });
     });
 
   }
@@ -71,6 +88,7 @@ namespace f1x::openauto::autoapp::service::sensor {
         this->gpsEnabled_ = false;
       }
 
+      QObject::disconnect(gearConnection_);
       OPENAUTO_LOG(info) << "[SensorService] stop()";
     });
   }
@@ -101,6 +119,12 @@ namespace f1x::openauto::autoapp::service::sensor {
         aap_protobuf::service::sensorsource::message::SensorType::SENSOR_LOCATION);
     sensorChannel->add_sensors()->set_sensor_type(
         aap_protobuf::service::sensorsource::message::SensorType::SENSOR_NIGHT_MODE);
+    // the gear only when a plugin publishes it (reverse camera, #76): Android Auto would wait for it otherwise
+    if (gearFromVehicle(core::EventBus::instance().last("vehicle.gear"))) {
+      OPENAUTO_LOG(info) << "[SensorService] vehicle.gear known: announcing SENSOR_GEAR";
+      sensorChannel->add_sensors()->set_sensor_type(
+          aap_protobuf::service::sensorsource::message::SensorType::SENSOR_GEAR);
+    }
   }
 
   void SensorService::onChannelOpenRequest(const aap_protobuf::service::control::message::ChannelOpenRequest &request) {
@@ -135,6 +159,11 @@ namespace f1x::openauto::autoapp::service::sensor {
                     std::bind(&SensorService::onChannelError, this->shared_from_this(), std::placeholders::_1));
     } else if (request.type() == aap_protobuf::service::sensorsource::message::SensorType::SENSOR_NIGHT_MODE) {
       promise->then(std::bind(&SensorService::sendNightData, this->shared_from_this()),
+                    std::bind(&SensorService::onChannelError, this->shared_from_this(), std::placeholders::_1));
+    } else if (request.type() == aap_protobuf::service::sensorsource::message::SensorType::SENSOR_GEAR) {
+      gearRequested_ = true;
+      sentGear_.reset();
+      promise->then(std::bind(&SensorService::sendGearData, this->shared_from_this()),
                     std::bind(&SensorService::onChannelError, this->shared_from_this(), std::placeholders::_1));
     } else {
       promise->then([]() {},
@@ -177,6 +206,23 @@ namespace f1x::openauto::autoapp::service::sensor {
       this->firstRun = false;
       this->previous = this->isNight;
     }
+  }
+
+  void SensorService::sendGearData() {
+    const auto gear = gearFromVehicle(core::EventBus::instance().last("vehicle.gear"));
+    if (!gear || gear == sentGear_) {
+      return;
+    }
+    sentGear_ = gear;
+    OPENAUTO_LOG(info) << "[SensorService] sendGearData(): " << aap_protobuf::service::sensorsource::message::Gear_Name(*gear);
+
+    aap_protobuf::service::sensorsource::message::SensorBatch indication;
+    indication.add_gear_data()->set_gear(*gear);
+
+    auto promise = aasdk::channel::SendPromise::defer(strand_);
+    promise->then([]() {},
+                  std::bind(&SensorService::onChannelError, this->shared_from_this(), std::placeholders::_1));
+    channel_->sendSensorEventIndication(indication, std::move(promise));
   }
 
   void SensorService::sendGPSLocationData() {

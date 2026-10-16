@@ -23,6 +23,8 @@
 #include <aasdk/Channel/MediaSink/Video/IVideoMediaSinkServiceEventHandler.hpp>
 #include <f1x/openauto/autoapp/Projection/IVideoOutput.hpp>
 #include <f1x/openauto/autoapp/Service/IService.hpp>
+#include <f1x/openauto/autoapp/Service/MediaSink/VideoFocusPolicy.hpp>
+#include <QMetaObject>
 
 namespace f1x {
   namespace openauto {
@@ -67,13 +69,19 @@ namespace f1x {
             void onChannelError(const aasdk::error::Error &e) override;
 
             void onVideoFocusRequest(const aap_protobuf::service::media::video::message::VideoFocusRequestNotification &request) override;
-            void sendVideoFocusIndication();
+            // unsolicited: the head unit changed the focus by itself (camera overlay shown/hidden, #76), not an
+            // answer to a VideoFocusRequest of the phone
+            void sendVideoFocusIndication(aap_protobuf::service::media::video::message::VideoFocusMode mode,
+                                          bool unsolicited);
           protected:
             using std::enable_shared_from_this<VideoMediaSinkService>::shared_from_this;
             boost::asio::io_service::strand strand_;
             aasdk::channel::mediasink::video::IVideoMediaSinkService::Pointer channel_;
             projection::IVideoOutput::Pointer videoOutput_;
             int32_t session_;
+            // strand only
+            VideoFocusPolicy focusPolicy_;
+            QMetaObject::Connection busConnection_;
           };
         }
       }

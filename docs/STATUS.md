@@ -65,7 +65,9 @@ Detailed plan: `~/.claude/plans/ich-h-tte-gene-folgenden-ethereal-lighthouse.md`
   built reproducibly by `tools/openhu-repo-index`.
 - Volume through `pactl` (PulseAudio and PipeWire) instead of libpulse.
 - Navigation channel with type ENUM (the shell draws the arrows).
-- Reverse camera: by default in the content area and in the dock, full screen optional.
+- Reverse camera: by default in the content area and in the dock, full screen optional. Android Auto is told with
+  video focus `NATIVE` while the camera (any plugin overlay, or a plugin page that replaced Android Auto) covers it,
+  and gets the gear (`vehicle.gear`) as a sensor (#76, not tested with a phone yet).
 - Actions (`input.action`) and plugin commands are one-shot events (`bus.emit`), states
   are stored with their last value (`bus.publish`).
 - The shell's texts are IDs in the code (`qsTrId`); every language, English too, is a translation file (`translations/`,

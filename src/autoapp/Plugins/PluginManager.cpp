@@ -162,6 +162,8 @@ void PluginManager::load()
 
     emit pluginsChanged();
     core::EventBus::instance().publish("plugins.state", {{"plugins", this->plugins()}});
+    // overlays shown before the reload are gone
+    this->publishOverlays();
 }
 
 void PluginManager::stopAll()
@@ -269,8 +271,26 @@ bool PluginManager::setOverlayVisible(const QString& id, bool visible)
     {
         it->second->overlayVisible = visible;
         emit overlayChanged(id, visible);
+        this->publishOverlays();
     }
     return true;
+}
+
+void PluginManager::publishOverlays()
+{
+    // Android Auto tells the phone that the projection is covered (video focus NATIVE, #76)
+    QStringList overlays;
+    for(const auto& entry: plugins_)
+    {
+        if(entry.second->overlayVisible)
+        {
+            overlays.append(entry.first);
+        }
+    }
+    if(core::EventBus::instance().last("ui.overlay").value("overlays").toStringList() != overlays)
+    {
+        core::EventBus::instance().publish("ui.overlay", {{"overlays", overlays}});
+    }
 }
 
 bool PluginManager::overlayVisible(const QString& id) const
@@ -287,6 +307,7 @@ void PluginManager::unload(const QString& id)
         this->stopProcess(*it->second);
         plugins_.erase(it);
         emit pluginsChanged();
+        this->publishOverlays();
     }
 }
 
