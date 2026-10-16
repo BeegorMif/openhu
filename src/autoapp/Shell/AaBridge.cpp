@@ -119,6 +119,7 @@ void AaBridge::setVideoOutputActive(const void* output, bool active)
     // The sink keeps the last picture: without clearing it a new connection showed the previous session's
     // last picture until its first frame was decoded (0.5-1 s). Cleared at the end and at the start, since a
     // frame of the old session can still be queued for the GUI thread when it ends.
+    this->setPictureWaiting(activeOutput_, false);
     if(active)
     {
         activeOutput_ = output;
@@ -145,6 +146,21 @@ void AaBridge::clearVideoFrame()
 bool AaBridge::videoActive() const
 {
     return videoActive_;
+}
+
+bool AaBridge::pictureWaiting() const
+{
+    return pictureWaiting_;
+}
+
+void AaBridge::setPictureWaiting(const void* output, bool waiting)
+{
+    if(output != activeOutput_ || pictureWaiting_ == waiting)
+    {
+        return;
+    }
+    pictureWaiting_ = waiting;
+    emit pictureWaitingChanged();
 }
 
 QString AaBridge::videoError() const

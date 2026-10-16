@@ -22,6 +22,8 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QtTest>
+#include <string>
+#include <vector>
 #include "TestHome.hpp"
 #include <f1x/openauto/autoapp/Core/EventBus.hpp>
 #include <f1x/openauto/autoapp/Plugins/PluginManager.hpp>
@@ -89,7 +91,11 @@ public:
     bool open() override { return true; }
     bool init() override { return true; }
     void write(aasdk::messenger::Timestamp::ValueType, const aasdk::common::DataConstBuffer&) override {}
-    void stop() override {}
+    void stop() override { ++stops; }
+    void streamStopped() override { events.push_back("stopped"); }
+    void streamStarted() override { events.push_back("started"); }
+    int stops = 0;
+    std::vector<std::string> events;
     aap_protobuf::service::media::sink::message::VideoFrameRateType getVideoFPS() const override
     {
         return aap_protobuf::service::media::sink::message::VIDEO_FPS_30;
@@ -311,6 +317,27 @@ private slots:
         ioService.poll();
         QCOMPARE(channel->indications.size(), size_t(5));
         bus.publish("ui.overlay", overlays({}));
+    }
+
+    // The phone stops and restarts the stream within the connection (#88): the output only hears about it and is
+    // not stopped (which would clear the picture)
+    void streamStopAndStartReachTheOutput()
+    {
+        boost::asio::io_service ioService;
+        auto channel = std::make_shared<FakeChannel>();
+        auto output = std::make_shared<FakeOutput>();
+        auto service = std::make_shared<VideoMediaSinkService>(ioService, channel, output);
+        service->onMediaChannelSetupRequest(aap_protobuf::service::media::shared::message::Setup());
+        aap_protobuf::service::media::shared::message::Start start;
+        start.set_session_id(1);
+        start.set_configuration_index(0);
+        service->onMediaChannelStartIndication(start);
+        service->onMediaChannelStopIndication(aap_protobuf::service::media::shared::message::Stop());
+        start.set_session_id(2);
+        service->onMediaChannelStartIndication(start);
+        ioService.poll();
+        QCOMPARE(output->events, (std::vector<std::string>{"started", "stopped", "started"}));
+        QCOMPARE(output->stops, 0);
     }
 
     void gearMapping()

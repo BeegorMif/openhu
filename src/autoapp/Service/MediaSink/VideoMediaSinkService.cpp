@@ -183,6 +183,8 @@ namespace f1x {
                                << indication.session_id();
 
             session_ = indication.session_id();
+            // within a connection: the stream comes back after OpenHU gave the video focus back (#88)
+            videoOutput_->streamStarted();
             channel_->receive(this->shared_from_this());
           }
 
@@ -191,7 +193,7 @@ namespace f1x {
             OPENAUTO_LOG(info) << "[onMediaChannelStopIndication] onMediaChannelStopIndication()";
             OPENAUTO_LOG(info) << "[onMediaChannelStopIndication] Channel Id: "
                                << aasdk::messenger::channelIdToString(channel_->getId()) << ", session: " << session_;
-
+            videoOutput_->streamStopped();
             channel_->receive(this->shared_from_this());
           }
 

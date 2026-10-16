@@ -46,6 +46,11 @@ public:
     virtual bool init() = 0;
     virtual void write(aasdk::messenger::Timestamp::ValueType timestamp, const aasdk::common::DataConstBuffer& buffer) = 0;
     virtual void stop() = 0;
+    // The phone stops/starts the video stream (MediaChannelStop/StartIndication). Within one connection this
+    // happens when OpenHU takes the video focus (NATIVE: reverse camera, "Exit") and gives it back (#83, #88):
+    // the output keeps running and keeps its last picture.
+    virtual void streamStopped() {}
+    virtual void streamStarted() {}
 
     virtual aap_protobuf::service::media::sink::message::VideoFrameRateType getVideoFPS() const = 0;
     virtual aap_protobuf::service::media::sink::message::VideoCodecResolutionType getVideoResolution() const = 0;

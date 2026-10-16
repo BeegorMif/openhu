@@ -27,6 +27,7 @@ std::atomic<int> sendCalls{0};
 std::atomic<int> eagainAt{-1};        // send call index that answers EAGAIN once
 std::atomic<int> framesOut{0};
 std::atomic<int> corruptFrames{0};
+std::atomic<int> markCorrupt{0};      // the next n decoded frames get decode errors (concealed slices)
 std::atomic<bool> noFrames{false};     // receive_frame never returns a frame ("hardware shows no picture")
 std::atomic<bool> noH264{false};       // avcodec_find_decoder_by_name("h264") fails
 std::atomic<bool> noDecoderAtAll{false};
@@ -55,7 +56,7 @@ void setGate(bool& gate, bool open)
 }
 void reset()
 {
-    sendCalls = 0; eagainAt = -1; framesOut = 0; corruptFrames = 0; noFrames = false; noH264 = false;
+    sendCalls = 0; eagainAt = -1; framesOut = 0; corruptFrames = 0; noFrames = false; noH264 = false; markCorrupt = 0;
     noDecoderAtAll = false; recordSlices = false; nonIdrBeforeIdr = 0; idrSeen = false;
     setGate(openGate, true);
     setGate(sendGate, true);
@@ -112,6 +113,11 @@ int avcodec_receive_frame(AVCodecContext* context, AVFrame* frame)
         av_frame_unref(frame);
         return AVERROR(EAGAIN);
     }
+    if(result == 0 && hook::markCorrupt > 0)
+    {
+        --hook::markCorrupt;
+        frame->decode_error_flags |= FF_DECODE_ERROR_CONCEALMENT_ACTIVE;
+    }
     if(result == 0)
     {
         ++hook::framesOut;
@@ -162,8 +168,9 @@ namespace
 constexpr int cWidth = 320;
 constexpr int cHeight = 240;
 
-// Access units: 'frames' pictures, first one an IDR with SPS/PPS; luma changes per frame so every frame differs
-QList<QByteArray> encode(int frames, int luma)
+// Access units: 'frames' pictures, first one an IDR with SPS/PPS; luma changes per frame so every frame differs.
+// The first 'black' pictures are black (luma 16), like the phone's first frames after a stream restart.
+QList<QByteArray> encode(int frames, int luma, int black = 0)
 {
     QList<QByteArray> packets;
     const AVCodec* codec = avcodec_find_encoder_by_name("libx264");
@@ -202,7 +209,8 @@ QList<QByteArray> encode(int frames, int luma)
         {
             for(int x = 0; x < cWidth; ++x)
             {
-                frame->data[0][y * frame->linesize[0] + x] = uint8_t(luma + ((x / 16 + y / 16 + i) % 4) * 20);
+                frame->data[0][y * frame->linesize[0] + x] =
+                    i < black ? uint8_t(16) : uint8_t(luma + ((x / 16 + y / 16 + i) % 4) * 20);
             }
         }
         for(int plane = 1; plane < 3; ++plane)
@@ -277,6 +285,64 @@ double meanAbsDiff(const std::vector<uint8_t>& a, const std::vector<uint8_t>& b)
 void write(FfmpegVideoOutput& output, const QByteArray& data)
 {
     output.write(0, aasdk::common::DataConstBuffer(reinterpret_cast<const uint8_t*>(data.constData()), data.size()));
+}
+
+// What the shell's sink was given: -1 for an empty frame (cleared), else the luma of the top left pixel, which tells
+// the frames of encode() apart (luma + (frame % 4) * 20)
+class SinkRecorder
+{
+public:
+    explicit SinkRecorder(QVideoSink& sink)
+    {
+        QObject::connect(&sink, &QVideoSink::videoFrameChanged, &sink, [this](const QVideoFrame& frame) {
+            QVideoFrame copy(frame);
+            if(!copy.isValid() || !copy.map(QVideoFrame::ReadOnly))
+            {
+                frames.append(-1);
+                return;
+            }
+            frames.append(copy.bits(0)[0]);
+            copy.unmap();
+        });
+    }
+    QList<int> frames;
+
+    // Frame numbers (frame % 4) of the recorded frames from 'from' on, -1 for an empty frame
+    QList<int> numbers(int luma, qsizetype from = 0) const
+    {
+        QList<int> result;
+        for(const int value: frames.mid(from))
+        {
+            result.append(value < 0 ? -1 : qRound((value - luma) / 20.0));
+        }
+        return result;
+    }
+    int valid() const { return int(frames.size() - frames.count(-1)); }
+};
+
+// One message at a time, each decoded frame reaches the sink before the next message (no frame is replaced
+// before display)
+void writeSlowly(FfmpegVideoOutput& output, const QList<QByteArray>& packets)
+{
+    for(const auto& packet: packets)
+    {
+        const int before = hook::framesOut;
+        write(output, packet);
+        bool picture = false;
+        for(int i = 0; i + 3 < packet.size(); ++i)
+        {
+            const int type = packet[i + 3] & 0x1f;
+            if(packet[i] == 0 && packet[i + 1] == 0 && packet[i + 2] == 1 && (type == 1 || type == 5))
+            {
+                picture = true;
+            }
+        }
+        if(picture)
+        {
+            QTRY_COMPARE_WITH_TIMEOUT(hook::framesOut.load(), before + 1, 2000);
+        }
+        QTest::qWait(20);
+    }
 }
 }
 
@@ -410,6 +476,133 @@ private slots:
         }
         output.stop();
         QCOMPARE(meanAbsDiff(shown, referenceLastLuma(next)), 0.0);
+    }
+
+    // The phone stops the stream (video focus NATIVE: reverse camera, "Exit") and starts it again with a new
+    // encoder (SPS/PPS, IDR) in the same connection: the last picture stays, nothing clears it (#88)
+    void streamRestartKeepsTheLastPicture()
+    {
+        TestHome home;
+        auto configuration = std::make_shared<Configuration>();
+        configuration->setVideoDecoder("software");
+        QVideoSink sink;
+        AaBridge::instance().setVideoSink(&sink);  // the shell's sink, as in the running shell
+        SinkRecorder recorder(sink);
+        FfmpegVideoOutput output(configuration);
+        QVERIFY(output.init());
+        QTRY_COMPARE(output.decoderName(), std::string("h264"));
+        QTRY_VERIFY(AaBridge::instance().videoActive());
+
+        output.streamStarted();
+        writeSlowly(output, splitCodecConfig(encode(4, 40)));
+        QTRY_COMPARE(recorder.valid(), 4);
+        const qsizetype mark = recorder.frames.size();
+
+        QVERIFY(!AaBridge::instance().pictureWaiting());
+        output.streamStopped();
+        QTRY_VERIFY(AaBridge::instance().pictureWaiting());  // the shell keeps its page meanwhile
+        QTest::qWait(100);
+        output.streamStarted();
+        writeSlowly(output, splitCodecConfig(encode(4, 120)));
+        QTRY_COMPARE(recorder.frames.size(), mark + 4);
+        QVERIFY(!AaBridge::instance().pictureWaiting());  // cleared with the first picture of the new stream
+        QCOMPARE(recorder.numbers(120, mark), (QList<int>{0, 1, 2, 3}));
+        QVERIFY(AaBridge::instance().videoActive());
+        QVERIFY(sink.videoFrame().isValid());
+
+        output.stop();
+        AaBridge::instance().setVideoSink(nullptr);
+    }
+
+    // Frames with decode errors after a restart (e.g. P-frames whose references the phone never sent) are not
+    // shown: the last picture stays until the first complete one
+    void framesWithErrorsAfterRestartAreHeldBack()
+    {
+        TestHome home;
+        auto configuration = std::make_shared<Configuration>();
+        configuration->setVideoDecoder("software");
+        QVideoSink sink;
+        SinkRecorder recorder(sink);
+        FfmpegVideoOutput output(configuration, &sink);
+        QVERIFY(output.init());
+        QTRY_COMPARE(output.decoderName(), std::string("h264"));
+
+        output.streamStarted();
+        writeSlowly(output, splitCodecConfig(encode(2, 40)));
+        QTRY_COMPARE(recorder.valid(), 2);
+        const qsizetype mark = recorder.frames.size();
+
+        output.streamStopped();
+        output.streamStarted();
+        hook::markCorrupt = 2;
+        writeSlowly(output, splitCodecConfig(encode(6, 120)));
+        // frames 0 and 1 held back, the first one shown is frame 2
+        QTRY_COMPARE(recorder.frames.size(), mark + 4);
+        QCOMPARE(recorder.numbers(120, mark), (QList<int>{2, 3, 0, 1}));
+
+        // later errors are shown as before (the decoder conceals them, holding would freeze the picture)
+        hook::markCorrupt = 1;
+        writeSlowly(output, splitCodecConfig(encode(2, 200)));
+        QTRY_COMPARE(recorder.frames.size(), mark + 6);
+        output.stop();
+    }
+
+    // After a restart the phone sends black frames before its UI (Fairphone 4, #88): they are held back, the last
+    // picture stays until the first one with content. On the first start of a connection nothing is held back.
+    void blankFramesAfterRestartAreHeldBack()
+    {
+        TestHome home;
+        auto configuration = std::make_shared<Configuration>();
+        configuration->setVideoDecoder("software");
+        QVideoSink sink;
+        SinkRecorder recorder(sink);
+        FfmpegVideoOutput output(configuration, &sink);
+        QVERIFY(output.init());
+        QTRY_COMPARE(output.decoderName(), std::string("h264"));
+
+        output.streamStarted();
+        writeSlowly(output, splitCodecConfig(encode(3, 40, 1)));
+        QTRY_COMPARE(recorder.valid(), 3);
+        QCOMPARE(recorder.frames.first(), 16);  // first start: the black frame is shown
+        const qsizetype mark = recorder.frames.size();
+
+        output.streamStopped();
+        output.streamStarted();
+        writeSlowly(output, splitCodecConfig(encode(6, 120, 3)));
+        // frames 0-2 black and held back, the first one shown is frame 3
+        QTRY_COMPARE(recorder.frames.size(), mark + 3);
+        QCOMPARE(recorder.numbers(120, mark), (QList<int>{3, 0, 1}));
+        output.stop();
+    }
+
+    // A phone that sends only frames with errors after the restart still gets its picture shown after cMaxHoldMs
+    void heldBackAtMostOneSecond()
+    {
+        TestHome home;
+        auto configuration = std::make_shared<Configuration>();
+        configuration->setVideoDecoder("software");
+        QVideoSink sink;
+        SinkRecorder recorder(sink);
+        FfmpegVideoOutput output(configuration, &sink);
+        QVERIFY(output.init());
+        QTRY_COMPARE(output.decoderName(), std::string("h264"));
+        output.streamStarted();
+        writeSlowly(output, splitCodecConfig(encode(1, 40)));
+        QTRY_COMPARE(recorder.valid(), 1);
+        const qsizetype mark = recorder.frames.size();
+
+        output.streamStopped();
+        output.streamStarted();
+        hook::markCorrupt = 1000;
+        const auto packets = splitCodecConfig(encode(8, 120));
+        writeSlowly(output, packets.mid(0, 4));  // SPS/PPS and 3 pictures
+        QTest::qWait(200);
+        QCOMPARE(recorder.frames.size(), mark);
+        QTest::qWait(1000);
+        writeSlowly(output, packets.mid(4));
+        QTRY_COMPARE(recorder.frames.size(), mark + 5);
+        QVERIFY(!recorder.numbers(120, mark).contains(-1));
+        output.stop();
     }
 
     // Hardware decoder without a picture, no software decoder: the video is not left marked active
