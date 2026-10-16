@@ -40,7 +40,7 @@ jobs:
           fi
           echo "OPENHU_VERSION=$version" >> "$GITHUB_ENV"
 
-      - name: aasdk release
+      - name: aasdk packages (release, else the aasdk CI)
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
