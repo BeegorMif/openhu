@@ -52,6 +52,7 @@ class AaBridge: public QObject
     Q_PROPERTY(QVideoSink* videoSink READ videoSink WRITE setVideoSink NOTIFY videoSinkChanged)
     Q_PROPERTY(bool videoActive READ videoActive NOTIFY videoActiveChanged)
     Q_PROPERTY(QString videoError READ videoError NOTIFY videoErrorChanged)
+    Q_PROPERTY(bool pictureWaiting READ pictureWaiting NOTIFY pictureWaitingChanged)
     Q_PROPERTY(bool surfaceVisible READ surfaceVisible WRITE setSurfaceVisible NOTIFY surfaceVisibleChanged)
     Q_PROPERTY(QSize videoSize READ videoSize NOTIFY geometryChanged)
     Q_PROPERTY(QRect contentRect READ contentRect NOTIFY geometryChanged)
@@ -75,6 +76,12 @@ public:
     // a video output becomes active. GUI thread.
     QString videoError() const;
     void setVideoError(const QString& error);
+
+    // The phone stopped the video stream within the connection (video focus NATIVE: reverse camera, "Exit") and
+    // the first picture of the restarted stream is not shown yet. The shell keeps the page it showed until then
+    // (#88). Only for the active output, cleared when an output starts/stops. GUI thread.
+    bool pictureWaiting() const;
+    void setPictureWaiting(const void* output, bool waiting);
 
     bool surfaceVisible() const;
     void setSurfaceVisible(bool visible);
@@ -102,6 +109,7 @@ signals:
     void videoSinkChanged();
     void videoActiveChanged();
     void videoErrorChanged();
+    void pictureWaitingChanged();
     void surfaceVisibleChanged();
     void geometryChanged();
 
@@ -115,6 +123,7 @@ private:
     const void* activeOutput_ = nullptr;
     bool videoActive_ = false;
     QString videoError_;
+    bool pictureWaiting_ = false;
     bool surfaceVisible_ = false;
 
     mutable std::mutex mutex_;

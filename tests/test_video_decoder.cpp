@@ -498,11 +498,14 @@ private slots:
         QTRY_COMPARE(recorder.valid(), 4);
         const qsizetype mark = recorder.frames.size();
 
+        QVERIFY(!AaBridge::instance().pictureWaiting());
         output.streamStopped();
+        QTRY_VERIFY(AaBridge::instance().pictureWaiting());  // the shell keeps its page meanwhile
         QTest::qWait(100);
         output.streamStarted();
         writeSlowly(output, splitCodecConfig(encode(4, 120)));
         QTRY_COMPARE(recorder.frames.size(), mark + 4);
+        QVERIFY(!AaBridge::instance().pictureWaiting());  // cleared with the first picture of the new stream
         QCOMPARE(recorder.numbers(120, mark), (QList<int>{0, 1, 2, 3}));
         QVERIFY(AaBridge::instance().videoActive());
         QVERIFY(sink.videoFrame().isValid());

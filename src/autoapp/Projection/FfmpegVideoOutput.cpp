@@ -300,9 +300,16 @@ void FfmpegVideoOutput::write(uint64_t, const aasdk::common::DataConstBuffer& bu
 
 void FfmpegVideoOutput::streamStopped()
 {
-    std::lock_guard<std::mutex> lock(mutex_);
-    streamStopped_ = true;
-    pendingStartMs_ = -1;
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        streamStopped_ = true;
+        pendingStartMs_ = -1;
+    }
+    // The shell keeps its page instead of showing Android Auto's last picture until the stream is back
+    const void* self = this;
+    QMetaObject::invokeMethod(&shell::AaBridge::instance(), [self]() {
+        shell::AaBridge::instance().setPictureWaiting(self, true);
+    }, Qt::QueuedConnection);
 }
 
 void FfmpegVideoOutput::streamStarted()
@@ -640,6 +647,10 @@ bool FfmpegVideoOutput::showAfterStart(const AVFrame* frame)
     if(!streamStart_.shown)
     {
         streamStart_.shown = true;
+        if(streamStart_.restart)
+        {
+            restartPicturePending_ = true;
+        }
         OPENAUTO_LOG(info) << "[FfmpegVideoOutput] first picture after the stream "
                            << (streamStart_.restart ? "restart" : "start") << ": " << elapsed << " ms, "
                            << streamStart_.messages << " messages, " << (streamStart_.idrSeen ? "IDR" : "no IDR")
@@ -765,6 +776,10 @@ void FfmpegVideoOutput::present(QVideoFrame frame)
         if(sink != nullptr)
         {
             sink->setVideoFrame(next);
+        }
+        if(restartPicturePending_.exchange(false))
+        {
+            shell::AaBridge::instance().setPictureWaiting(this, false);
         }
     }, Qt::QueuedConnection);
 }

@@ -15,6 +15,14 @@ Window {
     property string page: "home"
     property string settingsCategory: "general"
 
+    // The page on screen. While the phone restarts its video stream (after the reverse camera or "Exit") the
+    // Android Auto page would show its last picture and then the phone's black frames and fade-in: the page shown
+    // before stays until the first picture of the new stream is there, at most 2 s (#88)
+    property string previousPage: "home"
+    property bool pictureWaitOver: false
+    readonly property string shownPage: page === "aa" && aaBridge.pictureWaiting && !pictureWaitOver
+                                        ? previousPage : page
+
     // fromApi: ui.navigate (e.g. a plugin leaving its page), otherwise chosen by the user
     function navigate(name, fromApi) {
         if (fromApi)
@@ -31,7 +39,17 @@ Window {
         }
         page = name
     }
-    onPageChanged: shell.setCurrentPage(page)
+    onPageChanged: {
+        shell.setCurrentPage(page)
+        pictureWaitOver = false
+    }
+    onShownPageChanged: if (shownPage !== "aa") previousPage = shownPage
+
+    Timer {
+        interval: 2000
+        running: root.page === "aa" && aaBridge.pictureWaiting && !root.pictureWaitOver
+        onTriggered: root.pictureWaitOver = true
+    }
     Component.onCompleted: {
         shell.setCurrentPage(page)
         updatePluginPages()
@@ -179,18 +197,18 @@ Window {
 
                 HomePage {
                     anchors.fill: parent
-                    visible: root.page === "home"
+                    visible: root.shownPage === "home"
                     onOpenAndroidAuto: root.navigate("aa")
                 }
 
                 AaPage {
                     anchors.fill: parent
-                    visible: root.page === "aa"
+                    visible: root.shownPage === "aa"
                 }
 
                 Loader {
                     anchors.fill: parent
-                    active: root.page === "settings"
+                    active: root.shownPage === "settings"
                     sourceComponent: SettingsPage {
                         category: root.settingsCategory
                         onCategoryChanged: root.settingsCategory = category
@@ -208,7 +226,7 @@ Window {
                         required property string page
                         required property bool pluginEnabled
                         anchors.fill: parent
-                        visible: root.page === "plugin:" + pluginId
+                        visible: root.shownPage === "plugin:" + pluginId
                         property bool used: false
                         onVisibleChanged: if (visible) used = true
                         active: pluginEnabled && page !== "" && (visible || used)

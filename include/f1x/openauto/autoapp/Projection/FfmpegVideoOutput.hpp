@@ -17,6 +17,7 @@
 
 #pragma once
 
+#include <atomic>
 #include <condition_variable>
 #include <deque>
 #include <mutex>
@@ -157,6 +158,8 @@ private:
     bool debugLog_ = false;
     // Subsampled luma of the last decoded frame, only with debugLog_
     std::vector<uint8_t> lastLuma_;
+    // The first picture after a restart is on its way to the sink: the shell stops waiting once it is there
+    std::atomic<bool> restartPicturePending_{false};
     QVideoFrameFormat lastFormat_;
 
     // Newest decoded frame waiting for the GUI thread (older ones are replaced, never queued)
