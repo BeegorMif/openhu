@@ -120,10 +120,30 @@ private slots:
         DuckPolicy policy;
         QVERIFY(!policy.target().active);
         policy.focusRequested(FocusRequest::GainTransient);
-        QVERIFY(!policy.target().active);  // nothing plays on the guidance channel yet
+        QCOMPARE(policy.target(), (DuckTarget{true, 0, "transient"}));  // silent from the request on
         policy.guidanceStarted();
         QCOMPARE(policy.target(), (DuckTarget{true, 0, "transient"}));
+        // the Assistant listens between its answers: guidance stopped, still silent until the release
         policy.guidanceStopped();
+        policy.microphoneChanged(true);
+        QCOMPARE(policy.target(), (DuckTarget{true, 0, "transient"}));
+        policy.microphoneChanged(false);
+        QCOMPARE(policy.target(), (DuckTarget{true, 0, "transient"}));
+        policy.guidanceStarted();
+        policy.guidanceStopped();
+        policy.focusRequested(FocusRequest::Release);
+        QCOMPARE(policy.target(), DuckTarget());
+    }
+
+    void openMicrophoneMutes()
+    {
+        DuckPolicy policy;
+        policy.microphoneChanged(true);
+        QCOMPARE(policy.target(), (DuckTarget{true, 0, "microphone"}));
+        policy.microphoneChanged(false);
+        QCOMPARE(policy.target(), DuckTarget());
+        policy.microphoneChanged(true);
+        policy.sessionEnded();
         QCOMPARE(policy.target(), DuckTarget());
     }
 
@@ -297,7 +317,11 @@ private slots:
         // the state for a crash
         QVERIFY(QFile::exists(dir_.filePath("state.json")));
 
+        // transient focus: silent until the phone releases it (the Assistant listens between its answers)
         controller->onGuidance(false);
+        QTest::qWait(200);
+        QCOMPARE(this->lastVolume(7), QString("0"));
+        controller->onFocusRequest(4);
         QTRY_COMPARE(this->lastVolume(7), QString("65536"));
         QCOMPARE(EventBus::instance().last("audio.duck").value("active").toBool(), false);
         QVERIFY(this->log().size() >= down.size() + 3);

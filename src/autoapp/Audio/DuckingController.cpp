@@ -108,6 +108,11 @@ void AndroidAutoAudio::reportGuidance(bool playing)
     QMetaObject::invokeMethod(this, [this, playing]() { emit guidanceChanged(playing); }, Qt::QueuedConnection);
 }
 
+void AndroidAutoAudio::reportMicrophone(bool open)
+{
+    QMetaObject::invokeMethod(this, [this, open]() { emit microphoneChanged(open); }, Qt::QueuedConnection);
+}
+
 void AndroidAutoAudio::reportSessionEnded()
 {
     QMetaObject::invokeMethod(this, [this]() { emit sessionEnded(); }, Qt::QueuedConnection);
@@ -142,6 +147,7 @@ void DuckingController::start()
     auto& hub = AndroidAutoAudio::instance();
     connect(&hub, &AndroidAutoAudio::focusRequested, this, &DuckingController::onFocusRequest, Qt::UniqueConnection);
     connect(&hub, &AndroidAutoAudio::guidanceChanged, this, &DuckingController::onGuidance, Qt::UniqueConnection);
+    connect(&hub, &AndroidAutoAudio::microphoneChanged, this, &DuckingController::onMicrophone, Qt::UniqueConnection);
     connect(&hub, &AndroidAutoAudio::sessionEnded, this, &DuckingController::onSessionEnded, Qt::UniqueConnection);
     this->publish();
     this->loadState();
@@ -209,6 +215,18 @@ void DuckingController::onGuidance(bool playing)
     playing ? policy_.guidanceStarted() : policy_.guidanceStopped();
     OPENAUTO_LOG(info) << "[DuckingController] guidance channel " << (playing ? "started" : "stopped")
                        << " (last focus request " << focusRequestName(policy_.focus()) << ")";
+    this->update();
+}
+
+void DuckingController::onMicrophone(bool open)
+{
+    if(open == policy_.microphone())
+    {
+        return;
+    }
+    policy_.microphoneChanged(open);
+    OPENAUTO_LOG(info) << "[DuckingController] microphone " << (open ? "opened" : "closed") << " (last focus request "
+                       << focusRequestName(policy_.focus()) << ")";
     this->update();
 }
 

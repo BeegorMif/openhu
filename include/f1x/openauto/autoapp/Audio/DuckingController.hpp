@@ -49,12 +49,15 @@ public:
     void reportFocusRequest(int type);
     // MediaChannelStartIndication / StopIndication (or the service stopped) on the guidance channel
     void reportGuidance(bool playing);
+    // MicrophoneRequest open/close
+    void reportMicrophone(bool open);
     // the Android Auto session ended (disconnect)
     void reportSessionEnded();
 
 signals:
     void focusRequested(int type);
     void guidanceChanged(bool playing);
+    void microphoneChanged(bool open);
     void sessionEnded();
 
 private:
@@ -96,6 +99,7 @@ public:
 public slots:
     void onFocusRequest(int type);
     void onGuidance(bool playing);
+    void onMicrophone(bool open);
     void onSessionEnded();
 
 signals:

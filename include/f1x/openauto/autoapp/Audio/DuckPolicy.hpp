@@ -78,7 +78,9 @@ struct DuckTarget
 // apps: transient focus (the Assistant) silences them, "may duck" (navigation prompts) lowers them to the configured
 // level (Android: 20 %).
 // The guidance channel decides when (MediaChannelStartIndication .. StopIndication), the last audio focus request of
-// the phone decides how much. Which request the Assistant and navigation send is not verified yet (expected:
+// the phone decides how much. Transient focus (the Assistant) silences them until the phone releases it: between its
+// answers the Assistant listens, the guidance channel is stopped then and the microphone open (Fairphone 4). An open
+// microphone silences them as well (dictation). Which request the Assistant and navigation send is not verified yet (expected:
 // Assistant GAIN_TRANSIENT, navigation GAIN_TRANSIENT_MAY_DUCK); everything except GAIN_TRANSIENT lowers to the
 // configured level, so an unexpected type never silences a prompt's background completely.
 class DuckPolicy
@@ -120,6 +122,17 @@ public:
         releasePending_ = false;
     }
 
+    // MicrophoneRequest open / close (the phone listens: Assistant, dictation)
+    void microphoneChanged(bool open)
+    {
+        microphone_ = open;
+    }
+
+    bool microphone() const
+    {
+        return microphone_;
+    }
+
     void guidanceStarted()
     {
         guidance_ = true;
@@ -139,6 +152,7 @@ public:
     void sessionEnded()
     {
         guidance_ = false;
+        microphone_ = false;
         focus_ = FocusRequest::None;
         releasePending_ = false;
     }
@@ -155,13 +169,18 @@ public:
 
     DuckTarget target() const
     {
+        if(focus_ == FocusRequest::GainTransient)
+        {
+            // held until the release, also while the Assistant listens
+            return DuckTarget{true, 0, QStringLiteral("transient")};
+        }
+        if(microphone_)
+        {
+            return DuckTarget{true, 0, QStringLiteral("microphone")};
+        }
         if(!guidance_)
         {
             return DuckTarget();
-        }
-        if(focus_ == FocusRequest::GainTransient)
-        {
-            return DuckTarget{true, 0, QStringLiteral("transient")};
         }
         return DuckTarget{true, duckLevel_,
                           focus_ == FocusRequest::GainTransientMayDuck ? QStringLiteral("may_duck")
@@ -171,6 +190,7 @@ public:
 private:
     int duckLevel_ = 20;
     bool guidance_ = false;
+    bool microphone_ = false;
     FocusRequest focus_ = FocusRequest::None;
     bool releasePending_ = false;
 };
