@@ -19,6 +19,10 @@
 #pragma once
 
 #include <atomic>
+#include <chrono>
+#include <functional>
+#include <QStringList>
+#include <boost/asio/steady_timer.hpp>
 
 #include <aasdk/USB/IUSBHub.hpp>
 #include <aasdk/USB/IConnectedAccessoriesEnumerator.hpp>
@@ -27,6 +31,7 @@
 #include <aasdk/TCP/ITCPEndpoint.hpp>
 #include <f1x/openauto/autoapp/Service/IAndroidAutoEntityEventHandler.hpp>
 #include <f1x/openauto/autoapp/Service/IAndroidAutoEntityFactory.hpp>
+#include <f1x/openauto/autoapp/Core/UsbWatchdog.hpp>
 
 namespace f1x
 {
@@ -40,8 +45,10 @@ class App: public service::IAndroidAutoEntityEventHandler, public std::enable_sh
 public:
     typedef std::shared_ptr<App> Pointer;
 
+    // wirelessPort: TCP port for wireless Android Auto (0: any free port, for tests)
     App(boost::asio::io_service& ioService, aasdk::usb::USBWrapper& usbWrapper, aasdk::tcp::ITCPWrapper& tcpWrapper, service::IAndroidAutoEntityFactory& androidAutoEntityFactory,
-        aasdk::usb::IUSBHub::Pointer usbHub, aasdk::usb::IConnectedAccessoriesEnumerator::Pointer connectedAccessoriesEnumerator);
+        aasdk::usb::IUSBHub::Pointer usbHub, aasdk::usb::IConnectedAccessoriesEnumerator::Pointer connectedAccessoriesEnumerator,
+        unsigned short wirelessPort = 5000);
 
     void waitForUSBDevice();
     void start(aasdk::tcp::ITCPEndpoint::SocketPointer socket);
@@ -53,12 +60,23 @@ public:
     // Wireless.Priority: true = USB session wins over wireless, false = wireless replaces the USB session
     void setPreferUsb(bool value) { preferUsb_ = value; }
 
+    // USB watchdog (openhu#80): phones on the cable (core::androidUsbDevices) are checked every interval; without a
+    // session for the watchdog's timeout the USB wait is armed again. Call before waitForUSBDevice() (tests).
+    void setUsbWatchdog(std::function<QStringList()> probe, std::chrono::steady_clock::duration interval,
+                        core::UsbWatchdog watchdog);
+    // delay before the USB wait is armed again after the hub failed (default 5 s)
+    void setUsbRetryDelay(std::chrono::steady_clock::duration delay) { usbRetryDelay_ = delay; }
+
 private:
     using std::enable_shared_from_this<App>::shared_from_this;
-    void enumerateDevices();
     void waitForDevice();
+    // Every way out of the USB wait ends here again, unless a USB session started (onAndroidAutoQuit arms it then).
+    // reregister: new hotplug registration, which reports the connected devices again (LIBUSB_HOTPLUG_ENUMERATE)
+    void armUsbWait(bool reregister, const char* reason);
     void aoapDeviceHandler(aasdk::usb::DeviceHandle deviceHandle);
-    void onUSBHubError(const aasdk::error::Error& error);
+    void onUSBHubError(unsigned generation, const aasdk::error::Error& error);
+    void scheduleUsbWatchdog();
+    void checkUsbWatchdog();
 
     boost::asio::io_service& ioService_;
     aasdk::usb::USBWrapper& usbWrapper_;
@@ -74,6 +92,15 @@ private:
     bool usbSession_ = false;
     // phone on the cable while wireless is possible: the cable wins (charging, latency)
     std::atomic<bool> preferUsb_{true};
+    // counts armUsbWait(): errors of a replaced wait (OPERATION_ABORTED) are not a reason to arm again
+    unsigned usbWaitGeneration_ = 0;
+    boost::asio::steady_timer usbRetryTimer_;
+    std::chrono::steady_clock::duration usbRetryDelay_ = std::chrono::seconds(5);
+    boost::asio::steady_timer usbWatchdogTimer_;
+    std::function<QStringList()> usbDeviceProbe_;
+    std::chrono::steady_clock::duration usbWatchdogInterval_ = std::chrono::seconds(5);
+    core::UsbWatchdog usbWatchdog_;
+    QStringList usbWatchdogDevices_;
 
     void startServerSocket();
 
