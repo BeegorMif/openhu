@@ -39,7 +39,8 @@ namespace f1x {
               : strand_(ioService),
                 tuneTimer_(ioService),
                 channel_(std::make_shared<aasdk::channel::radio::RadioService>(strand_, std::move(messenger))),
-                state_(core::EventBus::instance().last("radio.state")) {
+                state_(core::EventBus::instance().last("radio.state")),
+                icons_(stationIcons(core::EventBus::instance().last("radio.logos"))) {
           }
 
           void RadioService::start() {
@@ -48,11 +49,15 @@ namespace f1x {
               std::weak_ptr<RadioService> weak = self;
               busConnection_ = QObject::connect(&core::EventBus::instance(), &core::EventBus::event,
                                                 [weak](const QString &topic, const QVariantMap &data) {
-                if (topic != "radio.state") {
+                if (topic != "radio.state" && topic != "radio.logos") {
                   return;
                 }
                 if (auto service = weak.lock()) {
-                  service->strand_.dispatch([service, data]() { service->onState(data); });
+                  if (topic == "radio.logos") {
+                    service->strand_.dispatch([service, data]() { service->onLogos(data); });
+                  } else {
+                    service->strand_.dispatch([service, data]() { service->onState(data); });
+                  }
                 }
               });
               channel_->receive(this->shared_from_this());
@@ -189,6 +194,13 @@ namespace f1x {
             favoriteReplyPending_ = false;
           }
 
+          void RadioService::onLogos(const QVariantMap &logos) {
+            // sent by the plugin only when a logo changed: scaled here once, not for every station list
+            icons_ = stationIcons(logos);
+            OPENAUTO_LOG(info) << "[RadioService] station logos: " << icons_.size();
+            this->sendState(false);
+          }
+
           void RadioService::sendState(bool force) {
             if (!open_ || state_.isEmpty()) {
               return;
@@ -196,7 +208,7 @@ namespace f1x {
             // The phone decides whether the current station is a favorite when the station info arrives, with the
             // favorites it knows by then: favorites and list first, and the station again after the favorites
             // changed (tested with a Fairphone 4: otherwise the star shows the old state).
-            const auto favorites = favoriteList(state_);
+            const auto favorites = favoriteList(state_, icons_);
             const bool favoritesChanged = force || favorites.SerializeAsString() != lastFavorites_;
             if (favoritesChanged) {
               lastFavorites_ = favorites.SerializeAsString();
@@ -207,12 +219,14 @@ namespace f1x {
               OPENAUTO_LOG(info) << "[RadioService] favorites (kHz):" << list;
               channel_->sendFavoriteListNotification(favorites, this->promise());
             }
-            const auto list = programList(state_);
+            const auto list = programList(state_, icons_);
             if (force || list.SerializeAsString() != lastProgramList_) {
               lastProgramList_ = list.SerializeAsString();
+              OPENAUTO_LOG(info) << "[RadioService] station list: " << list.programs_size() << " stations, "
+                                 << lastProgramList_.size() / 1024 << " KB";
               channel_->sendProgramListNotification(list, this->promise());
             }
-            const auto info = programInfo(state_);
+            const auto info = programInfo(state_, icons_);
             if (favoritesChanged || info.SerializeAsString() != lastProgramInfo_) {
               lastProgramInfo_ = info.SerializeAsString();
               channel_->sendProgramInfoNotification(info, this->promise());

@@ -18,6 +18,8 @@
 #pragma once
 
 #include <cstdint>
+#include <string>
+#include <QHash>
 #include <QList>
 #include <QString>
 #include <QVariantMap>
@@ -45,6 +47,14 @@ namespace radio
 // action id of the FM scan in the band group, sent back by the phone as RadioSearchRequest
 extern const char* const cScanFmAction;
 
+// Station logos of the plugin (radio.logos: {fm: {"96.2": data URL}, am: {...}}) as images for Android Auto, key
+// "fm:96.2" / "am:1008". Scaled once when radio.logos changes, the station list is sent much more often.
+using StationIcons = QHash<QString, std::string>;
+constexpr int cStationIconSize = 128;
+StationIcons stationIcons(const QVariantMap& logos);
+// PNG/JPEG data URL -> image bytes that fit into size x size (PNG if scaled, else the original); empty if invalid
+std::string scaledIcon(const QString& dataUrl, int size = cStationIconSize);
+
 uint64_t toKHz(const QString& band, double frequency);
 
 // the frequency is one of the plugin's favorites (presets) of that band
@@ -60,9 +70,13 @@ PluginFrequency fromKHz(uint64_t kHz);
 // The radio service in the service announcement: v1 tuner list (field 1) and v2 band groups (field 2)
 void fillService(aap_protobuf::service::radio::RadioService& service, const QVariantMap& state);
 
-aap_protobuf::service::radio::message::RadioProgramListNotification programList(const QVariantMap& state);
-aap_protobuf::service::radio::message::RadioProgramInfoNotification programInfo(const QVariantMap& state);
-aap_protobuf::service::radio::message::RadioFavoriteListNotification favoriteList(const QVariantMap& state);
+// with station_icon for the stations that have a logo
+aap_protobuf::service::radio::message::RadioProgramListNotification programList(const QVariantMap& state,
+                                                                                const StationIcons& icons = {});
+aap_protobuf::service::radio::message::RadioProgramInfoNotification programInfo(const QVariantMap& state,
+                                                                                const StationIcons& icons = {});
+aap_protobuf::service::radio::message::RadioFavoriteListNotification favoriteList(const QVariantMap& state,
+                                                                                  const StationIcons& icons = {});
 
 // radio.command events ({cmd, value}) for a tune request; empty if the plugin cannot tune it (RDS PI, DAB, ...)
 QList<QVariantMap> tuneCommands(const aap_protobuf::service::radio::message::RadioProgramSelector& selector,

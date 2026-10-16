@@ -61,6 +61,7 @@ networks you trust.
 | `media.metadata` | `title`, `artist`, `album`, `playlist`, `duration` (s), `cover` (data URL), `source` |
 | `media.status` | `state` (`playing`, `paused`, `stopped`), `app`, `position` (s), `shuffle`, `repeat`, `repeatOne`, `source` |
 | `radio.state` / `radio.command` | of the radio plugin (`org.openhu.radio`, format in its `bin/radio.py`); OpenHU passes them to Android Auto's radio channel while the plugin runs (Settings → Android Auto → Radio, `Radio.AndroidAuto`): the plugin's stations become a media source in Android Auto, the phone's tune/seek/favorite/mute requests come back as `radio.command` |
+| `radio.logos` | of the radio plugin: `fm`, `am` – station logos (`{"96.2": data URL}`, from image files the user put into the plugin's data dir, nothing from the internet), published only when they change; OpenHU scales them to 128×128 for the station list, favorites and current station in Android Auto |
 | `phone.status` | `callState` (`idle`, `incoming`, `in_call`, `on_hold`, …), `calls` (`[{state, duration, number, name, numberType, thumbnail}]`), `signal` |
 | `audio.volume` | `volume` (0–100), `muted` |
 | `system.daynight` | `night` (bool) – switches Android Auto to night mode while Settings → Android Auto → Night mode is "Automatic" |
