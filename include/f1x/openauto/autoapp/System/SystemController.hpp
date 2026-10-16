@@ -26,9 +26,10 @@
 namespace f1x::openauto::autoapp::system
 {
 
-// OpenHU OS: system update, ssh access, time zone and time (Settings -> System, system.* API) through the command
-// line tool of OpenHU OS, answering in JSON: openhu-cli update check/install/cancel (progress in
-// <runDir>/update.json), openhu-cli ssh status/on/off/password, openhu-cli time status/zone/ntp/set. It runs these as
+// OpenHU OS: system update, ssh access, time zone and time (Settings -> System), Ethernet mode (Settings -> Network;
+// system.* API) through the command line tool of OpenHU OS, answering in JSON: openhu-cli update check/install/cancel
+// (progress in <runDir>/update.json), openhu-cli ssh status/on/off/password, openhu-cli time status/zone/ntp/set,
+// openhu-cli ethernet status/mode. It runs these as
 // root itself (pkexec, its polkit rule allows the openhu user exactly these commands).
 // Elsewhere (Docker, .deb on another system) available is false and nothing runs.
 class SystemController: public QObject
@@ -49,6 +50,12 @@ class SystemController: public QObject
     // zone ("Europe/Berlin"), offset (seconds east of UTC, now), ntp (time from the internet), synchronized, busy;
     // error when the state is unknown
     Q_PROPERTY(QVariantMap time READ time NOTIFY timeChanged)
+    // Ethernet port (openhu-os#15): mode (client: asks a router for an address, server: hands out addresses to devices
+    // in the car), address (of the head unit as the server), serverAllowed (false while a port in client mode got an
+    // address from another DHCP server: never two on one network), devices [{interface, state (connected, connecting,
+    // no-cable, disconnected), address, lease, dhcpServer}], clients [{ip, mac, name}] (server), busy; error when the
+    // state is unknown
+    Q_PROPERTY(QVariantMap ethernet READ ethernet NOTIFY ethernetChanged)
 
 public:
     // osVersion: IMAGE_VERSION of OpenHU OS, empty elsewhere. The rest only changes for tests.
@@ -62,6 +69,7 @@ public:
     QVariantMap update() const;
     QVariantMap ssh() const;
     QVariantMap time() const { return time_; }
+    QVariantMap ethernet() const { return ethernet_; }
 
     Q_INVOKABLE void checkForUpdate();
     // the newest of the checked version and the one on a USB stick;
@@ -85,6 +93,11 @@ public:
     // the zones to choose from: Region/City ("Europe/Berlin", "America/Argentina/Salta") and UTC
     Q_INVOKABLE static QStringList timeZones();
 
+    // cables and devices come and go: the settings page asks again while it is open
+    Q_INVOKABLE void refreshEthernet();
+    // "client" or "server"; empty when started, otherwise why not (the helper checks again)
+    Q_INVOKABLE QString setEthernetMode(const QString& mode);
+
 signals:
     void bootStatusChanged();
     void updateChanged();
@@ -96,6 +109,9 @@ signals:
     void timeChanged();
     // a time zone, time or switch was refused (shown as a toast)
     void timeError(const QString& message);
+    void ethernetChanged();
+    // a mode change was refused (shown as a toast)
+    void ethernetError(const QString& message);
 
 private:
     // openhu-cli <command> <args> --json
@@ -108,6 +124,7 @@ private:
     void setUpdate(const QVariantMap& values);
     void setSsh(const QVariantMap& values);
     void setTimeState(const QVariantMap& values);
+    void setEthernet(const QVariantMap& values);
     bool updateRunning() const;
 
     QString osVersion_;
@@ -117,6 +134,7 @@ private:
     QVariantMap update_;
     QVariantMap ssh_;
     QVariantMap time_;
+    QVariantMap ethernet_;
     bool aaConnected_ = false;
     QTimer progressTimer_;
     QTimer bootTimer_;

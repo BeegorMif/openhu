@@ -84,6 +84,20 @@ void registerSystemMethods(api::ApiServer& server, SystemController& system)
         return QVariantMap{{"queued", true}};
     });
 
+    server.registerMethod("system.ethernet.state", [&system](const QVariantMap&) -> QVariant {
+        requireOs(system);
+        return system.ethernet();
+    });
+    server.registerMethod("system.ethernet.setMode", [&system](const QVariantMap& params) -> QVariant {
+        requireOs(system);
+        const QString error = system.setEthernetMode(require(params, "mode").toString());
+        if(!error.isEmpty())
+        {
+            throw api::ApiError(error.toStdString());
+        }
+        return QVariantMap{{"queued", true}};
+    });
+
     server.registerMethod("system.time.state", [&system](const QVariantMap&) -> QVariant {
         requireOs(system);
         return system.time();

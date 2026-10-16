@@ -84,6 +84,7 @@ networks you trust.
 | `system.update` | OpenHU OS only: `state` (`idle`, `checking`, `installing`, `done`, `uptodate`, `error`, `cancelled`), `phase` (`root`, `kernel`), `percent`, `from`, `version`, `error`, `source` (`usb`, `online`), after a check `checked`, `current`, `newest`, `available`, `source`, `checkError`; `usb` while a USB stick with OpenHU OS is plugged in (`version`, `newer`, `path`); `offer` – what `system.update.install` installs (`version`, `source`: the newer of the checked version and the stick's); `busy`, `blocked` (Android Auto connected) |
 | `settings.changed` | `key`, `value` (not for passwords), `pending` (`reconnect`, `restart`) – a setting was changed (settings page or `settings.set`) |
 | `system.ssh` | OpenHU OS only: `enabled`, `running`, `password` (set), `keys`, `busy`, `addresses` |
+| `system.ethernet` | OpenHU OS only: `mode` (`client`, `server`), `address` (of OpenHU as the server, `10.42.1.1`), `serverAllowed` (false while another DHCP server gave a port an address), `devices` (`interface`, `state`: `connected`, `connecting`, `no-cable`, `disconnected`; `address`, `lease`, `dhcpServer`), `clients` (server: `ip`, `mac`, `name`), `busy` |
 | `system.time` | OpenHU OS only: `zone` (`Europe/Berlin`, `UTC`), `offset` (seconds east of UTC), `ntp` (time from the internet), `synchronized`, `time` (seconds since 1970), `busy` |
 
 Plugins publish their own topics with `bus.publish` (e.g. `vehicle.speed`).
@@ -101,6 +102,9 @@ the projection cancel this.
 
 API clients on the wireless hotspot network are refused unless "API auch im WLAN-Hotspot" is switched on
 (the hotspot is meant for the phone; connect API devices over Ethernet). If they are allowed, they need the token too.
+Devices on the Ethernet port (OpenHU OS: Settings → Network → Ethernet, DHCP server: OpenHU is `10.42.1.1` and
+`openhu.local`) are clients from the network like any other: they reach the API once "Share the API in the network"
+is on, and always need the token.
 
 ## Methods
 
@@ -159,6 +163,8 @@ API clients on the wireless hotspot network are refused unless "API auch im WLAN
 | `system.update.cancel` | – | `{}` – the running version stays |
 | `system.ssh.state` | – | like the topic `system.ssh` |
 | `system.ssh.enable` | `enabled` (default `true`) | `{queued}` – needs a root password, which is set in the shell only (Settings → System) |
+| `system.ethernet.state` | – | like the topic `system.ethernet` |
+| `system.ethernet.setMode` | `mode` (`client`, `server`) | `{queued}` – `server` is refused while another DHCP server answers on the cable (never two on one network) |
 | `system.time.state` | – | like the topic `system.time` |
 | `system.time.zones` | – | the time zones to choose from (`Africa/Abidjan`, …, `UTC`) |
 | `system.time.setZone` | `zone` | `{queued}` – applies at once |

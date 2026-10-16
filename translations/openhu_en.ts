@@ -1787,5 +1787,85 @@
         <source></source>
         <translation>Level between 0 and 100 %</translation>
     </message>
+    <message id="settings.network.ethernet_server_description">
+        <source></source>
+        <translation>Devices in the car get an address from OpenHU, which is at %1 (openhu.local). They reach only OpenHU, not the internet.</translation>
+    </message>
+    <message id="settings.network.ethernet_other_dhcp_server">
+        <source></source>
+        <translation>Another DHCP server gave this device an address: there is a router on the cable, so the DHCP server is not possible.</translation>
+    </message>
+    <message id="settings.network.ethernet_client_description">
+        <source></source>
+        <translation>Gets an address from a router on the cable (workshop, mobile router).</translation>
+    </message>
+    <message id="settings.network.ethernet_connected_address">
+        <source></source>
+        <translation>Connected, %1</translation>
+    </message>
+    <message id="settings.network.ethernet_connected">
+        <source></source>
+        <translation>Connected</translation>
+    </message>
+    <message id="settings.network.ethernet_waiting_address">
+        <source></source>
+        <translation>Waiting for an address</translation>
+    </message>
+    <message id="settings.network.ethernet_no_cable">
+        <source></source>
+        <translation>No cable</translation>
+    </message>
+    <message id="settings.network.ethernet_not_connected">
+        <source></source>
+        <translation>Not connected</translation>
+    </message>
+    <message id="settings.network.ethernet_no_devices">
+        <source></source>
+        <translation>None yet</translation>
+    </message>
+    <message id="settings.network.ethernet">
+        <source></source>
+        <translation>Ethernet</translation>
+    </message>
+    <message id="settings.network.ethernet_mode">
+        <source></source>
+        <translation>Mode</translation>
+    </message>
+    <message id="settings.network.dhcp_client">
+        <source></source>
+        <translation>DHCP client</translation>
+    </message>
+    <message id="settings.network.dhcp_server">
+        <source></source>
+        <translation>DHCP server</translation>
+    </message>
+    <message id="settings.network.ethernet_port">
+        <source></source>
+        <translation>Port %1</translation>
+    </message>
+    <message id="settings.network.ethernet_devices">
+        <source></source>
+        <translation>Devices</translation>
+    </message>
+    <message id="settings.network.ethernet_api_hint">
+        <source></source>
+        <translation>API only on this device</translation>
+    </message>
+    <message id="settings.network.ethernet_api_hint_description">
+        <source></source>
+        <translation>Devices on the cable can use the API once &quot;Share the API in the network&quot; is on (with the API token).</translation>
+    </message>
+    <message id="system.ethernet_unknown_mode">
+        <source></source>
+        <translation>Unknown Ethernet mode: %1</translation>
+    </message>
+    <message id="system.ethernet_busy">
+        <source></source>
+        <translation>The Ethernet mode is being changed</translation>
+    </message>
+    <message id="system.ethernet_other_dhcp_server">
+        <source></source>
+        <translation>There is another DHCP server on the cable: this device stays a DHCP client</translation>
+    </message>
 </context>
 </TS>

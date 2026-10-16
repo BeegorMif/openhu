@@ -54,6 +54,20 @@ esac
 printf '{"zone": "%s", "ntp": %s, "synchronized": false, "time": 0}\n' "$zone" "$ntp"
 )";
 
+// openhu-ethernet: $FAKE_RUN/eth-lease = another DHCP server gave the port an address
+const char* cFakeEthernet = R"(
+mode=$(cat "$FAKE_RUN/eth-mode" 2>/dev/null || echo client)
+lease=$(cat "$FAKE_RUN/eth-lease" 2>/dev/null || echo false)
+[ $mode = server ] && lease=false
+if [ "$1" = mode ]; then
+    if [ "$2" = server ] && [ $lease = true ]; then echo '{"error": "another DHCP server"}'; exit 1; fi
+    mode=$2; echo "$mode" > "$FAKE_RUN/eth-mode"
+fi
+allowed=true; [ $lease = true ] && allowed=false
+printf '{"mode": "%s", "address": "", "serverAllowed": %s, "devices": [{"interface": "end0", "state": "connected", "lease": %s}], "clients": []}\n' \
+    "$mode" "$allowed" "$lease"
+)";
+
 }
 
 class TestSystemController: public QObject
@@ -69,12 +83,13 @@ private slots:
         write(helpers_.filePath("update"), cFakeUpdate);
         write(helpers_.filePath("ssh"), cFakeSsh);
         write(helpers_.filePath("time"), cFakeTime);
+        write(helpers_.filePath("ethernet"), cFakeEthernet);
         QFile::remove(run_.filePath("update.json"));
         QFile::remove(run_.filePath("usb-update.json"));
         QFile::remove(run_.filePath("start-args"));
         QFile::remove(run_.filePath("ssh.json"));
         QFile::remove(run_.filePath("password"));
-        for(const char* name: {"zone", "ntp", "set-time"})
+        for(const char* name: {"zone", "ntp", "set-time", "eth-mode", "eth-lease"})
         {
             QFile::remove(run_.filePath(name));
         }
@@ -92,6 +107,8 @@ private slots:
         QVERIFY(!system.setSshPassword("long-enough").isEmpty());
         QVERIFY(!system.setTime(1791820800).isEmpty());
         QVERIFY(system.time().isEmpty());
+        QVERIFY(!system.setEthernetMode("server").isEmpty());
+        QVERIFY(system.ethernet().isEmpty());
     }
 
     void bootStatus()
@@ -260,6 +277,39 @@ private slots:
         QTRY_VERIFY(!system.time().value("ntp").toBool());
         QCOMPARE(system.setTime(1791820800), QString());
         QTRY_COMPARE(read(run_.filePath("set-time")).trimmed(), QByteArray("1791820800"));
+    }
+
+    // never two DHCP servers on one network (openhu-os#15)
+    void ethernetMode()
+    {
+        write(run_.filePath("eth-lease"), "true");
+        SystemController system("1", nullptr, cli(), run_.path());
+        QSignalSpy errors(&system, &SystemController::ethernetError);
+        QTRY_COMPARE(system.ethernet().value("mode").toString(), QString("client"));
+        QVERIFY(!system.ethernet().value("serverAllowed").toBool());
+        QVERIFY(!system.setEthernetMode("bridge").isEmpty());
+        // another DHCP server answers: refused before the helper runs
+        QVERIFY(!system.setEthernetMode("server").isEmpty());
+        QCOMPARE(errors.count(), 0);
+
+        // the router is gone
+        QFile::remove(run_.filePath("eth-lease"));
+        system.refreshEthernet();
+        QTRY_VERIFY(system.ethernet().value("serverAllowed").toBool());
+        QCOMPARE(system.setEthernetMode("server"), QString());
+        QVERIFY(system.ethernet().value("busy").toBool());
+        QTRY_COMPARE(system.ethernet().value("mode").toString(), QString("server"));
+        QVERIFY(!system.ethernet().value("busy").toBool());
+        QCOMPARE(system.ethernet().value("devices").toList().size(), 1);
+
+        // back to client, then a router answers again; the helper refuses even if the state was old
+        QCOMPARE(system.setEthernetMode("client"), QString());
+        QTRY_COMPARE(system.ethernet().value("mode").toString(), QString("client"));
+        write(run_.filePath("eth-lease"), "true");
+        QCOMPARE(system.setEthernetMode("server"), QString());
+        QTRY_COMPARE(errors.count(), 1);
+        QTRY_VERIFY(!system.ethernet().value("serverAllowed").toBool());
+        QCOMPARE(system.ethernet().value("mode").toString(), QString("client"));
     }
 
 private:
