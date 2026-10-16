@@ -55,9 +55,13 @@ constexpr int cMaxSendAttempts = 50;
 constexpr int64_t cStatsIntervalMs = 10000;
 // SPS/PPS are a few bytes; more without a picture is not a codec configuration
 constexpr qsizetype cMaxConfigBytes = 64 * 1024;
-// After a stream (re)start, frames with decode errors are held back at most this long (the sink keeps the last
-// picture meanwhile); a phone that never sends a clean frame still gets its picture shown.
+// After a stream (re)start, frames with decode errors (and after a restart blank ones) are held back at most this
+// long (the sink keeps the last picture meanwhile); a phone that never sends a clean frame still gets its picture shown.
 constexpr int64_t cMaxHoldMs = 1000;
+// Blank frame: fewer than 1/cBlankShare of the luma samples brighter than cBlankLuma (black is 16 in limited range).
+// After a restart the phone sends black frames for ~170 ms before its UI (Fairphone 4, #88): the flicker.
+constexpr int cBlankLuma = 32;
+constexpr size_t cBlankShare = 50;
 // Messages and frames after a stream (re)start are logged in detail (debug) for this long
 constexpr int64_t cDiagnosticMs = 2000;
 // Every n-th pixel in both directions for the mean luma and the change between frames
@@ -150,6 +154,19 @@ std::vector<uint8_t> lumaSamples(const AVFrame* frame)
         }
     }
     return samples;
+}
+
+// True for a (nearly) black frame, see cBlankLuma
+bool blankFrame(const std::vector<uint8_t>& luma)
+{
+    if(luma.empty())
+    {
+        return false;
+    }
+    const auto bright = static_cast<size_t>(std::count_if(luma.begin(), luma.end(), [](uint8_t value) {
+        return value > cBlankLuma;
+    }));
+    return bright * cBlankShare < luma.size();
 }
 
 // In the GUI thread, waiting for it when called from another thread.
@@ -563,9 +580,11 @@ void FfmpegVideoOutput::logMessageAfterStart(const QByteArray& data)
 bool FfmpegVideoOutput::showAfterStart(const AVFrame* frame)
 {
     // With OPENHU_LOG=debug the luma of every frame is sampled, so the first frame after a restart can be compared
-    // with the last one before the stop (the picture the sink kept)
+    // with the last one before the stop (the picture the sink kept). Until the first picture after a restart it is
+    // sampled anyway, to hold back blank frames.
+    const bool restartPending = streamStart_.active && streamStart_.restart && !streamStart_.shown;
     std::vector<uint8_t> luma;
-    if(debugLog_)
+    if(debugLog_ || restartPending)
     {
         luma = lumaSamples(frame);
     }
@@ -578,7 +597,9 @@ bool FfmpegVideoOutput::showAfterStart(const AVFrame* frame)
     ++streamStart_.frames;
     // Reference frames missing or slices lost: FFmpeg conceals the errors, the picture is partly wrong
     const bool corrupt = (frame->flags & AV_FRAME_FLAG_CORRUPT) != 0 || frame->decode_error_flags != 0;
-    const bool show = streamStart_.shown || !corrupt || elapsed >= cMaxHoldMs;
+    // After a restart the sink still shows the last picture: black frames before the phone's UI are not shown
+    const bool blank = restartPending && blankFrame(luma);
+    const bool show = streamStart_.shown || (!corrupt && !blank) || elapsed >= cMaxHoldMs;
 
     if(elapsed < cDiagnosticMs)
     {
@@ -606,6 +627,7 @@ bool FfmpegVideoOutput::showAfterStart(const AVFrame* frame)
                             << (streamStart_.restart ? "restart" : "start") << ": frame " << streamStart_.frames
                             << " " << frame->width << "x" << frame->height << ", type "
                             << av_get_picture_type_char(frame->pict_type) << (corrupt ? ", decode errors" : "")
+                            << (blank ? ", blank" : "")
                             << ", mean luma " << mean << ", change " << change << (show ? "" : ", held back");
     }
     lastLuma_ = std::move(luma);
@@ -621,7 +643,7 @@ bool FfmpegVideoOutput::showAfterStart(const AVFrame* frame)
         OPENAUTO_LOG(info) << "[FfmpegVideoOutput] first picture after the stream "
                            << (streamStart_.restart ? "restart" : "start") << ": " << elapsed << " ms, "
                            << streamStart_.messages << " messages, " << (streamStart_.idrSeen ? "IDR" : "no IDR")
-                           << ", " << streamStart_.held << " frames with decode errors held back";
+                           << ", " << streamStart_.held << " frames held back (decode errors or blank)";
     }
     if(elapsed >= cDiagnosticMs)
     {

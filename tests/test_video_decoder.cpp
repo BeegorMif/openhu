@@ -168,8 +168,9 @@ namespace
 constexpr int cWidth = 320;
 constexpr int cHeight = 240;
 
-// Access units: 'frames' pictures, first one an IDR with SPS/PPS; luma changes per frame so every frame differs
-QList<QByteArray> encode(int frames, int luma)
+// Access units: 'frames' pictures, first one an IDR with SPS/PPS; luma changes per frame so every frame differs.
+// The first 'black' pictures are black (luma 16), like the phone's first frames after a stream restart.
+QList<QByteArray> encode(int frames, int luma, int black = 0)
 {
     QList<QByteArray> packets;
     const AVCodec* codec = avcodec_find_encoder_by_name("libx264");
@@ -208,7 +209,8 @@ QList<QByteArray> encode(int frames, int luma)
         {
             for(int x = 0; x < cWidth; ++x)
             {
-                frame->data[0][y * frame->linesize[0] + x] = uint8_t(luma + ((x / 16 + y / 16 + i) % 4) * 20);
+                frame->data[0][y * frame->linesize[0] + x] =
+                    i < black ? uint8_t(16) : uint8_t(luma + ((x / 16 + y / 16 + i) % 4) * 20);
             }
         }
         for(int plane = 1; plane < 3; ++plane)
@@ -539,6 +541,34 @@ private slots:
         hook::markCorrupt = 1;
         writeSlowly(output, splitCodecConfig(encode(2, 200)));
         QTRY_COMPARE(recorder.frames.size(), mark + 6);
+        output.stop();
+    }
+
+    // After a restart the phone sends black frames before its UI (Fairphone 4, #88): they are held back, the last
+    // picture stays until the first one with content. On the first start of a connection nothing is held back.
+    void blankFramesAfterRestartAreHeldBack()
+    {
+        TestHome home;
+        auto configuration = std::make_shared<Configuration>();
+        configuration->setVideoDecoder("software");
+        QVideoSink sink;
+        SinkRecorder recorder(sink);
+        FfmpegVideoOutput output(configuration, &sink);
+        QVERIFY(output.init());
+        QTRY_COMPARE(output.decoderName(), std::string("h264"));
+
+        output.streamStarted();
+        writeSlowly(output, splitCodecConfig(encode(3, 40, 1)));
+        QTRY_COMPARE(recorder.valid(), 3);
+        QCOMPARE(recorder.frames.first(), 16);  // first start: the black frame is shown
+        const qsizetype mark = recorder.frames.size();
+
+        output.streamStopped();
+        output.streamStarted();
+        writeSlowly(output, splitCodecConfig(encode(6, 120, 3)));
+        // frames 0-2 black and held back, the first one shown is frame 3
+        QTRY_COMPARE(recorder.frames.size(), mark + 3);
+        QCOMPARE(recorder.numbers(120, mark), (QList<int>{3, 0, 1}));
         output.stop();
     }
 

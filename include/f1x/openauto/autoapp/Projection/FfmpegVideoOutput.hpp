@@ -54,8 +54,9 @@ namespace projection
 // the name of an FFmpeg decoder.
 //
 // The sink keeps the last picture while the phone stops and restarts the stream within a connection
-// (video focus NATIVE/PROJECTED, #88). After a (re)start, frames the decoder marks as corrupt or concealed are
-// held back until the first complete one (at most cMaxHoldMs), and the first picture is logged; with OPENHU_LOG=debug
+// (video focus NATIVE/PROJECTED, #88). After a (re)start, frames the decoder marks as corrupt or concealed (and after
+// a restart blank ones: the phone sends black frames before its UI) are held back until the first good one (at most
+// cMaxHoldMs), and the first picture is logged; with OPENHU_LOG=debug
 // the first messages and frames after a start are logged in detail (NAL types, mean luma, change to the previous
 // frame) to find what the phone sends.
 class FfmpegVideoOutput: public QObject, public VideoOutput, boost::noncopyable
