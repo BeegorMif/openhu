@@ -640,7 +640,7 @@ void PluginStore::afterQmlReleased(std::function<void()> next)
 {
     // The shell destroys the plugin's pages asynchronously, then its cached QML can be dropped.
     QTimer::singleShot(300, this, [this, next]() {
-        manager_.trimQmlCache();
+        manager_.clearQmlCache();
         next();
     });
 }

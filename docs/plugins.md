@@ -60,6 +60,10 @@ a plugin process on another computer against a head unit while developing.
 Typical pattern: the process owns the state and publishes it (`radio.state`), the page shows it with
 `BusTopic` and sends commands as one-shot events (`api.emitEvent("radio.command", {cmd: "tune", value: 99.5})`).
 
+An update from the store shows the plugin's new QML at once: the shell unloads the plugin's page and overlay, drops
+the QML it has cached (`QQmlEngine::clearComponentCache()`) and loads the new files. A plugin copied in by hand is
+only seen after a restart of OpenHU (`openhu-cli restart`).
+
 ### Translations
 
 Plugins work like the shell ([translations.md](translations.md)): texts in plugin QML are IDs,
@@ -67,6 +71,11 @@ Plugins work like the shell ([translations.md](translations.md)): texts in plugi
 other plugins. Every language, English too, is `i18n/<language>.qm` in the plugin's folder (`i18n/en.qm`,
 `i18n/de.qm`); the shell loads the one of its language and switches with it, without a restart. An ID without a
 translation shows as the ID, so the English file has to be complete.
+
+Nothing special is needed for the switch: every binding that called `qsTrId()` is evaluated again, also when the
+text is inside a condition, `.arg()`, an array (`model: [qsTrId(…), …]`) or a function the binding calls. Only texts
+that are assigned once (`Component.onCompleted: label.text = qsTrId(…)`) or that come from the process stay in the
+old language; bind them, or follow `ui.language` (below).
 
 The name and description of the manifest are the English ones. The IDs `<plugin id>.name` and
 `<plugin id>.description` (e.g. `org.example.speed.name`) translate them in the dock and the store once the plugin is

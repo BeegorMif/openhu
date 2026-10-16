@@ -2,7 +2,7 @@
 # Starts the installed OpenHU headless with two plugins and checks through the API that the page and overlay
 # of one plugin survive changes of the other plugin and of its own dock entry, and are unloaded/loaded again
 # when the plugin itself is disabled/enabled (openhu#19). The QML of the plugin logs when it is created and
-# destroyed.
+# destroyed. An update of the other plugin from the store shows its new QML files at once (openhu#105).
 #
 #   tests/shell-plugin-pages.sh [openhu] [seconds before the test]
 set -uo pipefail
@@ -16,8 +16,9 @@ log="$work/openhu.log"
 
 cd "$work"
 plugins="$work/.openhu/plugins"
-mkdir -p "$plugins/watched/qml" "$plugins/other/qml"
-echo "# shell plugin pages test: no sources" > "$work/.openhu/sources.list"
+mkdir -p "$plugins/watched/qml"
+# the store offers "other" 1.0.1
+echo "file $work/repo" > "$work/.openhu/sources.list"
 
 cat > "$plugins/watched/manifest.json" <<'EOF'
 {"id": "watched", "name": "Watched", "version": "1.0.0", "api": 2,
@@ -37,10 +38,20 @@ Item {
     Component.onDestruction: console.log("TEST overlay destroyed")
 }
 EOF
-cat > "$plugins/other/manifest.json" <<'EOF'
-{"id": "other", "name": "Other", "version": "1.0.0", "api": 2, "ui": {"page": "qml/Main.qml", "dock": true}}
-EOF
-printf 'import QtQuick\nItem {}\n' > "$plugins/other/qml/Main.qml"
+# "other": a page with a second QML file that logs the version
+other() {  # directory version
+  mkdir -p "$1/qml"
+  printf '{"id": "other", "name": "Other", "version": "%s", "api": 2, "ui": {"page": "qml/Main.qml", "dock": true}}\n' "$2" \
+    > "$1/manifest.json"
+  printf 'import QtQuick\nItem { View {} }\n' > "$1/qml/Main.qml"
+  printf 'import QtQuick\nItem { Component.onCompleted: console.log("TEST other %s") }\n' "$2" > "$1/qml/View.qml"
+}
+other "$plugins/other" 1.0.0
+mkdir -p "$work/repo/dist" "$work/package"
+other "$work/package/other" 1.0.1
+tar -czf "$work/repo/dist/other.tar.gz" -C "$work/package" other
+printf '{"name": "Test", "api": 2, "plugins": [{"id": "other", "name": "Other", "version": "1.0.1", "api": 2, "arch": ["all"], "archive": "dist/other.tar.gz", "sha256": "%s"}]}\n' \
+  "$(sha256sum "$work/repo/dist/other.tar.gz" | cut -d" " -f1)" > "$work/repo/index.json"
 
 HOME="$work" QT_QPA_PLATFORM=offscreen QT_QUICK_BACKEND=software "$openhu" > "$log" 2>&1 &
 pid=$!
@@ -83,6 +94,17 @@ with connect("ws://127.0.0.1:5520") as ws:
     # the plugin itself
     step(ws, "plugin.disable", (1, 1, 1, 1), id="watched")
     step(ws, "plugin.enable", (2, 1, 1, 1), id="watched")
+    # an update of "other" from the store: its new QML at once, the page of "watched" stays
+    step(ws, "ui.navigate", (2, 1, 1, 1), page="plugin:other")
+    step(ws, "store.refresh", (2, 1, 1, 1))
+    step(ws, "store.install", (2, 1, 1, 1), id="other")
+    deadline = time.time() + 15
+    while "TEST other 1.0.1" not in open(os.environ["LOG"]).read() and time.time() < deadline:
+        time.sleep(0.5)
+    text = open(os.environ["LOG"]).read()
+    print("other:", [line.split("TEST other ")[1] for line in text.splitlines() if "TEST other " in line], flush=True)
+    if "TEST other 1.0.0" not in text or "TEST other 1.0.1" not in text:
+        raise SystemExit("expected the page of other 1.0.0, then of 1.0.1")
 PY
 
 kill -TERM "$pid"
@@ -90,7 +112,7 @@ wait "$pid" || true
 
 if [ "$status" -ne 0 ]; then
   cat "$log"
-  echo "Plugin pages were recreated or not reloaded"
+  echo "Plugin pages were recreated, not reloaded or not updated"
   exit 1
 fi
-echo "Plugin pages survive changes of other plugins"
+echo "Plugin pages survive changes of other plugins and show updates at once"

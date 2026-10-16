@@ -34,7 +34,7 @@ namespace f1x::openauto::autoapp::shell
 // Language of the shell. The code has text IDs (qsTrId/qtTrId, "settings.general.language"); every language,
 // English too, is translations/openhu_<language>.ts, compiled into the resources (:/i18n/openhu_<language>.qm).
 // An ID without a translation shows as the ID. Plugins bring their own as <plugin>/i18n/<language>.qm with IDs
-// that start with the plugin id (docs/plugins.md). Switching retranslates the QML engine at once (qsTr bindings), sets the default QLocale
+// that start with the plugin id (docs/plugins.md). Switching retranslates the QML engine at once (every binding that called qsTrId), sets the default QLocale
 // (dates, numbers) and publishes "ui.language".
 class Translations: public QObject
 {

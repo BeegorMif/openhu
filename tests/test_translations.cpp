@@ -1,8 +1,10 @@
+#include <functional>
 #include <QCoreApplication>
 #include <QDir>
 #include <QFile>
 #include <QQmlComponent>
 #include <QQmlEngine>
+#include <QQuickItem>
 #include <QSignalSpy>
 #include <QTemporaryDir>
 #include <QtTest>
@@ -134,7 +136,75 @@ private slots:
         translations.setLanguage("en");
         QCOMPARE(object->property("name").toString(), QString("Speed"));
     }
+
+    // A page loaded from disk like a plugin page, with texts in bindings that are more than a plain qsTrId(): Qt 6.8
+    // re-evaluates every binding that called qsTrId() on retranslate(), whatever else it does (#105)
+    void pluginPageBindings()
+    {
+        QTemporaryDir dir;
+        QFile file(dir.filePath("Page.qml"));
+        QVERIFY(file.open(QIODevice::WriteOnly));
+        file.write("import QtQuick\n"
+                   "Item {\n"
+                   "    property bool empty: true\n"
+                   "    property string error: \"\"\n"
+                   "    function title() { return qsTrId(\"settings.general.language\") }\n"
+                   "    property string plain: qsTrId(\"settings.general.language\")\n"
+                   "    property string conditional: empty ? qsTrId(\"settings.general.language\")\n"
+                   "                                       : (error || qsTrId(\"settings.wifi.connected_to\"))\n"
+                   "    property string fallback: error || qsTrId(\"settings.general.language\")\n"
+                   "    property string argument: qsTrId(\"settings.wifi.connected_to\").arg(\"Car\")\n"
+                   "    property string called: title()\n"
+                   "    property var list: [qsTrId(\"settings.general.language\"), \"x\"]\n"
+                   "    Text { objectName: \"text\"; text: parent.empty ? qsTrId(\"settings.general.language\") : \"\" }\n"
+                   "    Repeater { model: [qsTrId(\"settings.general.language\")]; Text { objectName: \"item\"; text: modelData } }\n"
+                   "}\n");
+        file.close();
+
+        QQmlEngine engine;
+        Translations translations(OPENHU_QM_DIR);
+        translations.setEngine(&engine);
+        translations.setLanguage("de");
+
+        QQmlComponent component(&engine, QUrl::fromLocalFile(file.fileName()));
+        std::unique_ptr<QObject> page(component.create());
+        QVERIFY2(page, qPrintable(component.errorString()));
+        // Repeater items are no QObject children: search the item tree
+        auto text = [&](const QString& name) {
+            std::function<QString(QQuickItem*)> find = [&](QQuickItem* item) -> QString {
+                for(QQuickItem* child: item->childItems())
+                {
+                    if(child->objectName() == name)
+                    {
+                        return child->property("text").toString();
+                    }
+                    if(const QString found = find(child); !found.isNull())
+                    {
+                        return found;
+                    }
+                }
+                return {};
+            };
+            return find(qobject_cast<QQuickItem*>(page.get()));
+        };
+        QCOMPARE(page->property("conditional").toString(), QString("Sprache"));
+
+        translations.setLanguage("en");
+        QCOMPARE(page->property("plain").toString(), QString("Language"));
+        QCOMPARE(page->property("conditional").toString(), QString("Language"));
+        QCOMPARE(page->property("fallback").toString(), QString("Language"));
+        QCOMPARE(page->property("argument").toString(), QString("Connected to “Car”"));
+        QCOMPARE(page->property("called").toString(), QString("Language"));
+        QCOMPARE(page->property("list").toList().value(0).toString(), QString("Language"));
+        QCOMPARE(text("text"), QString("Language"));
+        QCOMPARE(text("item"), QString("Language"));
+
+        page->setProperty("empty", false);
+        QCOMPARE(page->property("conditional").toString(), QString("Connected to “%1”"));
+        translations.setLanguage("de");
+        QCOMPARE(page->property("conditional").toString(), QString("Verbunden mit „%1“"));
+    }
 };
 
-QTEST_GUILESS_MAIN(TestTranslations)
+QTEST_MAIN(TestTranslations)
 #include "test_translations.moc"

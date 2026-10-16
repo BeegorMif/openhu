@@ -37,7 +37,11 @@ reads differently somewhere else gets its own ID.
 
 The build compiles the `.ts` files with `lrelease -idbased` (`qt6-l10n-tools`; Qt 6.8 still needs the flag) into the resources
 (`:/i18n/openhu_<language>.qm`); `shell::Translations` installs the one of the chosen language and the plugin
-translations, calls `QQmlEngine::retranslate()` and sets the default `QLocale`. Formats that differ between
+translations, calls `QQmlEngine::retranslate()` and sets the default `QLocale`. In Qt 6.8 `qsTrId()` makes the
+binding that calls it depend on the language, so `retranslate()` evaluates every such binding again, in the shell and
+in plugin pages loaded from disk alike, whatever else the binding does (a condition, `.arg()`, an array, a function
+call; `tests/test_translations.cpp`). Texts assigned once in a handler, or made in C++ and handed to QML, are not
+bindings and stay as they are until their next update. Formats that differ between
 languages are texts too, e.g. the date `home.date_format`: "dddd, MMMM d" / "dddd, d. MMMM". An ID without a
 translation shows as the ID.
 
