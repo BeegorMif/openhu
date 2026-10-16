@@ -72,6 +72,12 @@ Where the keys are in the settings:
 |---|---|---|
 | `MediaEnabled`, `GuidanceEnabled`, `SystemEnabled`, `TelephonyEnabled` | `true` | Android Auto audio channels played by OpenHU |
 
+### [Audio]
+
+| Key | Default | |
+|---|---|---|
+| `DuckLevel` | `20` | loudness of local sources (radio and other processes' audio streams) in % while Android Auto plays a navigation prompt, like Android's ducking (20 % loudness = -14 dB). The Assistant (transient audio focus) mutes them. The original volumes come back afterwards, on disconnect and when OpenHU ends; after a crash, a stream that starts below its remembered volume gets it back (`~/.openhu/audio-duck.json`). Needs `pactl` 16 or newer (`-f json`) |
+
 ### [Radio]
 
 | Key | Default | |

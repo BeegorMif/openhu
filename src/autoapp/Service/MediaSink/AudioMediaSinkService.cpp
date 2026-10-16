@@ -17,6 +17,7 @@
 */
 
 #include <f1x/openauto/Common/Log.hpp>
+#include <f1x/openauto/autoapp/Audio/DuckingController.hpp>
 #include <f1x/openauto/autoapp/Service/MediaSink/AudioMediaSinkService.hpp>
 
 namespace f1x {
@@ -45,6 +46,7 @@ namespace f1x {
               OPENAUTO_LOG(info) << "[AudioMediaSinkService] stop()";
               OPENAUTO_LOG(info) << "[AudioMediaSinkService] Channel " << aasdk::messenger::channelIdToString(channel_->getId());
               audioOutput_->stop();
+              this->reportGuidance(false);
             });
           }
 
@@ -188,6 +190,7 @@ namespace f1x {
             OPENAUTO_LOG(info) << "[AudioMediaSinkService] Channel Id: " << aasdk::messenger::channelIdToString(channel_->getId()) << ", session: " << indication.session_id();
             session_ = indication.session_id();
             audioOutput_->start();
+            this->reportGuidance(true);
             channel_->receive(this->shared_from_this());
           }
 
@@ -197,8 +200,16 @@ namespace f1x {
 
             session_ = -1;
             audioOutput_->suspend();
+            this->reportGuidance(false);
 
             channel_->receive(this->shared_from_this());
+          }
+
+          void AudioMediaSinkService::reportGuidance(bool playing) {
+            // Assistant and navigation prompts: local sources (radio) are lowered meanwhile (#93)
+            if (channel_->getId() == aasdk::messenger::ChannelId::MEDIA_SINK_GUIDANCE_AUDIO) {
+              audio::AndroidAutoAudio::instance().reportGuidance(playing);
+            }
           }
 
           void AudioMediaSinkService::onMediaWithTimestampIndication(aasdk::messenger::Timestamp::ValueType timestamp,

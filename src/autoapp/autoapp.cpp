@@ -48,6 +48,7 @@
 #include <f1x/openauto/autoapp/Api/ApiServer.hpp>
 #include <f1x/openauto/autoapp/Api/ClientFilter.hpp>
 #include <f1x/openauto/autoapp/Api/CoreMethods.hpp>
+#include <f1x/openauto/autoapp/Audio/DuckingController.hpp>
 #include <f1x/openauto/autoapp/Audio/VolumeController.hpp>
 #include <f1x/openauto/autoapp/Core/ChildProcesses.hpp>
 #include <f1x/openauto/autoapp/Core/EventBus.hpp>
@@ -211,6 +212,9 @@ int main(int argc, char* argv[])
 
     autoapp::shell::ShellController shellController;
     autoapp::audio::VolumeController volumeController;
+    // radio and other local sources lower while Android Auto plays a prompt or the Assistant (#93)
+    autoapp::audio::DuckingController duckingController([configuration]() { return configuration->duckLevel(); });
+    duckingController.start();
     autoapp::input::ActionDispatcher actionDispatcher(volumeController, shellController);
 
     // WebSocket API for external tools and plugins (docs/api.md)
@@ -301,6 +305,8 @@ int main(int argc, char* argv[])
     // Clean up what outlives the process (hotspot, plugin processes), then end without running destructors:
     // exit() from inside the event loop tears down Qt's globals while the QML engine still exists (crash).
     auto shutdown = [&]() {
+        // before the plugins end: the audio server remembers the volume a stream had at its end
+        duckingController.restoreNow();
         carAudio.stop();
         wirelessController.stop();
         pluginManager.stopAll();
@@ -338,6 +344,7 @@ int main(int argc, char* argv[])
     QObject::connect(&shellController, &autoapp::shell::ShellController::restartRequested,
                      &settingsController, &autoapp::shell::SettingsController::restart);
     QObject::connect(&settingsController, &autoapp::shell::SettingsController::aboutToRestart, [&]() {
+        duckingController.restoreNow();
         carAudio.stop();
         wirelessController.stop();
         pluginManager.stopAll();
@@ -384,13 +391,16 @@ int main(int argc, char* argv[])
     // OpenHU.
     static autoapp::wireless::WirelessController* wirelessAtExit = nullptr;
     static autoapp::bt::CarAudio* carAudioAtExit = nullptr;
+    static autoapp::audio::DuckingController* duckingAtExit = nullptr;
     wirelessAtExit = &wirelessController;
     carAudioAtExit = &carAudio;
+    duckingAtExit = &duckingController;
     std::atexit([]() {
         if(wirelessAtExit == nullptr)
         {
             return;  // regular end of main()
         }
+        if(duckingAtExit) duckingAtExit->restoreNow();
         if(carAudioAtExit) carAudioAtExit->stop();
         wirelessAtExit->stop();
         std::fflush(nullptr);
@@ -400,7 +410,9 @@ int main(int argc, char* argv[])
     auto result = application.exec();
     carAudio.stop();
     wirelessController.stop();
+    duckingController.restoreNow();
     carAudioAtExit = nullptr;
+    duckingAtExit = nullptr;
     wirelessAtExit = nullptr;
 
     std::for_each(threadPool.begin(), threadPool.end(), std::bind(&std::thread::join, std::placeholders::_1));

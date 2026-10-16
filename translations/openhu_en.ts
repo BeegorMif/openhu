@@ -1775,5 +1775,17 @@
         <source></source>
         <translation>Sure? Old logins end</translation>
     </message>
+    <message id="settings.audio.duck_level">
+        <source></source>
+        <translation>Lower local sources during announcements (%)</translation>
+    </message>
+    <message id="settings.audio.duck_level_description">
+        <source></source>
+        <translation>Radio and other local sources during Android Auto navigation prompts, in % of their volume. The Assistant mutes them.</translation>
+    </message>
+    <message id="settings.error.duck_level_between_0_100">
+        <source></source>
+        <translation>Level between 0 and 100 %</translation>
+    </message>
 </context>
 </TS>

@@ -152,6 +152,7 @@ QVariantMap SettingsController::keys()
         {"wireless.dhcpRange", text("now")},
         {"bluetooth.adapter", choice({"none", "local"}, cRestart)},
         {"bluetooth.address", text(cRestart)},
+        {"audio.duckLevel", number(0, 100, "now")},
         {"carAudio.enabled", flag("now")},
         {"carAudio.pin", text("now", 16, true)},
         {"api.port", number(1024, 65535, cRestart)},
@@ -205,6 +206,7 @@ QVariantMap SettingsController::values() const
         {"bluetooth.adapter", configuration_->getBluetoothAdapterType() == configuration::BluetoothAdapterType::NONE
                                   ? "none" : "local"},
         {"bluetooth.address", QString::fromStdString(configuration_->getBluetoothAdapterAddress())},
+        {"audio.duckLevel", configuration_->duckLevel()},
         {"carAudio.enabled", configuration_->getCarAudioSettings().enabled},
         {"carAudio.pin", QString::fromStdString(configuration_->getCarAudioSettings().pin)},
         {"api.port", configuration_->getApiPort()},
@@ -501,6 +503,15 @@ QString SettingsController::set(const QString& key, const QVariant& value)
         }
         configuration_->setApiPort(static_cast<uint16_t>(port));
         this->markPending(cRestart);
+    }
+    else if(key == "audio.duckLevel")
+    {
+        const int level = value.toInt();
+        if(level < 0 || level > 100)
+        {
+            return qtTrId("settings.error.duck_level_between_0_100");
+        }
+        configuration_->setDuckLevel(level);
     }
     else if(key == "carAudio.enabled" || key == "carAudio.pin")
     {
