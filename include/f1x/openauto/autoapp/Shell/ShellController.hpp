@@ -19,6 +19,7 @@
 
 #include <QObject>
 #include <f1x/openauto/autoapp/Core/EventBus.hpp>
+#include <f1x/openauto/autoapp/Shell/ProjectionPage.hpp>
 
 namespace f1x
 {
@@ -59,6 +60,15 @@ public:
     Q_INVOKABLE void navigate(const QString& page) { emit navigateRequested(page); }
     Q_INVOKABLE void toast(const QString& text, int durationMs) { emit toastRequested(text, durationMs); }
 
+    // Page to show when the projection starts or stops, and instead of a ui.navigate target (ProjectionPage, #87)
+    Q_INVOKABLE QString pageOnVideo(const QString& page, bool active) { return projectionPage_.videoChanged(page, active); }
+    Q_INVOKABLE QString pageOnNavigate(const QString& page, const QString& target)
+    {
+        return projectionPage_.navigate(page, target);
+    }
+    // The user chose a page (dock, home page, toast) or "Exit" inside Android Auto
+    Q_INVOKABLE void pageChosenByUser() { projectionPage_.chosenByUser(); }
+
 signals:
     void quitRequested();
     void restartRequested();
@@ -69,6 +79,7 @@ private:
     void callLogind(const char* method);
 
     QString osVersion_ = readOsVersion();
+    ProjectionPage projectionPage_;
 };
 
 }

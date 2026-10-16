@@ -90,6 +90,12 @@ plugin overlay is shown, and while a plugin page replaced the Android Auto page 
 in page mode) until the Android Auto page is shown again. Leaving Android Auto for another page by hand does not
 change it. After "Exit" inside Android Auto the phone renders again when the Android Auto page is opened.
 
+The shell shows the Android Auto page as soon as the phone starts projecting, except while a plugin page is shown
+(e.g. the camera page in reverse gear when the phone connects or restarts its stream): the plugin page stays, the
+phone gets `NATIVE`, and the next `ui.navigate` away from that page (e.g. the camera returning to its previous page)
+shows Android Auto instead of the requested page. Choosing a page by hand, "Exit" inside Android Auto and the end of
+the projection cancel this.
+
 API clients on the wireless hotspot network are refused unless "API auch im WLAN-Hotspot" is switched on
 (the hotspot is meant for the phone; connect API devices over Ethernet). If they are allowed, they need the token too.
 

@@ -195,6 +195,25 @@ private slots:
         QCOMPARE(policy.mode(), NATIVE);
     }
 
+    // The phone connects (or restarts its stream) while the camera page is shown: the shell keeps the camera page,
+    // Android Auto stays NATIVE until its page is shown (#87)
+    void cameraPageWhenTheSessionStarts()
+    {
+        VideoFocusPolicy policy("plugin:org.openhu.camera");
+        QCOMPARE(policy.setup(), NATIVE);
+        QCOMPARE(policy.request(PROJECTED), NATIVE);
+        QCOMPARE(policy.setPage("aa"), std::optional<Mode>(PROJECTED));
+
+        // the user leaves the camera page for home by hand: still NATIVE until Android Auto is opened
+        VideoFocusPolicy byHand("plugin:org.openhu.camera");
+        byHand.setup();
+        QCOMPARE(byHand.setPage("home"), none());
+        QCOMPARE(byHand.setPage("aa"), std::optional<Mode>(PROJECTED));
+
+        VideoFocusPolicy home("home");
+        QCOMPARE(home.setup(), PROJECTED);
+    }
+
     void pluginManagerPublishesOverlays()
     {
         TestHome home;
