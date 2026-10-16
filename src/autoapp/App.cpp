@@ -36,7 +36,7 @@ namespace f1x::openauto::autoapp {
         androidAutoEntityFactory_(androidAutoEntityFactory), usbHub_(std::move(usbHub)),
         connectedAccessoriesEnumerator_(std::move(connectedAccessoriesEnumerator)),
         acceptor_(ioService, boost::asio::ip::tcp::endpoint(boost::asio::ip::tcp::v4(), wirelessPort)), isStopped_(false),
-        usbRetryTimer_(ioService), usbWatchdogTimer_(ioService), usbDeviceProbe_(&core::androidUsbDevices) {
+        usbRetryTimer_(ioService), usbReportTimer_(ioService), usbWatchdogTimer_(ioService), usbDeviceProbe_(&core::androidUsbDevices) {
       // not inherited by child processes (plugins, pactl), so a restart can bind the port again
       ::fcntl(acceptor_.native_handle(), F_SETFD, FD_CLOEXEC);
 
@@ -114,6 +114,7 @@ namespace f1x::openauto::autoapp {
       isStopped_ = true;
       boost::system::error_code ec;
       usbRetryTimer_.cancel(ec);
+      usbReportTimer_.cancel(ec);
       usbWatchdogTimer_.cancel(ec);
       try {
         connectedAccessoriesEnumerator_->cancel();
@@ -282,14 +283,24 @@ namespace f1x::openauto::autoapp {
       }
 
       if (!isStopped_) {
-        // The USB hub drops hotplug events while no promise is pending. Re-registering its hotplug callback
-        // (LIBUSB_HOTPLUG_ENUMERATE) reports the phones that are plugged in right now: one that came back during
-        // the session end (USB reset, AA ended on the phone) or stayed in accessory mode would otherwise only be
-        // found after replugging.
+        // The USB hub drops hotplug events while no promise is pending, so it waits again at once (a phone plugged
+        // in now is found by its hotplug event). The phones that are plugged in already are reported a moment later
+        // by re-registering the hotplug callback (LIBUSB_HOTPLUG_ENUMERATE): one that came back during the session
+        // end (USB reset, AA ended on the phone) or stayed in accessory mode would otherwise only be found after
+        // replugging. Not at once: while the phone is being unplugged its accessory device is still listed for a
+        // moment, and each report started a new session on it that failed right away (openhu#92).
         try {
           OPENAUTO_LOG(info) << "[App] Waiting for device...";
           this->startServerSocket();
-          this->armUsbWait(true, "session ended");
+          this->armUsbWait(false, "session ended");
+          const auto generation = usbWaitGeneration_;
+          usbReportTimer_.expires_after(usbReportDelay_);
+          usbReportTimer_.async_wait(strand_.wrap([this, self = this->shared_from_this(), generation](
+              const boost::system::error_code &ec) {
+            if (!ec && !isStopped_ && generation == usbWaitGeneration_ && androidAutoEntity_ == nullptr) {
+              this->armUsbWait(true, "session ended, checking the phones on USB");
+            }
+          }));
         } catch (...) {
           OPENAUTO_LOG(error) << "[App] onAndroidAutoQuit: exception caused by this->waitForDevice();";
         }

@@ -66,6 +66,8 @@ public:
                         core::UsbWatchdog watchdog);
     // delay before the USB wait is armed again after the hub failed (default 5 s)
     void setUsbRetryDelay(std::chrono::steady_clock::duration delay) { usbRetryDelay_ = delay; }
+    // delay after a session end before the phones still on USB are reported again (default 3 s, openhu#92)
+    void setUsbReportDelay(std::chrono::steady_clock::duration delay) { usbReportDelay_ = delay; }
 
 private:
     using std::enable_shared_from_this<App>::shared_from_this;
@@ -96,6 +98,8 @@ private:
     unsigned usbWaitGeneration_ = 0;
     boost::asio::steady_timer usbRetryTimer_;
     std::chrono::steady_clock::duration usbRetryDelay_ = std::chrono::seconds(5);
+    boost::asio::steady_timer usbReportTimer_;
+    std::chrono::steady_clock::duration usbReportDelay_ = std::chrono::seconds(3);
     boost::asio::steady_timer usbWatchdogTimer_;
     std::function<QStringList()> usbDeviceProbe_;
     std::chrono::steady_clock::duration usbWatchdogInterval_ = std::chrono::seconds(5);
