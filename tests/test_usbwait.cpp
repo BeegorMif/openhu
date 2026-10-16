@@ -259,6 +259,38 @@ private slots:
         QVERIFY(rig.hub->pending != nullptr);
     }
 
+    // openhu#92: a session end arms the hub at once without reporting the phones on USB (an accessory that is being
+    // unplugged is still listed for a moment and would start a session that fails right away); they are reported a
+    // moment later, unless a session started meanwhile
+    void sessionEndReportsPhonesLater()
+    {
+        Rig rig;
+        rig.app->setUsbReportDelay(100ms);
+        rig.app->waitForUSBDevice();
+        rig.pump(50ms);
+        rig.startWirelessSession();
+        const int starts = rig.hub->starts;
+        rig.app->onAndroidAutoQuit();
+        rig.pump(30ms);
+        QCOMPARE(rig.hub->starts, starts + 1);
+        QCOMPARE(rig.hub->cancels, 0);
+        rig.pump(150ms);
+        QCOMPARE(rig.hub->starts, starts + 2);
+        QCOMPARE(rig.hub->cancels, 1);
+        QVERIFY(rig.hub->pending != nullptr);
+
+        // a new session before the delay: no report
+        rig.startWirelessSession();
+        const int before = rig.hub->starts;
+        const int cancels = rig.hub->cancels;
+        rig.app->onAndroidAutoQuit();
+        rig.pump(30ms);
+        rig.startWirelessSession();
+        rig.pump(150ms);
+        QCOMPARE(rig.hub->cancels, cancels);
+        QVERIFY(rig.hub->starts <= before + 2);
+    }
+
     void watchdogArmsAgainWhenAccessoryWaits()
     {
         // openhu#80: the phone switched to accessory mode, but the accessory never reached the App
