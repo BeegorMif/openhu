@@ -33,6 +33,9 @@ openhu_test(test_wificlient)
 openhu_test(test_radio)
 openhu_test(test_usbwait)
 openhu_test(test_ducking)
+openhu_test(test_keyboard)
+# loads Keyboard.qml from the sources (shell.qrc is part of the program, not of openhu_core)
+target_compile_definitions(test_keyboard PRIVATE OPENHU_SHELL_QML_DIR="${CMAKE_SOURCE_DIR}/src/autoapp/Shell/qml")
 # a plugin translation
 set(test_plugin_qm ${CMAKE_CURRENT_BINARY_DIR}/plugin_de.qm)
 add_custom_command(OUTPUT ${test_plugin_qm}
