@@ -68,6 +68,10 @@ Detailed plan: `~/.claude/plans/ich-h-tte-gene-folgenden-ethereal-lighthouse.md`
 - Reverse camera: by default in the content area and in the dock, full screen optional. Android Auto is told with
   video focus `NATIVE` while the camera (any plugin overlay, or a plugin page that replaced Android Auto) covers it,
   and gets the gear (`vehicle.gear`) as a sensor (#76, not tested with a phone yet).
+- Video flow control (#22): a video message is acknowledged only when the decoder takes it from its queue, so the
+  phone (`max_unacked` 1) waits instead of OpenHU dropping frames. Dropping until the next IDR frame stays as a
+  fallback, and acks held back longer than 500 ms are sent anyway. Simulated in `tests/test_video_ack.cpp`, not
+  tested with a phone yet. Debugging knobs are in [troubleshooting.md](troubleshooting.md).
 - Actions (`input.action`) and plugin commands are one-shot events (`bus.emit`), states
   are stored with their last value (`bus.publish`).
 - The shell's texts are IDs in the code (`qsTrId`); every language, English too, is a translation file (`translations/`,

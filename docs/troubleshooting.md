@@ -24,6 +24,22 @@ installed: builds before the `libaasdk` packages put it into `/usr/local`, and t
 `/usr/local/include`. Remove it with
 `sudo rm -r /usr/local/lib/libaasdk* /usr/local/lib/libaap_protobuf* /usr/local/lib/cmake/aasdk /usr/local/lib/cmake/aap_protobuf /usr/local/include/aasdk /usr/local/include/aap_protobuf`.
 
+**The picture lags behind or freezes for a while.** The decoder cannot keep up. OpenHU acknowledges a video message
+to the phone only when the decoder takes it from its queue (#22). The phone keeps at most `max_unacked` messages
+unacknowledged, so it waits and skips frames, and no frame has to be dropped. The log shows every 10 s
+`[VideoMediaSinkService] video acks: …` with the ack delay and how many messages were unacknowledged. With
+`OPENHU_LOG=debug` it also shows every ack (`ack 1 after … ms, … unacked in the queue`). If the phone does not wait and
+the queue still overflows, OpenHU drops everything up to the next IDR frame (`decoder too slow, dropped …`). The
+picture then freezes until the phone sends the next IDR frame. These environment variables are debugging knobs
+(on OpenHU OS one `VAR=value` per line in `/var/lib/openhu/session.env`, then `openhu-cli restart`):
+
+| Variable | Effect |
+|---|---|
+| `OPENHU_DEBUG_DECODE_DELAY_MS=100` | simulates a slow decoder: waits 100 ms before each picture (about 10 fps) |
+| `OPENHU_VIDEO_ACK=immediate` | acknowledges every message as soon as it is queued (the behaviour before #22) |
+| `OPENHU_VIDEO_MAX_UNACKED=<n>` | the `max_unacked` OpenHU sends to the phone (default 1) |
+| `OPENHU_VIDEO_ACK_MAX_DELAY_MS=<ms>` | the longest an ack is held back while the decoder is blocked (default 500) |
+
 **SSL errors right after a restart of OpenHU** (`SSL routines::unexpected message`). The phone was still in
 accessory mode from the previous run. OpenHU resets such a phone at startup; if it still happens, unplug it once.
 

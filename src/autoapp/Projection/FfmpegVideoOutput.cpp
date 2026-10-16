@@ -189,6 +189,7 @@ FfmpegVideoOutput::FfmpegVideoOutput(configuration::IConfiguration::Pointer conf
     : VideoOutput(std::move(configuration))
     , testSink_(sink)
     , useTestSink_(sink != nullptr)
+    , maxQueuedBytes_(cMaxQueuedBytes)
 {
     // deleteLater() and the frame hand-over run in the GUI thread
     this->moveToThread(QCoreApplication::instance()->thread());
@@ -234,6 +235,7 @@ bool FfmpegVideoOutput::init()
         pendingRestart_ = false;
         queue_.clear();
         queuedBytes_ = 0;
+        counters_ = Counters();
     }
     thread_ = std::thread(&FfmpegVideoOutput::decodeLoop, this);
 
@@ -246,14 +248,26 @@ bool FfmpegVideoOutput::init()
 
 void FfmpegVideoOutput::write(uint64_t, const aasdk::common::DataConstBuffer& buffer)
 {
-    std::lock_guard<std::mutex> lock(mutex_);
+    // Messages that left the queue (or never entered it) in this call: reported after the lock is released
+    int consumedNow = 0;
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        ++counters_.messages;
+        consumedNow = this->enqueue(buffer);
+    }
+    this->consumed(consumedNow);
+}
+
+int FfmpegVideoOutput::enqueue(const aasdk::common::DataConstBuffer& buffer)
+{
     if(!running_)
     {
-        return;
+        return 1;
     }
 
+    int consumedNow = 0;
     QByteArray data(reinterpret_cast<const char*>(buffer.cdata), static_cast<qsizetype>(buffer.size));
-    if(queuedBytes_ + buffer.size > cMaxQueuedBytes)
+    if(queuedBytes_ + buffer.size > maxQueuedBytes_)
     {
         // The pictures are dropped, the codec configuration (SPS/PPS, no picture) is kept: without it
         // no later picture could be decoded.
@@ -269,10 +283,14 @@ void FfmpegVideoOutput::write(uint64_t, const aasdk::common::DataConstBuffer& bu
             }
         }
         queue_ = std::move(kept);
-        droppedMessages_ += static_cast<int>(before - queue_.size());
+        const int dropped = static_cast<int>(before - queue_.size());
+        droppedMessages_ += dropped;
+        counters_.droppedMessages += dropped;
+        consumedNow += dropped;
         waitForKeyframe_ = true;
-        OPENAUTO_LOG(warning) << "[FfmpegVideoOutput] decoder too slow, dropped " << before - queue_.size()
-                              << " queued messages, waiting for the next IDR frame";
+        OPENAUTO_LOG(warning) << "[FfmpegVideoOutput] decoder too slow, dropped " << dropped
+                              << " queued messages, waiting for the next IDR frame"
+                              << (consumedHandler_ ? " (the phone did not wait for the acks)" : "");
     }
     if(waitForKeyframe_ && containsPicture(data))
     {
@@ -280,7 +298,8 @@ void FfmpegVideoOutput::write(uint64_t, const aasdk::common::DataConstBuffer& bu
         if(!containsKeyframe(data))
         {
             ++droppedMessages_;
-            return;
+            ++counters_.droppedMessages;
+            return consumedNow + 1;
         }
         waitForKeyframe_ = false;
         OPENAUTO_LOG(info) << "[FfmpegVideoOutput] IDR frame after " << droppedMessages_ << " dropped messages";
@@ -295,7 +314,45 @@ void FfmpegVideoOutput::write(uint64_t, const aasdk::common::DataConstBuffer& bu
     }
     queuedBytes_ += message.data.size();
     queue_.push_back(std::move(message));
+    counters_.maxQueued = std::max(counters_.maxQueued, queue_.size());
     wake_.notify_one();
+    return consumedNow;
+}
+
+bool FfmpegVideoOutput::setConsumedHandler(ConsumedHandler handler)
+{
+    std::lock_guard<std::mutex> lock(mutex_);
+    consumedHandler_ = std::move(handler);
+    return true;
+}
+
+void FfmpegVideoOutput::consumed(int count)
+{
+    if(count <= 0)
+    {
+        return;
+    }
+    ConsumedHandler handler;
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        handler = consumedHandler_;
+    }
+    if(handler)
+    {
+        handler(count);
+    }
+}
+
+FfmpegVideoOutput::Counters FfmpegVideoOutput::counters() const
+{
+    std::lock_guard<std::mutex> lock(mutex_);
+    return counters_;
+}
+
+void FfmpegVideoOutput::setMaxQueuedBytes(size_t bytes)
+{
+    std::lock_guard<std::mutex> lock(mutex_);
+    maxQueuedBytes_ = bytes;
 }
 
 void FfmpegVideoOutput::streamStopped()
@@ -432,6 +489,13 @@ void FfmpegVideoOutput::decodeLoop()
     lastFormat_ = QVideoFrameFormat();
     debugLog_ = debugLogEnabled();
     lastLuma_.clear();
+    decodeDelayMs_ = 0;
+    if(const char* delay = std::getenv("OPENHU_DEBUG_DECODE_DELAY_MS"); delay != nullptr && *delay != '\0')
+    {
+        decodeDelayMs_ = std::max(0, std::atoi(delay));
+        OPENAUTO_LOG(warning) << "[FfmpegVideoOutput] simulated slow decoder: " << decodeDelayMs_
+                              << " ms more per picture (OPENHU_DEBUG_DECODE_DELAY_MS)";
+    }
     // Messages until the first picture, replayed into the software decoder if the hardware one fails
     std::vector<QByteArray> history;
     bool pictureSeen = false;
@@ -462,6 +526,8 @@ void FfmpegVideoOutput::decodeLoop()
             queue_.pop_front();
             queuedBytes_ -= data.size();
         }
+        // The message left the queue: the phone may send the next one while this one is decoded
+        this->consumed(1);
         this->logMessageAfterStart(data);
 
         if(!containsPicture(data) && config.size() + data.size() <= cMaxConfigBytes)
@@ -480,6 +546,10 @@ void FfmpegVideoOutput::decodeLoop()
             history.push_back(data);
         }
 
+        if(decodeDelayMs_ > 0)
+        {
+            std::this_thread::sleep_for(std::chrono::milliseconds(decodeDelayMs_));
+        }
         packet->data = reinterpret_cast<uint8_t*>(data.data());
         packet->size = static_cast<int>(data.size());
         const int framesBefore = stats_.frames;
@@ -557,6 +627,10 @@ bool FfmpegVideoOutput::receiveFrames()
     {
         gotFrame = true;
         ++stats_.frames;
+        {
+            std::lock_guard<std::mutex> lock(mutex_);
+            ++counters_.decodedFrames;
+        }
         if(this->showAfterStart(frame_))
         {
             this->present(this->toVideoFrame(frame_));
@@ -665,12 +739,16 @@ bool FfmpegVideoOutput::showAfterStart(const AVFrame* frame)
 
 void FfmpegVideoOutput::failed(const QString& error)
 {
+    int cleared = 0;
     {
         std::lock_guard<std::mutex> lock(mutex_);
         running_ = false;
+        cleared = static_cast<int>(queue_.size());
         queue_.clear();
         queuedBytes_ = 0;
     }
+    // No decoder: what was queued is acknowledged, later messages at once (write() without running_)
+    this->consumed(cleared);
     const void* self = this;
     QMetaObject::invokeMethod(&shell::AaBridge::instance(), [self, error]() {
         shell::AaBridge::instance().setVideoOutputActive(self, false);

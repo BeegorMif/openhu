@@ -60,6 +60,12 @@ namespace projection
 // cMaxHoldMs), and the first picture is logged; with OPENHU_LOG=debug
 // the first messages and frames after a start are logged in detail (NAL types, mean luma, change to the previous
 // frame) to find what the phone sends.
+//
+// Flow control (#22): with a consumed handler (setConsumedHandler) every message is reported once it has left the
+// queue, and the video service acknowledges it to the phone only then. The phone, which waits for the ack
+// (max_unacked), so sends no faster than the decoder takes the messages, and the queue stays short. If the queue
+// still overflows (a phone that does not wait), everything up to the next IDR frame is dropped as before.
+// OPENHU_DEBUG_DECODE_DELAY_MS=<ms> simulates a slow decoder: the decoder thread waits that long before each picture.
 class FfmpegVideoOutput: public QObject, public VideoOutput, boost::noncopyable
 {
     Q_OBJECT
@@ -75,6 +81,19 @@ public:
     void stop() override;
     void streamStopped() override;
     void streamStarted() override;
+    bool setConsumedHandler(ConsumedHandler handler) override;
+
+    // Counters since init(), thread safe (tests and the simulation)
+    struct Counters
+    {
+        int messages = 0;          // written
+        int decodedFrames = 0;     // frames out of the decoder
+        int droppedMessages = 0;   // dropped after an overflow (until the next IDR frame)
+        size_t maxQueued = 0;      // most messages waiting in the queue at once
+    };
+    Counters counters() const;
+    // Queue limit, cMaxQueuedBytes by default; for tests
+    void setMaxQueuedBytes(size_t bytes);
 
     // Name of the running FFmpeg decoder, empty before init(). Thread safe.
     std::string decoderName() const;
@@ -119,6 +138,10 @@ private:
     bool receiveFrames();
     // The decoder thread ends without stop(): no more input, video inactive, error in the shell
     void failed(const QString& error);
+    // Reports messages that left the queue to the consumed handler; never with mutex_ held
+    void consumed(int count);
+    // write() with mutex_ held: queues the message, returns how many messages left the queue (dropped)
+    int enqueue(const aasdk::common::DataConstBuffer& buffer);
     // Decides whether a decoded frame is shown while a stream (re)starts, logs the diagnostics
     bool showAfterStart(const AVFrame* frame);
     void logMessageAfterStart(const QByteArray& data);
@@ -145,6 +168,9 @@ private:
     bool pendingRestart_ = false;
     std::thread thread_;
     std::string decoderName_;
+    ConsumedHandler consumedHandler_;
+    size_t maxQueuedBytes_;
+    Counters counters_;
 
     // Decoder thread only
     AVCodecContext* codec_ = nullptr;
@@ -156,6 +182,8 @@ private:
     int64_t statsSince_ = 0;
     StreamStart streamStart_;
     bool debugLog_ = false;
+    // OPENHU_DEBUG_DECODE_DELAY_MS: simulated slow decoder
+    int decodeDelayMs_ = 0;
     // Subsampled luma of the last decoded frame, only with debugLog_
     std::vector<uint8_t> lastLuma_;
     // The first picture after a restart is on its way to the sink: the shell stops waiting once it is there

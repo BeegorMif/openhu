@@ -18,6 +18,7 @@
 
 #pragma once
 
+#include <functional>
 #include <memory>
 #include <QRect>
 #include <aasdk/Common/Data.hpp>
@@ -51,6 +52,14 @@ public:
     // the output keeps running and keeps its last picture.
     virtual void streamStopped() {}
     virtual void streamStarted() {}
+
+    // Flow control (#22): an output that accepts a handler calls it once for every message given to write(), as soon
+    // as the message has left its queue (taken by the decoder, or dropped). The video service acknowledges the
+    // message to the phone only then, so the phone waits (max_unacked) instead of OpenHU's queue growing. The
+    // handler may be called from any thread, also from within write(); count is the number of messages. An output
+    // that returns false here has no queue worth waiting for: the service acknowledges every message at once.
+    using ConsumedHandler = std::function<void(int count)>;
+    virtual bool setConsumedHandler(ConsumedHandler) { return false; }
 
     virtual aap_protobuf::service::media::sink::message::VideoFrameRateType getVideoFPS() const = 0;
     virtual aap_protobuf::service::media::sink::message::VideoCodecResolutionType getVideoResolution() const = 0;
