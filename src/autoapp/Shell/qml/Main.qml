@@ -229,6 +229,8 @@ Window {
                         visible: root.shownPage === "plugin:" + pluginId
                         property bool used: false
                         onVisibleChanged: if (visible) used = true
+                        // created while already on screen (plugin updated or enabled again): no visibleChanged
+                        Component.onCompleted: if (visible) used = true
                         active: pluginEnabled && page !== "" && (visible || used)
                         source: page
 
