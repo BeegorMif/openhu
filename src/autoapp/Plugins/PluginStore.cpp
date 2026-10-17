@@ -81,7 +81,10 @@ void writeJsonFile(const QString& path, const QVariantMap& data)
 bool archCompatible(const QVariantMap& package)
 {
     const QStringList arch = package.value("arch").toStringList();
-    return arch.isEmpty() || arch.contains("all") || arch.contains(PluginStore::currentArch());
+    const bool listed = arch.isEmpty() || arch.contains("all") || arch.contains(PluginStore::currentArch());
+    // one archive per architecture: there has to be one for this machine
+    return listed
+        && (!package.contains("archives") || !PluginStore::archiveFor(package, PluginStore::currentArch()).isEmpty());
 }
 
 bool compatible(const QVariantMap& package)
@@ -144,6 +147,21 @@ QString PluginStore::currentArch()
     return arch;  // arm64, i386, ...
 }
 
+QVariantMap PluginStore::archiveFor(const QVariantMap& package, const QString& arch)
+{
+    if(package.contains("archives"))
+    {
+        const QVariantMap archive = package.value("archives").toMap().value(arch).toMap();
+        return archive.value("archive").toString().isEmpty() ? QVariantMap() : archive;
+    }
+    if(package.value("archive").toString().isEmpty())
+    {
+        return QVariantMap();
+    }
+    return QVariantMap{{"archive", package.value("archive")}, {"sha256", package.value("sha256")},
+                       {"size", package.value("size")}};
+}
+
 int PluginStore::compareVersions(const QString& a, const QString& b)
 {
     const QStringList left = a.split('.');
@@ -180,6 +198,11 @@ QVariantList PluginStore::packages() const
 
             const QString installedVersion = installed.value(id).toMap().value("version").toString();
             const bool isInstalled = manager_.contains(id);
+            if(package.contains("archives"))
+            {
+                // archive, sha256 and size of the one for this machine (the store page shows the size)
+                package.insert(archiveFor(package, currentArch()));
+            }
             package["source"] = sources_[i].line();
             package["official"] = sources_[i].official();
             package["compatible"] = compatible(package);
@@ -554,8 +577,9 @@ void PluginStore::installPackage(const QString& id, std::function<void()> done)
     }
 
     const Source source = sources_[sourceIndex];
-    const QUrl url = source.base().resolved(QUrl(package.value("archive").toString()));
-    const QString sha256 = package.value("sha256").toString().toLower();
+    const QVariantMap download = archiveFor(package, currentArch());
+    const QUrl url = source.base().resolved(QUrl(download.value("archive").toString()));
+    const QString sha256 = download.value("sha256").toString().toLower();
     const QString version = package.value("version").toString();
 
     QNetworkReply* reply = network_.get(QNetworkRequest(url));

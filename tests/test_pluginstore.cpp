@@ -79,6 +79,43 @@ public:
         return entry;
     }
 
+    // A plugin with native programs: one archive per architecture (bin/<arch>/tool in it), listed under "archives"
+    // like tools/openhu-repo-index does for manifests with "arch": ["amd64", "arm64"]
+    QVariantMap addPerArch(const QString& id, const QString& version, const QStringList& arches)
+    {
+        QVariantMap archives;
+        for(const QString& arch: arches)
+        {
+            const QString staging = path_ + "/staging-" + id + "-" + arch;
+            QDir().mkpath(staging + "/" + id + "/bin/" + arch);
+            writeJson(staging + "/" + id + "/manifest.json", {{"id", id}, {"name", id}, {"version", version},
+                                                              {"api", PluginManager::cApiVersion}, {"arch", arches}});
+            QFile tool(staging + "/" + id + "/bin/" + arch + "/tool");
+            tool.open(QIODevice::WriteOnly);
+            tool.write(arch.toUtf8());
+            tool.close();
+
+            const QString archive = "dist/" + id + "-" + version + "-" + arch + ".tar.gz";
+            QDir().mkpath(path_ + "/dist");
+            QProcess tar;
+            tar.start("tar", {"-czf", path_ + "/" + archive, "-C", staging, "."});
+            tar.waitForFinished();
+            QDir(staging).removeRecursively();
+            QFile file(path_ + "/" + archive);
+            file.open(QIODevice::ReadOnly);
+            const QByteArray data = file.readAll();
+            archives[arch] = QVariantMap{
+                {"archive", archive},
+                {"sha256", QString::fromLatin1(QCryptographicHash::hash(data, QCryptographicHash::Sha256).toHex())},
+                {"size", data.size()}};
+        }
+        QVariantMap entry{{"id", id}, {"name", id}, {"version", version}, {"arch", arches}, {"archives", archives},
+                          {"api", PluginManager::cApiVersion}};
+        entries_.append(entry);
+        this->writeIndex();
+        return entry;
+    }
+
     void setSha256(const QString& id, const QString& sha256)
     {
         for(auto& entry: entries_)
@@ -226,6 +263,61 @@ private slots:
         QVERIFY(!QDir(PluginManager::pluginsDir() + "/hello").exists());
         QVERIFY(!manager.contains("hello"));
         QVERIFY(!readJson(PluginManager::baseDir() + "/installed.json").contains("hello"));
+    }
+
+    void archiveFor()
+    {
+        const QVariantMap single{{"archive", "dist/a-1.0.0.tar.gz"}, {"sha256", "11"}, {"size", 3}};
+        QCOMPARE(PluginStore::archiveFor(single, "arm64").value("archive").toString(), QString("dist/a-1.0.0.tar.gz"));
+        QCOMPARE(PluginStore::archiveFor(single, "arm64").value("sha256").toString(), QString("11"));
+        const QVariantMap perArch{{"arch", QStringList{"amd64", "arm64"}},
+                                  {"archives", QVariantMap{{"amd64", QVariantMap{{"archive", "dist/a-amd64.tar.gz"},
+                                                                                 {"sha256", "22"}}},
+                                                           {"arm64", QVariantMap{{"archive", "dist/a-arm64.tar.gz"},
+                                                                                 {"sha256", "33"}}}}}};
+        QCOMPARE(PluginStore::archiveFor(perArch, "arm64").value("archive").toString(), QString("dist/a-arm64.tar.gz"));
+        QCOMPARE(PluginStore::archiveFor(perArch, "amd64").value("sha256").toString(), QString("22"));
+        QVERIFY(PluginStore::archiveFor(perArch, "armhf").isEmpty());
+        QVERIFY(PluginStore::archiveFor(QVariantMap{{"id", "x"}}, "amd64").isEmpty());
+    }
+
+    // Plugins with native programs: the store installs the archive of this machine's architecture
+    void archivePerArchitecture()
+    {
+        TestHome home;
+        Repository repo(home.path("repo"));
+        const QString arch = PluginStore::currentArch();
+        const QString other = arch == "amd64" ? "arm64" : "amd64";
+        repo.addPerArch("native", "1.0.0", {"amd64", "arm64"});
+        repo.addPerArch("elsewhere", "1.0.0", {other});
+        writeSources({"file " + repo.path()});
+
+        PluginManager manager(0);
+        PluginStore store(manager);
+        store.refresh();
+        QVERIFY(waitIdle(store));
+
+        const QVariantMap native = package(store, "native");
+        if(arch != "amd64" && arch != "arm64")
+        {
+            QSKIP("test machine is neither amd64 nor arm64");
+        }
+        QVERIFY(native.value("compatible").toBool());
+        QCOMPARE(native.value("archive").toString(), "dist/native-1.0.0-" + arch + ".tar.gz");
+        QVERIFY(native.value("size").toInt() > 0);
+        store.install("native");
+        QVERIFY(waitIdle(store));
+        const QString bin = PluginManager::pluginsDir() + "/native/bin/";
+        QVERIFY2(QFile::exists(bin + arch + "/tool"), qPrintable(store.status()));
+        QVERIFY(!QFile::exists(bin + other + "/tool"));
+        QVERIFY(manager.contains("native"));
+
+        // no archive for this machine
+        QVERIFY(!package(store, "elsewhere").value("compatible").toBool());
+        store.install("elsewhere");
+        QVERIFY(waitIdle(store));
+        QVERIFY(!manager.contains("elsewhere"));
+        QVERIFY2(store.status().contains("not available"), qPrintable(store.status()));
     }
 
     void manifestAtTheTopOfTheArchive()

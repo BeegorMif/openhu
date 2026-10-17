@@ -26,7 +26,7 @@ It can bring a QML page, an overlay and a background process in any language tha
 | `id` | folder name, letters, digits, `.`, `-`, `_` |
 | `version` | `1.2.3`, compared numerically for updates |
 | `api` | plugin API the plugin is made for: `2` = OpenHU with Qt 6 (QML pages for Qt 6). Plugins of another API are not installed and, if copied by hand, not loaded |
-| `arch` | `all`, `amd64`, `arm64`, `armhf` |
+| `arch` | `all`, `amd64`, `arm64`, `armhf`; a plugin with native programs names its architectures and gets one archive per architecture (see [Repositories](#repositories-store-sources)) |
 | `ui.page` | QML page, shown as `plugin:<id>` (dock, "Open" in the store, `ui.navigate`) |
 | `ui.dock` | page as dock entry (users can change it, `plugin.setDock`) |
 | `ui.overlay` | QML above the whole shell, shown with `ui.overlay.show` / `ui.overlay.hide` |
@@ -35,6 +35,7 @@ It can bring a QML page, an overlay and a background process in any language tha
 | `process.restart` | `on-failure` (default), `always`, `never`; crash loops back off up to 60 s |
 | `permissions` | shown in the store before installing (informational) |
 | `shared` | files from the repository's `common/` copied to `lib/` when the archive is built |
+| `packages` | Debian packages the plugin needs on the head unit, e.g. libraries of its native programs (informational, copied to the index) |
 
 Processes get `OPENHU_API_URL`, `OPENHU_PLUGIN_ID`, `OPENHU_PLUGIN_DIR`, `OPENHU_LANGUAGE` (language of the shell at
 the start, see [Translations](#translations)) and `OPENHU_DATA_DIR` (persistent data,
@@ -170,3 +171,14 @@ file   /media/usb/openhu-repo
 A repository contains `repo.json`, `plugins/<id>/…`, optional `common/`, and the generated
 `index.json` and `dist/<id>-<version>.tar.gz`. `tools/openhu-repo-index` (in openhu-plugins) builds
 them reproducibly; the store verifies each download against the sha256 in `index.json`.
+
+A plugin with native programs (manifest `"arch": ["amd64", "arm64"]`, programs in `bin/<arch>/`) gets one archive
+per architecture, `dist/<id>-<version>-<arch>.tar.gz` with only its own `bin/<arch>/`. Its index entry lists them
+under `archives` instead of `archive`, and the store installs the one for the head unit's architecture (a plugin
+without one for it is shown as not available):
+
+```json
+{"id": "org.openhu.radio", "version": "1.0.0", "arch": ["amd64", "arm64"],
+ "archives": {"amd64": {"archive": "dist/org.openhu.radio-1.0.0-amd64.tar.gz", "sha256": "…", "size": 511767},
+              "arm64": {"archive": "dist/org.openhu.radio-1.0.0-arm64.tar.gz", "sha256": "…", "size": 511771}}}
+```
