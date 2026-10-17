@@ -354,7 +354,7 @@ int main(int argc, char* argv[])
     // Keyboard -> actions (keymap.json)
     actionDispatcher.installKeyboardHandler();
 
-    pluginManager.setQmlCacheTrimmer([&engine]() { engine.trimComponentCache(); });
+    pluginManager.setQmlCacheClearer([&engine]() { autoapp::plugins::PluginManager::dropQmlCache(engine); });
 
     engine.load(QUrl(QStringLiteral("qrc:/shell/qml/Main.qml")));
     if(engine.rootObjects().isEmpty())

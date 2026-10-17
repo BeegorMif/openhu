@@ -23,6 +23,7 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QProcessEnvironment>
+#include <QQmlEngine>
 #include <QUrl>
 #include <f1x/openauto/autoapp/Core/ChildProcesses.hpp>
 #include <f1x/openauto/autoapp/Plugins/PluginManager.hpp>
@@ -311,17 +312,22 @@ void PluginManager::unload(const QString& id)
     }
 }
 
-void PluginManager::setQmlCacheTrimmer(std::function<void()> trimmer)
+void PluginManager::setQmlCacheClearer(std::function<void()> clearer)
 {
-    qmlCacheTrimmer_ = std::move(trimmer);
+    qmlCacheClearer_ = std::move(clearer);
 }
 
-void PluginManager::trimQmlCache()
+void PluginManager::clearQmlCache()
 {
-    if(qmlCacheTrimmer_)
+    if(qmlCacheClearer_)
     {
-        qmlCacheTrimmer_();
+        qmlCacheClearer_();
     }
+}
+
+void PluginManager::dropQmlCache(QQmlEngine& engine)
+{
+    engine.clearComponentCache();
 }
 
 void PluginManager::startProcess(Plugin& plugin)

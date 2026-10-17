@@ -27,6 +27,8 @@
 #include <QTimer>
 #include <QVariantList>
 
+class QQmlEngine;
+
 namespace f1x
 {
 namespace openauto
@@ -73,9 +75,15 @@ public:
     // Stops a plugin before its files are replaced or removed.
     void unload(const QString& id);
 
-    // QML caches loaded files by URL; the shell drops cached plugin QML after an update with this.
-    void setQmlCacheTrimmer(std::function<void()> trimmer);
-    void trimQmlCache();
+    // QML caches loaded files by URL: without dropping that cache an updated plugin keeps showing its old pages
+    // (and every other QML file of it) until OpenHU restarts. The shell sets dropQmlCache(engine) here; the store
+    // calls it once the plugin's pages are gone, before the new files are loaded.
+    void setQmlCacheClearer(std::function<void()> clearer);
+    void clearQmlCache();
+    // QQmlEngine::trimComponentCache() keeps files whose compiled code the JavaScript heap still refers to (Qt 6.8,
+    // also after collectGarbage(), which is only one incremental step). clearComponentCache() runs a full garbage
+    // collection and empties the cache; objects that exist keep their types, singletons their instance.
+    static void dropQmlCache(QQmlEngine& engine);
 
 signals:
     // Installed/enabled set changed (QML rebuilds plugin pages)
@@ -110,7 +118,7 @@ private:
     QVariantMap loadState() const;
 
     quint16 apiPort_;
-    std::function<void()> qmlCacheTrimmer_;
+    std::function<void()> qmlCacheClearer_;
     std::map<QString, std::unique_ptr<Plugin>> plugins_;
 };
 
