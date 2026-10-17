@@ -53,6 +53,9 @@ public:
 
     static QString currentArch();
     static int compareVersions(const QString& a, const QString& b);
+    // The archive of an index entry for an architecture: {archive, sha256, size} from "archives" (plugins with native
+    // programs have one archive per architecture), else the entry's own; empty if there is none for arch
+    static QVariantMap archiveFor(const QVariantMap& package, const QString& arch);
 
     QVariantList packages() const;
     QVariantList sources() const;
