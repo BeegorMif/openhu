@@ -21,6 +21,7 @@
 #include <QObject>
 #include <QTimer>
 #include <QVariantMap>
+#include <f1x/openauto/autoapp/Audio/OutputRouter.hpp>
 #include <f1x/openauto/autoapp/Bluetooth/MediaPlayer.hpp>
 #include <f1x/openauto/autoapp/Configuration/IConfiguration.hpp>
 
@@ -63,6 +64,7 @@ public:
 
     // Starts or stops according to the configuration
     Q_INVOKABLE void apply();
+    // Shutdown: disconnects the radio, the output before comes back at once (blocking)
     void stop();
     // Use this radio (pairs it if needed) and switch car audio on
     Q_INVOKABLE void selectDevice(const QString& address);
@@ -73,12 +75,15 @@ signals:
     void changed();
 
 private:
+    // blocking: restore the output at once (shutdown), else in the background
+    void halt(bool blocking);
     void onDevicesChanged();
     void onConnected();
-    void onDisconnected();
+    void onDisconnected(bool blocking = false);
     // sink of the radio in PipeWire/PulseAudio, appears a moment after the Bluetooth connection
     void findSink();
-    void restoreSink();
+    // BlueZ ConnectProfile with A2DP (the radio as audio sink)
+    void requestA2dp();
     void onCommand(const QString& name);
     void updatePlayer();
     void publish();
@@ -88,10 +93,11 @@ private:
     input::ActionDispatcher& actions_;
     audio::VolumeController& volume_;
     MediaPlayer player_;
+    // the radio's sink as the output, the streams moved to it (#112)
+    audio::OutputRouter router_;
     bool running_ = false;
     bool connected_ = false;
     QString sink_;
-    QString previousSink_;
     QString error_;
     int sinkAttempts_ = 0;
     QTimer sinkTimer_;
