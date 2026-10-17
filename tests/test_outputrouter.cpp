@@ -108,7 +108,7 @@ case "$*" in
     "-f json list sink-inputs") cat "$dir/sink-inputs.json" ;;
     "-f json list clients") cat "$dir/clients.json" ;;
     "list short sinks") cat "$dir/sinks" ;;
-    get-default-sink) cat "$dir/default" ;;
+    get-default-sink) echo "$*" >> "$dir/calls"; cat "$dir/default" ;;
     set-default-sink*) echo "$*" >> "$dir/log"; echo "$2" > "$dir/default" ;;
     set-card-profile*|move-sink-input*) echo "$*" >> "$dir/log" ;;
 esac
@@ -206,6 +206,7 @@ private slots:
         script.close();
         script.setPermissions(QFile::ReadOwner | QFile::WriteOwner | QFile::ExeOwner);
         QFile::remove(dir_.filePath("log"));
+        QFile::remove(dir_.filePath("calls"));
         this->write("cards.json", cards("a2dp-sink"));
         this->write("sinks", sinks(true));
         this->write("default", cSpeakers + "\n");
@@ -335,6 +336,41 @@ private slots:
         QTRY_COMPARE(routed.size(), 1);
         QCOMPARE(this->sortedLog(), sorted(QStringList{"set-default-sink " + cRadio, "move-sink-input 11 " + cRadio,
                                            "move-sink-input 12 " + cRadio}));
+    }
+
+    // ... and back to an output that is not Bluetooth, with nothing known of the one before
+    void unknownOutputBeforeComesBackToANonBluetoothOne()
+    {
+        this->write("default", cRadio + "\n");
+        auto router = this->router();
+        QSignalSpy routed(router.get(), &OutputRouter::routed);
+        router->route(cAddress);
+        QTRY_COMPARE(routed.size(), 1);
+        this->clearLog();
+        this->write("sink-inputs.json", streams(80, 80));
+        QSignalSpy restored(router.get(), &OutputRouter::restored);
+        router->restore();
+        QTRY_COMPARE(restored.size(), 1);
+        QCOMPARE(this->defaultSink(), cSpeakers);
+        QVERIFY(this->log().contains("move-sink-input 11 " + cSpeakers));
+    }
+
+    // the output noted before the radio connected (CarAudio: when it starts), the audio server switches by itself
+    void rememberedOutputComesBack()
+    {
+        this->write("default", cHdmi + "\n");
+        auto router = this->router();
+        router->rememberDefault();
+        QTRY_COMPARE(this->pactlCalls("get-default-sink"), 1);
+        QTest::qWait(100);
+        this->write("default", cRadio + "\n");
+        QSignalSpy routed(router.get(), &OutputRouter::routed);
+        router->route(cAddress);
+        QTRY_COMPARE(routed.size(), 1);
+        QSignalSpy restored(router.get(), &OutputRouter::restored);
+        router->restore();
+        QTRY_COMPARE(restored.size(), 1);
+        QCOMPARE(this->defaultSink(), cHdmi);
     }
 
     void restoreDuringRouteWaits()
@@ -548,6 +584,16 @@ private:
     void clearLog()
     {
         QFile::remove(dir_.filePath("log"));
+    }
+
+    int pactlCalls(const QString& command) const
+    {
+        QFile file(dir_.filePath("calls"));
+        if(!file.open(QIODevice::ReadOnly))
+        {
+            return 0;
+        }
+        return QString::fromUtf8(file.readAll()).split('\n', Qt::SkipEmptyParts).count(command);
     }
 
     QString defaultSink() const

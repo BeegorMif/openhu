@@ -44,6 +44,7 @@ CarAudio::CarAudio(configuration::IConfiguration::Pointer configuration, Bluetoo
         }
     });
     connect(&player_, &MediaPlayer::command, this, &CarAudio::onCommand);
+    clock_.start();
     connect(&router_, &audio::OutputRouter::routed, this, [this](const QString& sink) {
         if(!connected_)
         {
@@ -68,6 +69,7 @@ CarAudio::CarAudio(configuration::IConfiguration::Pointer configuration, Bluetoo
         const auto settings = configuration_->getCarAudioSettings();
         if(running_ && !connected_ && !settings.device.empty())
         {
+            router_.rememberDefault();
             bluetooth_.connectDevice(QString::fromStdString(settings.device));
         }
     });
@@ -84,6 +86,7 @@ CarAudio::CarAudio(configuration::IConfiguration::Pointer configuration, Bluetoo
         else if(topic == "phone.status")
         {
             callState_ = data.value("callState").toString();
+            callButtons_.setCallState(callState_, clock_.elapsed());
             call_ = data.value("calls").toList().value(0).toMap();
         }
         else
@@ -118,6 +121,10 @@ void CarAudio::apply()
 
     running_ = true;
     error_.clear();
+    if(!connected_)
+    {
+        router_.rememberDefault();
+    }
     const QString registerError = player_.registerAt(bluetooth_.adapterPath());
     if(!registerError.isEmpty())
     {
@@ -154,14 +161,20 @@ void CarAudio::halt(bool blocking)
     reconnectTimer_.stop();
     sinkTimer_.stop();
     player_.unregister();
+    // the device stays connected (headphones, a phone call through the radio): it is only no longer the output
     if(connected_)
     {
-        bluetooth_.disconnectDevice(QString::fromStdString(configuration_->getCarAudioSettings().device));
-        this->onDisconnected(blocking);
+        connected_ = false;
+        sink_.clear();
+        OPENAUTO_LOG(info) << "[CarAudio] radio no longer the output";
     }
-    else if(blocking)
+    if(blocking)
     {
         router_.restoreNow();
+    }
+    else
+    {
+        router_.restore();
     }
 }
 
@@ -274,35 +287,13 @@ void CarAudio::findSink()
 
 void CarAudio::onCommand(const QString& name)
 {
-    OPENAUTO_LOG(info) << "[CarAudio] radio button: " << name.toStdString() << " (call: " << callState_.toStdString() << ")";
-    const bool toggle = name == "play" || name == "pause" || name == "playpause" || name == "stop";
-    if(toggle && callState_ == "incoming")
+    const auto decision = callButtons_.decide(name, clock_.elapsed());
+    OPENAUTO_LOG(info) << "[CarAudio] radio button: " << name.toStdString() << " (call: " << callState_.toStdString()
+                       << ") -> " << (decision.action.isEmpty() ? std::string("ignored") : decision.action.toStdString())
+                       << (decision.reason.isEmpty() ? std::string() : ": " + decision.reason.toStdString());
+    if(!decision.action.isEmpty())
     {
-        actions_.trigger("call.answer");
-    }
-    else if(toggle && (callState_ == "in_call" || callState_ == "on_hold"))
-    {
-        actions_.trigger("call.end");
-    }
-    else if(name == "next")
-    {
-        actions_.trigger("media.next");
-    }
-    else if(name == "previous")
-    {
-        actions_.trigger("media.previous");
-    }
-    else if(name == "play")
-    {
-        actions_.trigger("media.play");
-    }
-    else if(name == "pause" || name == "stop")
-    {
-        actions_.trigger("media.pause");
-    }
-    else
-    {
-        actions_.trigger("media.play_pause");
+        actions_.trigger(decision.action);
     }
 }
 

@@ -70,8 +70,9 @@ Useful tools: `nmcli connection show --active`, `journalctl -u NetworkManager` (
 | Radio not found by the search | radio not in pairing mode, or it only shows up with its address (no name yet): search again |
 | Old radio rejects pairing | it wants a PIN: set "Kopplungs-PIN" (often `0000` or `1234`) |
 | Buttons do nothing | the radio needs AVRCP; the log shows `[CarAudio] radio button: …` for every press that arrives |
+| Calls end by themselves | the radio's pause/stop ends a call only once it lasted 5 s (radios send them when they switch to their phone source); the log shows `[CarAudio] radio button: … -> ignored: …` or `-> call.end` |
 
-When OpenHU stops or the radio disconnects, the previous default output is restored and the moved streams go back.
+When OpenHU stops, the radio disconnects or car audio is switched off, the previous default output is restored and the moved streams go back. Switching car audio off does not disconnect the device.
 
 ## Settings and plugins
 

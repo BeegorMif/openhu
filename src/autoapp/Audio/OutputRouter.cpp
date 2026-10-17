@@ -78,6 +78,18 @@ Back backTo(const QList<Sink>& sinks, const QString& from, const QString& previo
         {
             return {previous, current != previous};
         }
+        // the audio server had switched to the Bluetooth sink before OpenHU knew the output before: an output
+        // that is not Bluetooth
+        if(current == from)
+        {
+            for(const Sink& sink: sinks)
+            {
+                if(!sink.name.startsWith(QLatin1String("bluez")))
+                {
+                    return {sink.name, true};
+                }
+            }
+        }
     }
     // chosen meanwhile (or the output before is gone): the streams go to the default
     if(!current.isEmpty() && current != from && indexOf(sinks, current))
@@ -247,6 +259,17 @@ void OutputRouter::pactl(const QList<QStringList>& commands, std::function<void(
     {
         done(*outputs);
     }
+}
+
+void OutputRouter::rememberDefault()
+{
+    this->pactl({{"get-default-sink"}}, [this](const Outputs& outputs) {
+        const QString current = QString::fromUtf8(outputs[0]).trimmed();
+        if(sink_.isEmpty() && !busy_ && !current.isEmpty() && !current.startsWith(QLatin1String("bluez")))
+        {
+            previous_ = current;
+        }
+    });
 }
 
 void OutputRouter::route(const QString& address)

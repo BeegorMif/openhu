@@ -83,6 +83,9 @@ public:
     // it -> routed().
     // Ignored while a switch is running.
     void route(const QString& address);
+    // Notes the default output as the one to come back to, unless it is Bluetooth (the audio server may make a
+    // new Bluetooth sink the default by itself before route() looks); while not routed
+    void rememberDefault();
     // The output before back: default and streams (after a running route()) -> restored()
     void restore();
     // The same, blocking (shutdown: no event loop any more)
