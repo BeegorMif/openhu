@@ -73,8 +73,9 @@ networks you trust.
 | `ui.overlay` | `overlays` – ids of the plugins whose overlay is shown (`ui.overlay.show`) |
 | `ui.language` | `language` (`de`, `en`), `available` – language of the shell; texts of plugin processes can follow it |
 | `projection.exit` | – one-shot: "exit" inside Android Auto, the shell shows its home page |
-| `vehicle.gear` | published by a plugin (e.g. the CAN plugin): `reverse` (bool) and/or `gear` (`park`, `reverse`, `neutral`, `drive` or a number 0–10; wins over `reverse`). While it has a value when the phone connects, Android Auto gets the gear as a sensor (`reverse: false` without `gear` counts as drive) |
-| `vehicle.simulate` | `state` (`park`, `drive`, `reverse`, empty = off) – a driving state for tests, only through the API (`openhu-cli api bus.publish '{"topic": "vehicle.simulate", "data": {"state": "park"}}'`), kept until OpenHU ends: Android Auto gets its gear, parking brake, speed (0, 50 or 5 km/h) and driving status (parked: unrestricted, otherwise every restriction) instead of `vehicle.gear` and the always unrestricted driving status. Parking brake and speed are announced only when a state is set at the connect: set it, then reconnect the phone; afterwards it can be switched during the session |
+| `vehicle.gear` | published by a plugin (e.g. the CAN plugin): `reverse` (bool) and/or `gear` (`park`, `reverse`, `neutral`, `drive` or a number 0–10; wins over `reverse`) → Android Auto `SENSOR_GEAR` (`reverse: false` without `gear` counts as drive). See [Vehicle data](#vehicle-data-android-auto-sensors) |
+| `vehicle.speed`, `vehicle.parkingBrake`, `vehicle.drivingStatus`, `vehicle.fuel`, `vehicle.info`, `vehicle.odometer`, `vehicle.engine`, `vehicle.climate`, `vehicle.compass` | vehicle data from plugins or API clients, passed to Android Auto as sensors, see [Vehicle data](#vehicle-data-android-auto-sensors) |
+| `vehicle.simulate` | `state` (`park`, `drive`, `reverse`, empty = off) – a driving state for tests, only through the API (`openhu-cli api bus.publish '{"topic": "vehicle.simulate", "data": {"state": "park"}}'`), kept until OpenHU ends: Android Auto gets its gear, parking brake, speed (0, 50 or 5 km/h) and driving status (parked: unrestricted, otherwise every restriction) instead of the vehicle data from plugins. Parking brake and speed are announced only when a state is set at the connect: set it, then reconnect the phone; afterwards it can be switched during the session |
 | `plugins.state` | `plugins` – installed plugins after (re)loading |
 | `store.state` | `busy`, `status`, `error` – progress of store operations |
 | `wireless.state` | `enabled`, `wifiAvailable` (a WiFi card is there), `wifiInterface`, `bluetoothAvailable` (a Bluetooth adapter is there; wireless Android Auto needs both and starts by itself when one is plugged in later), `running`, `hotspot` (`off`, `starting`, `on`, `error`), `hotspotMode` (`always`, `demand`), `hotspotError`, `hotspotRoom` (the hotspot leaves the card to WiFi networks: `search`, `client`, empty), `searchUntil` (ms since 1970), `wifiOff`, `interface`, `channel`, `ssid`, `bluetooth` (`off`, `on`, `error`), `bluetoothError`, `phase` (`idle`, `waiting`, `hotspot`, `handshake`, `joining`, `connected`, `error`), `phaseText`, `device` |
@@ -89,6 +90,37 @@ networks you trust.
 | `system.time` | OpenHU OS only: `zone` (`Europe/Berlin`, `UTC`), `offset` (seconds east of UTC), `ntp` (time from the internet), `synchronized`, `time` (seconds since 1970), `busy` |
 
 Plugins publish their own topics with `bus.publish` (e.g. `vehicle.speed`).
+
+### Vehicle data (Android Auto sensors)
+
+OpenHU reads no vehicle data itself. Plugins (e.g. the CAN plugin with a profile for the car) or API clients publish
+it with `bus.publish`, and OpenHU passes it to Android Auto as sensors. A sensor is announced to the phone only when its
+topic has a value when the phone connects; a plugin that starts later is picked up at the next connection. Values are
+sent on every change; speed, rpm and heading are also repeated at the rate the phone asks for (at most every 250 ms),
+so plugins may publish only changes. A topic with `"available": false` (e.g. the plugin lost the CAN bus) tells the
+phone that the sensor failed; the next value recovers it. Fields that are missing or no number are left out.
+
+| Topic | Fields | Sensor |
+|---|---|---|
+| `vehicle.speed` | `kmh`, `cruise` (bool, cruise control on) | `SENSOR_SPEED` |
+| `vehicle.parkingBrake` | `engaged` (bool) | `SENSOR_PARKING_BRAKE` |
+| `vehicle.gear` | see above | `SENSOR_GEAR` |
+| `vehicle.drivingStatus` | `restricted` (bool), or `restrictions` (list of `video`, `keyboard`, `voice`, `config`, `messages`), or `status` (the protocol's bits) | `SENSOR_DRIVING_STATUS_DATA`, see below |
+| `vehicle.fuel` | `percent` (of a full tank), `rangeKm`, `low` (bool, warning light) | `SENSOR_FUEL` (units on the wire unverified) |
+| `vehicle.info` | `fuelTypes` (`petrol`, `diesel`, `lpg`, `cng`, `e85`, `biodiesel`, `electric`, `hydrogen`, …), `evConnectors` (`type1`, `type2`, `ccs1`, `ccs2`, `chademo`, `gbt`, `tesla`, …) | announced with the sensors (what the car tanks/charges) |
+| `vehicle.odometer` | `km`, `tripKm` | `SENSOR_ODOMETER` |
+| `vehicle.engine` | `rpm` | `SENSOR_RPM` |
+| `vehicle.climate` | `outsideTemp` (°C), `pressureKpa` | `SENSOR_ENVIRONMENT_DATA` |
+| `vehicle.compass` | `heading` (degrees, 0 = north, clockwise), `pitch`, `roll` | `SENSOR_COMPASS` |
+
+**Driving status** (restrictions in Android Auto: keyboard, video, long lists and messages):
+1. `vehicle.drivingStatus` from a plugin wins.
+2. Otherwise Android Auto is unrestricted only while the car is parked: `vehicle.parkingBrake` engaged or `gear: park`,
+   and slower than 2 km/h (or no speed known). Everything else with vehicle data gets every restriction, also standing
+   at a traffic light without the parking brake. A gear known only as `reverse` (the reverse light) does not count.
+3. Without parking brake, gear and speed, Android Auto is unrestricted (head units without vehicle data).
+
+`vehicle.simulate` (topics table above) replaces gear, parking brake, speed and driving status for tests.
 
 Android Auto is told when the head unit covers it (video focus `NATIVE`, the phone may stop rendering): while a
 plugin overlay is shown, and while a plugin page replaced the Android Auto page (`aa` → `plugin:<id>`, e.g. the camera

@@ -371,14 +371,14 @@ private slots:
         QVERIFY(park);
         QCOMPARE(park->gear, Gear::GEAR_PARK);
         QVERIFY(park->parkingBrake);
-        QCOMPARE(park->speedE3, 0);
+        QCOMPARE(park->kmh, 0.0);
         QCOMPARE(park->drivingStatus, 0);
         // driving: every restriction (31), 50 km/h
         const auto drive = simulatedDriving({{"state", "drive"}});
         QVERIFY(drive);
         QCOMPARE(drive->gear, Gear::GEAR_DRIVE);
         QVERIFY(!drive->parkingBrake);
-        QCOMPARE(drive->speedE3, 13889);
+        QCOMPARE(drive->kmh, 50.0);
         QCOMPARE(drive->drivingStatus, 31);
         const auto reverse = simulatedDriving({{"state", "reverse"}});
         QVERIFY(reverse);
