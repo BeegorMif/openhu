@@ -20,8 +20,7 @@
 #include <f1x/openauto/Common/Log.hpp>
 #include <f1x/openauto/autoapp/Service/Sensor/SensorService.hpp>
 #include <f1x/openauto/autoapp/Core/EventBus.hpp>
-#include <f1x/openauto/autoapp/Service/Sensor/VehicleGear.hpp>
-#include <f1x/openauto/autoapp/Service/Sensor/SimulatedDriving.hpp>
+#include <f1x/openauto/autoapp/Service/Sensor/VehicleSensors.hpp>
 #include <fstream>
 #include <cmath>
 #include <gps.h>
@@ -53,22 +52,15 @@ namespace f1x::openauto::autoapp::service::sensor {
       OPENAUTO_LOG(info) << "[SensorService] start()";
       channel_->receive(this->shared_from_this());
 
-      // the gear from a plugin (CAN bus) and the simulated driving state, sent while the phone asked for them
+      // vehicle data from plugins and the API (#115), sent while the phone asked for it
       std::weak_ptr<SensorService> weak = this->shared_from_this();
-      gearConnection_ = QObject::connect(&core::EventBus::instance(), &core::EventBus::event,
-                                         [weak](const QString &topic, const QVariantMap &) {
-        if (topic != "vehicle.gear" && topic != "vehicle.simulate") {
+      vehicleConnection_ = QObject::connect(&core::EventBus::instance(), &core::EventBus::event,
+                                            [weak](const QString &topic, const QVariantMap &) {
+        if (!topic.startsWith("vehicle.")) {
           return;
         }
-        const bool simulate = topic == "vehicle.simulate";
         if (auto service = weak.lock()) {
-          service->strand_.dispatch([service, simulate]() {
-            if (simulate) {
-              service->sendSimulatedDriving();
-            } else if (service->gearRequested_) {
-              service->sendGearData();
-            }
-          });
+          service->strand_.dispatch([service, topic]() { service->onVehicleTopic(topic); });
         }
       });
     });
@@ -92,7 +84,7 @@ namespace f1x::openauto::autoapp::service::sensor {
         this->gpsEnabled_ = false;
       }
 
-      QObject::disconnect(gearConnection_);
+      QObject::disconnect(vehicleConnection_);
       OPENAUTO_LOG(info) << "[SensorService] stop()";
     });
   }
@@ -123,20 +115,21 @@ namespace f1x::openauto::autoapp::service::sensor {
         aap_protobuf::service::sensorsource::message::SensorType::SENSOR_LOCATION);
     sensorChannel->add_sensors()->set_sensor_type(
         aap_protobuf::service::sensorsource::message::SensorType::SENSOR_NIGHT_MODE);
-    // the gear only when a plugin publishes it (reverse camera, #76): Android Auto would wait for it otherwise
-    const bool simulated = simulatedDriving(core::EventBus::instance().last("vehicle.simulate")).has_value();
-    if (simulated || gearFromVehicle(core::EventBus::instance().last("vehicle.gear"))) {
-      OPENAUTO_LOG(info) << "[SensorService] gear known: announcing SENSOR_GEAR";
-      sensorChannel->add_sensors()->set_sensor_type(
-          aap_protobuf::service::sensorsource::message::SensorType::SENSOR_GEAR);
+    // vehicle data only while a plugin or API client publishes it (#76, #115): Android Auto would wait for it otherwise
+    const TopicLookup last = [](const QString &topic) { return core::EventBus::instance().last(topic); };
+    for (const auto &sensor: vehicleSensors()) {
+      if (vehicleSensorData(sensor, last)) {
+        OPENAUTO_LOG(info) << "[SensorService] " << sensor.topic << " known: announcing "
+                           << aap_protobuf::service::sensorsource::message::SensorType_Name(sensor.type);
+        sensorChannel->add_sensors()->set_sensor_type(sensor.type);
+      }
     }
-    // a simulated driving state (test): also the parking brake and the speed
-    if (simulated) {
-      OPENAUTO_LOG(info) << "[SensorService] driving state simulated: announcing SENSOR_PARKING_BRAKE, SENSOR_SPEED";
-      sensorChannel->add_sensors()->set_sensor_type(
-          aap_protobuf::service::sensorsource::message::SensorType::SENSOR_PARKING_BRAKE);
-      sensorChannel->add_sensors()->set_sensor_type(
-          aap_protobuf::service::sensorsource::message::SensorType::SENSOR_SPEED);
+    const QVariantMap info = core::EventBus::instance().last("vehicle.info");
+    for (const auto type: fuelTypes(info)) {
+      sensorChannel->add_supported_fuel_types(type);
+    }
+    for (const auto type: evConnectorTypes(info)) {
+      sensorChannel->add_supported_ev_connector_types(type);
     }
   }
 
@@ -167,25 +160,22 @@ namespace f1x::openauto::autoapp::service::sensor {
 
     auto promise = aasdk::channel::SendPromise::defer(strand_);
 
-    if (request.type() == aap_protobuf::service::sensorsource::message::SENSOR_DRIVING_STATUS_DATA) {
+    const auto type = request.type();
+    if (type == aap_protobuf::service::sensorsource::message::SENSOR_DRIVING_STATUS_DATA) {
       drivingStatusRequested_ = true;
+      sentDrivingStatus_.reset();
       promise->then(std::bind(&SensorService::sendDrivingStatus, this->shared_from_this()),
                     std::bind(&SensorService::onChannelError, this->shared_from_this(), std::placeholders::_1));
-    } else if (request.type() == aap_protobuf::service::sensorsource::message::SensorType::SENSOR_NIGHT_MODE) {
+    } else if (type == aap_protobuf::service::sensorsource::message::SensorType::SENSOR_NIGHT_MODE) {
       promise->then(std::bind(&SensorService::sendNightData, this->shared_from_this()),
                     std::bind(&SensorService::onChannelError, this->shared_from_this(), std::placeholders::_1));
-    } else if (request.type() == aap_protobuf::service::sensorsource::message::SensorType::SENSOR_GEAR) {
-      gearRequested_ = true;
-      sentGear_.reset();
-      promise->then(std::bind(&SensorService::sendGearData, this->shared_from_this()),
-                    std::bind(&SensorService::onChannelError, this->shared_from_this(), std::placeholders::_1));
-    } else if (request.type() == aap_protobuf::service::sensorsource::message::SensorType::SENSOR_PARKING_BRAKE) {
-      parkingBrakeRequested_ = true;
-      promise->then(std::bind(&SensorService::sendParkingBrakeData, this->shared_from_this()),
-                    std::bind(&SensorService::onChannelError, this->shared_from_this(), std::placeholders::_1));
-    } else if (request.type() == aap_protobuf::service::sensorsource::message::SensorType::SENSOR_SPEED) {
-      speedRequested_ = true;
-      promise->then(std::bind(&SensorService::sendSpeedData, this->shared_from_this()),
+    } else if (const VehicleSensor *sensor = findVehicleSensor(type)) {
+      // min_update_period in ms, 0 = on change; continuous values at most every 250 ms (the polling)
+      VehicleSensorState &state = vehicleState_[type];
+      state = VehicleSensorState{};
+      state.requested = true;
+      state.period = std::chrono::milliseconds(std::max<int64_t>(request.min_update_period(), 0));
+      promise->then([this, self = this->shared_from_this(), sensor]() { this->sendVehicleSensor(*sensor, true); },
                     std::bind(&SensorService::onChannelError, this->shared_from_this(), std::placeholders::_1));
     } else {
       promise->then([]() {},
@@ -197,10 +187,11 @@ namespace f1x::openauto::autoapp::service::sensor {
   }
 
   void SensorService::sendDrivingStatus() {
-    // unrestricted unless a driving state is simulated
-    const auto simulated = simulatedDriving(core::EventBus::instance().last("vehicle.simulate"));
-    const int status = simulated ? simulated->drivingStatus
-                                 : aap_protobuf::service::sensorsource::message::DrivingStatus::DRIVE_STATUS_UNRESTRICTED;
+    const int status = drivingStatus([](const QString &topic) { return core::EventBus::instance().last(topic); });
+    if (status == sentDrivingStatus_) {
+      return;
+    }
+    sentDrivingStatus_ = status;
     OPENAUTO_LOG(info) << "[SensorService] sendDrivingStatus(): " << status;
     aap_protobuf::service::sensorsource::message::SensorBatch indication;
     indication.add_driving_status_data()->set_status(status);
@@ -233,69 +224,84 @@ namespace f1x::openauto::autoapp::service::sensor {
     }
   }
 
-  void SensorService::sendGearData() {
-    const auto simulated = simulatedDriving(core::EventBus::instance().last("vehicle.simulate"));
-    const auto gear = simulated ? std::optional(simulated->gear)
-                                : gearFromVehicle(core::EventBus::instance().last("vehicle.gear"));
-    if (!gear || gear == sentGear_) {
-      return;
+  const VehicleSensor *SensorService::findVehicleSensor(aap_protobuf::service::sensorsource::message::SensorType type) {
+    for (const auto &sensor: vehicleSensors()) {
+      if (sensor.type == type) {
+        return &sensor;
+      }
     }
-    sentGear_ = gear;
-    OPENAUTO_LOG(info) << "[SensorService] sendGearData(): " << aap_protobuf::service::sensorsource::message::Gear_Name(*gear);
-
-    aap_protobuf::service::sensorsource::message::SensorBatch indication;
-    indication.add_gear_data()->set_gear(*gear);
-
-    auto promise = aasdk::channel::SendPromise::defer(strand_);
-    promise->then([]() {},
-                  std::bind(&SensorService::onChannelError, this->shared_from_this(), std::placeholders::_1));
-    channel_->sendSensorEventIndication(indication, std::move(promise));
+    return nullptr;
   }
 
-  void SensorService::sendParkingBrakeData() {
-    const auto simulated = simulatedDriving(core::EventBus::instance().last("vehicle.simulate"));
-    if (!simulated) {
-      return;
+  void SensorService::onVehicleTopic(const QString &topic) {
+    // the simulated driving state replaces gear, parking brake and speed
+    const bool simulate = topic == "vehicle.simulate";
+    for (const auto &sensor: vehicleSensors()) {
+      if (vehicleState_[sensor.type].requested && (simulate || topic == sensor.topic)) {
+        this->sendVehicleSensor(sensor, false);
+      }
     }
-    OPENAUTO_LOG(info) << "[SensorService] sendParkingBrakeData(): " << simulated->parkingBrake;
-    aap_protobuf::service::sensorsource::message::SensorBatch indication;
-    indication.add_parking_brake_data()->set_parking_brake(simulated->parkingBrake);
-
-    auto promise = aasdk::channel::SendPromise::defer(strand_);
-    promise->then([]() {},
-                  std::bind(&SensorService::onChannelError, this->shared_from_this(), std::placeholders::_1));
-    channel_->sendSensorEventIndication(indication, std::move(promise));
-  }
-
-  void SensorService::sendSpeedData() {
-    const auto simulated = simulatedDriving(core::EventBus::instance().last("vehicle.simulate"));
-    if (!simulated) {
-      return;
-    }
-    OPENAUTO_LOG(debug) << "[SensorService] sendSpeedData(): " << simulated->speedE3;
-    aap_protobuf::service::sensorsource::message::SensorBatch indication;
-    indication.add_speed_data()->set_speed_e3(simulated->speedE3);
-
-    auto promise = aasdk::channel::SendPromise::defer(strand_);
-    promise->then([]() {},
-                  std::bind(&SensorService::onChannelError, this->shared_from_this(), std::placeholders::_1));
-    channel_->sendSensorEventIndication(indication, std::move(promise));
-  }
-
-  void SensorService::sendSimulatedDriving() {
-    // the sensors the phone asked for; the parking brake and the speed only exist while a state is simulated
     if (drivingStatusRequested_) {
       this->sendDrivingStatus();
     }
-    if (gearRequested_) {
-      this->sendGearData();
+  }
+
+  void SensorService::sendVehicleSensor(const VehicleSensor &sensor, bool force) {
+    VehicleSensorState &state = vehicleState_[sensor.type];
+    const auto batch = vehicleSensorData(sensor, [](const QString &topic) {
+      return core::EventBus::instance().last(topic);
+    });
+    // no usable value any more (e.g. "available": false from a plugin that lost the CAN bus): tell the phone once
+    if (!batch) {
+      if (!state.failed) {
+        state.failed = true;
+        state.sent.clear();
+        this->sendSensorError(sensor.type, aap_protobuf::service::sensorsource::message::SensorErrorType::SENSOR_ERROR_TRANSIENT);
+      }
+      return;
     }
-    if (parkingBrakeRequested_) {
-      this->sendParkingBrakeData();
+    if (state.failed) {
+      state.failed = false;
+      this->sendSensorError(sensor.type, aap_protobuf::service::sensorsource::message::SensorErrorType::SENSOR_OK);
     }
-    if (speedRequested_) {
-      this->sendSpeedData();
+    const std::string data = batch->SerializeAsString();
+    if (!force && data == state.sent) {
+      return;
     }
+    state.sent = data;
+    state.sentAt = std::chrono::steady_clock::now();
+    OPENAUTO_LOG(debug) << "[SensorService] " << sensor.topic << ": " << batch->ShortDebugString();
+
+    auto promise = aasdk::channel::SendPromise::defer(strand_);
+    promise->then([]() {},
+                  std::bind(&SensorService::onChannelError, this->shared_from_this(), std::placeholders::_1));
+    channel_->sendSensorEventIndication(*batch, std::move(promise));
+  }
+
+  void SensorService::sendContinuousVehicleSensors() {
+    // a car sends speed, rpm and heading all the time, plugins publish only changes
+    const auto now = std::chrono::steady_clock::now();
+    for (const auto &sensor: vehicleSensors()) {
+      VehicleSensorState &state = vehicleState_[sensor.type];
+      if (sensor.continuous && state.requested && !state.failed && now - state.sentAt >= state.period) {
+        this->sendVehicleSensor(sensor, true);
+      }
+    }
+  }
+
+  void SensorService::sendSensorError(aap_protobuf::service::sensorsource::message::SensorType type,
+                                      aap_protobuf::service::sensorsource::message::SensorErrorType error) {
+    OPENAUTO_LOG(info) << "[SensorService] sendSensorError(): "
+                       << aap_protobuf::service::sensorsource::message::SensorType_Name(type) << " "
+                       << aap_protobuf::service::sensorsource::message::SensorErrorType_Name(error);
+    aap_protobuf::service::sensorsource::message::SensorError message;
+    message.set_sensor_type(type);
+    message.set_sensor_error_type(error);
+
+    auto promise = aasdk::channel::SendPromise::defer(strand_);
+    promise->then([]() {},
+                  std::bind(&SensorService::onChannelError, this->shared_from_this(), std::placeholders::_1));
+    channel_->sendSensorError(message, std::move(promise));
   }
 
   void SensorService::sendGPSLocationData() {
@@ -372,10 +378,7 @@ namespace f1x::openauto::autoapp::service::sensor {
         {
           this->sendGPSLocationData();
         }
-        // a car sends its speed all the time
-        if (this->speedRequested_) {
-          this->sendSpeedData();
-        }
+        this->sendContinuousVehicleSensors();
 
         // Final check before rescheduling to prevent race with stop()
         if (!this->stopPolling.load(std::memory_order_acquire)) {

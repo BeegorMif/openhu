@@ -22,10 +22,14 @@
 #include <atomic>
 #include <aap_protobuf/service/sensorsource/message/DrivingStatus.pb.h>
 #include <aap_protobuf/service/sensorsource/message/SensorType.pb.h>
-#include <aap_protobuf/service/sensorsource/message/Gear.pb.h>
+#include <aap_protobuf/service/sensorsource/message/SensorError.pb.h>
+#include <chrono>
+#include <map>
 #include <optional>
+#include <string>
 #include <QMetaObject>
 #include <aasdk/Channel/SensorSource/SensorSourceService.hpp>
+#include <f1x/openauto/autoapp/Service/Sensor/VehicleSensors.hpp>
 #include <f1x/openauto/autoapp/Service/IService.hpp>
 #include <boost/asio/io_service.hpp>
 #include <aasdk/Messenger/IMessenger.hpp>
@@ -64,23 +68,25 @@ namespace f1x::openauto::autoapp::service::sensor {
   private:
     using std::enable_shared_from_this<SensorService>::shared_from_this;
 
-    // unrestricted, or that of the simulated driving state ("vehicle.simulate")
+    // from the vehicle data or the simulated driving state (drivingStatus()), when it changed
     void sendDrivingStatus();
-
-    // SENSOR_PARKING_BRAKE, SENSOR_SPEED: only while a driving state is simulated
-    void sendParkingBrakeData();
-
-    void sendSpeedData();
-
-    // "vehicle.simulate" changed: the sensors the phone asked for
-    void sendSimulatedDriving();
 
     void sendNightData();
 
     void sendGPSLocationData();
 
-    // SENSOR_GEAR from "vehicle.gear" (#76): only when the gear changed since the last one sent
-    void sendGearData();
+    // vehicle data from plugins and the API (#115)
+    static const VehicleSensor *findVehicleSensor(aap_protobuf::service::sensorsource::message::SensorType type);
+
+    void onVehicleTopic(const QString &topic);
+
+    // force: also when the value did not change (first value, continuous sensors)
+    void sendVehicleSensor(const VehicleSensor &sensor, bool force);
+
+    void sendContinuousVehicleSensors();
+
+    void sendSensorError(aap_protobuf::service::sensorsource::message::SensorType type,
+                         aap_protobuf::service::sensorsource::message::SensorErrorType error);
 
     bool isNightMode();
 
@@ -93,13 +99,18 @@ namespace f1x::openauto::autoapp::service::sensor {
     aasdk::channel::sensorsource::SensorSourceService::Pointer channel_;
     struct gps_data_t gpsData_{};
     bool gpsEnabled_ = false;
-    // strand only: the phone asked for these sensors, the gear sent last
-    bool gearRequested_ = false;
+    // strand only: per vehicle sensor whether the phone asked for it, what was sent last and when
+    struct VehicleSensorState {
+      bool requested = false;
+      bool failed = false;
+      std::chrono::milliseconds period{0};
+      std::string sent;
+      std::chrono::steady_clock::time_point sentAt;
+    };
+    std::map<aap_protobuf::service::sensorsource::message::SensorType, VehicleSensorState> vehicleState_;
     bool drivingStatusRequested_ = false;
-    bool parkingBrakeRequested_ = false;
-    bool speedRequested_ = false;
-    std::optional<aap_protobuf::service::sensorsource::message::Gear> sentGear_;
-    QMetaObject::Connection gearConnection_;
+    std::optional<int> sentDrivingStatus_;
+    QMetaObject::Connection vehicleConnection_;
   };
 
 }

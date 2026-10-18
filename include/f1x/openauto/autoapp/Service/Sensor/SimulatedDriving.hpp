@@ -29,8 +29,7 @@ namespace f1x::openauto::autoapp::service::sensor {
   struct SimulatedDriving {
     aap_protobuf::service::sensorsource::message::Gear gear;
     bool parkingBrake;
-    // m/s × 1000 (SpeedData.speed_e3)
-    int speedE3;
+    double kmh;
     // DrivingStatus bits
     int drivingStatus;
   };
@@ -45,15 +44,13 @@ namespace f1x::openauto::autoapp::service::sensor {
                                | DrivingStatus::DRIVE_STATUS_LIMIT_MESSAGE_LEN;
     const QString state = data.value("state").toString();
     if (state == "park") {
-      return SimulatedDriving{Gear::GEAR_PARK, true, 0, DrivingStatus::DRIVE_STATUS_UNRESTRICTED};
+      return SimulatedDriving{Gear::GEAR_PARK, true, 0.0, DrivingStatus::DRIVE_STATUS_UNRESTRICTED};
     }
     if (state == "drive") {
-      // 50 km/h
-      return SimulatedDriving{Gear::GEAR_DRIVE, false, 13889, restricted};
+      return SimulatedDriving{Gear::GEAR_DRIVE, false, 50.0, restricted};
     }
     if (state == "reverse") {
-      // 5 km/h
-      return SimulatedDriving{Gear::GEAR_REVERSE, false, 1389, restricted};
+      return SimulatedDriving{Gear::GEAR_REVERSE, false, 5.0, restricted};
     }
     return std::nullopt;
   }
