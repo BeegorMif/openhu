@@ -117,8 +117,10 @@ source `file /opt/openhu-plugins`.
 - Built in instead of a plugin: `bt::BluetoothManager` (adapter, agent, pairing incl. PIN for old radios,
   search, devices) is shared by wireless AA and the radio; `bt::CarAudio` connects the radio
   (again every 20 s, the radio comes on with the ignition) and asks it for A2DP (`ConnectProfile`, radios connect
-  hands-free first); `audio::OutputRouter` switches the card to A2DP, makes the sink the default output and moves
-  the playing streams to it through `pactl`, and back on disconnect, car audio off and quit. Car audio off or
+  hands-free first); `audio::OutputRouter` switches the card to A2DP, makes the A2DP sink (never the hands-free
+  one) the default output and moves the playing streams to it through `pactl`, and back on disconnect, car audio
+  off, quit and when the A2DP sink goes away (it watches every 2 s while connected and switches again when it comes
+  back). Car audio off or
   another radio chosen leaves the device connected; only "forget" unpairs it. Sink names: new PipeWire
   `bluez_output.AA:BB:…`, old with `_`.
 - AVRCP: own MPRIS player at BlueZ (`Media1.RegisterPlayer`), keys → actions (`bt::CallButtons`): while a call

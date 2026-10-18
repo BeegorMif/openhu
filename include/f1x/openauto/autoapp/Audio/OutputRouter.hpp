@@ -58,6 +58,9 @@ QList<Sink> parseShortSinks(const QByteArray& output);
 // bluez_output.E8_78_29_C0_E5_2D.1, PulseAudio bluez_sink.E8_78_29_C0_E5_2D.a2dp_sink; empty if there is none
 QString findBluetoothSink(const QList<Sink>& sinks, const QString& address);
 
+// The device's sink plays A2DP (the card's profile; without a card list by the sink's name), not hands-free
+bool isA2dpSink(const std::optional<BluetoothCard>& card, const QString& sink);
+
 // Streams that go along when the output changes: applications (OpenHU's own Android Auto outputs, the radio's pacat,
 // ...), not the audio server's loopbacks and filters
 bool followsOutput(const SinkInput& input);
@@ -76,12 +79,11 @@ class OutputRouter: public QObject
 public:
     explicit OutputRouter(QObject* parent = nullptr);
 
-    // One look for the device's sink (the caller repeats it while the sink is missing, it appears a moment after the
-    // Bluetooth connection): a card that came up with a headset profile is switched to A2DP first (its A2DP sink
-    // appears then); a card without an A2DP profile yet (connected hands-free only) is waited for a while (15
-    // looks) before its headset sink is taken; else the sink becomes the default output and the streams move to
-    // it -> routed().
-    // Ignored while a switch is running.
+    // One look for the device's A2DP sink (the caller repeats it while the device is connected): a card with a
+    // headset profile (hands-free) is switched to A2DP when it offers it; a new A2DP sink (also under another name
+    // than before) becomes the default output and the streams move to it -> routed(); when the A2DP sink is gone
+    // (the radio switched its source, the card went hands-free) -> lost(), the output before comes back. The
+    // hands-free sink is never the output. Ignored while a switch is running.
     void route(const QString& address);
     // Notes the default output as the one to come back to, unless it is Bluetooth (the audio server may make a
     // new Bluetooth sink the default by itself before route() looks); while not routed
@@ -104,6 +106,8 @@ public:
 
 signals:
     void routed(const QString& sink);
+    // the A2DP sink went away while it was the output (restored() follows)
+    void lost();
     void restored();
 
 private:
@@ -113,10 +117,10 @@ private:
     void onListed(const QString& address, const Outputs& outputs);
     void switchTo(const QString& sink, const QList<Sink>& sinks);
     void doRestore();
-    // moves the streams on sink "from" (and those in "also") to "to"; done() when the moves ended
-    void moveStreams(const QList<Sink>& sinks, const QString& from, const QSet<quint32>& also, const QString& to,
+    // moves the streams on the sinks "from" (and those in "also") to "to"; done() when the moves ended
+    void moveStreams(const QList<Sink>& sinks, const QStringList& from, const QSet<quint32>& also, const QString& to,
                      bool remember, std::function<void()> done);
-    QList<quint32> streamsToMove(const QList<SinkInput>& inputs, const QList<Sink>& sinks, const QString& from,
+    QList<quint32> streamsToMove(const QList<SinkInput>& inputs, const QList<Sink>& sinks, const QStringList& from,
                                  const QSet<quint32>& also, const QString& to) const;
     void finish();
 
@@ -127,7 +131,6 @@ private:
     bool busy_ = false;
     bool restorePending_ = false;
     int profileSwitches_ = 0;
-    int headsetWaits_ = 0;
     // what route() saw last (log)
     QString seen_;
     int followDelayMs_ = 500;

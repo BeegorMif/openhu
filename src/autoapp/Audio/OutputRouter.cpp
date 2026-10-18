@@ -182,6 +182,27 @@ QString findBluetoothSink(const QList<Sink>& sinks, const QString& address)
     return QString();
 }
 
+bool isA2dpSink(const std::optional<BluetoothCard>& card, const QString& sink)
+{
+    if(sink.isEmpty())
+    {
+        return false;
+    }
+    if(card)
+    {
+        return isA2dp(card->activeProfile);
+    }
+    // no card list (pactl < 16): by the name (PulseAudio bluez_sink.<address>.a2dp_sink / .headset_head_unit)
+    for(const char* headset: {"headset", "handsfree", "hands_free", "hfp", "hsp"})
+    {
+        if(sink.contains(QLatin1String(headset), Qt::CaseInsensitive))
+        {
+            return false;
+        }
+    }
+    return true;
+}
+
 bool followsOutput(const SinkInput& input)
 {
     if(input.module)
@@ -299,34 +320,39 @@ void OutputRouter::onListed(const QString& address, const Outputs& outputs)
         seen_ = seen;
         OPENAUTO_LOG(info) << "[OutputRouter] " << address.toStdString() << ": " << seen.toStdString();
     }
-    // a few tries; a card that refuses A2DP plays through the sink it has
-    if(card && card->needsA2dp() && profileSwitches_ < 3)
+    if(card && card->needsA2dp())
     {
-        ++profileSwitches_;
-        OPENAUTO_LOG(info) << "[OutputRouter] " << card->name.toStdString() << ": profile "
-                           << card->activeProfile.toStdString() << " -> " << card->a2dpProfile.toStdString();
+        // logged at the first try and then every 10th (a card that refuses it)
+        if(profileSwitches_++ % 10 == 0)
+        {
+            OPENAUTO_LOG(info) << "[OutputRouter] " << card->name.toStdString() << ": profile "
+                               << card->activeProfile.toStdString() << " -> " << card->a2dpProfile.toStdString();
+        }
         // the A2DP sink appears a moment later: the next route()
         this->pactl({{"set-card-profile", card->name, card->a2dpProfile}}, [this](const Outputs&) { this->finish(); });
         return;
     }
-    // a car radio connected hands-free only: its A2DP may come (CarAudio asks for it), the headset sink is the
-    // last resort (mono, telephone quality)
-    if(card && !isA2dp(card->activeProfile) && card->a2dpProfile.isEmpty() && headsetWaits_ < 15)
+    // Only A2DP is an output: never the hands-free sink (mono, telephone quality)
+    const QString a2dp = isA2dpSink(card, sink) ? sink : QString();
+    if(a2dp.isEmpty())
     {
-        ++headsetWaits_;
-        this->finish();
-        return;
-    }
-    if(sink.isEmpty() || sink == sink_)
-    {
-        if(!sink.isEmpty())
+        if(!sink_.isEmpty())
         {
-            emit routed(sink);  // already the output
+            // gone (the radio switched its source, the card to hands-free): the output before, until it comes back
+            OPENAUTO_LOG(info) << "[OutputRouter] A2DP sink " << sink_.toStdString() << " gone";
+            emit lost();
+            this->doRestore();
+            return;
         }
         this->finish();
         return;
     }
-    this->switchTo(sink, sinks);
+    if(a2dp == sink_)
+    {
+        this->finish();
+        return;
+    }
+    this->switchTo(a2dp, sinks);
 }
 
 void OutputRouter::switchTo(const QString& sink, const QList<Sink>& sinks)
@@ -337,22 +363,22 @@ void OutputRouter::switchTo(const QString& sink, const QList<Sink>& sinks)
         {
             previous_ = current;
         }
+        const QString old = sink_;  // an A2DP sink under another name before
         sink_ = sink;
         profileSwitches_ = 0;
-        headsetWaits_ = 0;
         OPENAUTO_LOG(info) << "[OutputRouter] output " << sink.toStdString() << " (before: " << current.toStdString()
                            << ")";
-        this->pactl({{"set-default-sink", sink}}, [this, sink, sinks, current](const Outputs&) {
+        this->pactl({{"set-default-sink", sink}}, [this, sink, sinks, current, old](const Outputs&) {
             // what follows the default moves by itself; the rest (explicit sink: Qt's outputs) after a moment
             const int generation = generation_;
-            QTimer::singleShot(followDelayMs_, this, [this, sink, sinks, current, generation]() {
+            QTimer::singleShot(followDelayMs_, this, [this, sink, sinks, current, old, generation]() {
                 if(generation != generation_)
                 {
                     return;
                 }
                 // the audio server may have switched to the Bluetooth sink itself: the streams are on the one before
                 const QString from = current.startsWith(QLatin1String("bluez")) ? previous_ : current;
-                this->moveStreams(sinks, from, {}, sink, true, [this, sink]() {
+                this->moveStreams(sinks, {from, old}, moved_, sink, true, [this, sink]() {
                     emit routed(sink);
                     this->finish();
                 });
@@ -362,9 +388,16 @@ void OutputRouter::switchTo(const QString& sink, const QList<Sink>& sinks)
 }
 
 QList<quint32> OutputRouter::streamsToMove(const QList<SinkInput>& inputs, const QList<Sink>& sinks,
-                                           const QString& from, const QSet<quint32>& also, const QString& to) const
+                                           const QStringList& from, const QSet<quint32>& also, const QString& to) const
 {
-    const auto fromIndex = indexOf(sinks, from);
+    QSet<quint32> fromIndices;
+    for(const QString& name: from)
+    {
+        if(const auto index = indexOf(sinks, name))
+        {
+            fromIndices.insert(*index);
+        }
+    }
     const auto toIndex = indexOf(sinks, to);
     QList<quint32> result;
     for(const SinkInput& input: inputs)
@@ -376,7 +409,7 @@ QList<quint32> OutputRouter::streamsToMove(const QList<SinkInput>& inputs, const
         // OpenHU's own streams (Android Auto) always go to the output, wherever they play (the audio server may have
         // made the Bluetooth sink the default before OpenHU looked, then the output before is not known)
         const bool own = input.pid != 0 && input.pid == ownPid_ && (input.binary.isEmpty() || input.binary == ownBinary_);
-        if(own || (fromIndex && input.sink == *fromIndex) || also.contains(input.index))
+        if(own || fromIndices.contains(input.sink) || also.contains(input.index))
         {
             result.append(input.index);
         }
@@ -384,7 +417,7 @@ QList<quint32> OutputRouter::streamsToMove(const QList<SinkInput>& inputs, const
     return result;
 }
 
-void OutputRouter::moveStreams(const QList<Sink>& sinks, const QString& from, const QSet<quint32>& also,
+void OutputRouter::moveStreams(const QList<Sink>& sinks, const QStringList& from, const QSet<quint32>& also,
                                const QString& to, bool remember, std::function<void()> done)
 {
     this->pactl({{"-f", "json", "list", "sink-inputs"}, {"-f", "json", "list", "clients"}},
@@ -431,8 +464,6 @@ void OutputRouter::doRestore()
     sink_.clear();
     moved_.clear();
     profileSwitches_ = 0;
-    headsetWaits_ = 0;
-    seen_.clear();
     this->pactl({{"get-default-sink"}, {"list", "short", "sinks"}}, [this, from, previous, moved](const Outputs& outputs) {
         const QString current = QString::fromUtf8(outputs[0]).trimmed();
         const QList<Sink> sinks = parseShortSinks(outputs[1]);
@@ -455,7 +486,7 @@ void OutputRouter::doRestore()
                 {
                     return;
                 }
-                this->moveStreams(sinks, from, moved, to, false, [this]() {
+                this->moveStreams(sinks, {from}, moved, to, false, [this]() {
                     emit restored();
                     this->finish();
                 });
@@ -500,7 +531,7 @@ void OutputRouter::restoreNow()
     }
     const QList<quint32> streams = this->streamsToMove(
         parseSinkInputs(runBlocking({"-f", "json", "list", "sink-inputs"}), runBlocking({"-f", "json", "list", "clients"})),
-        sinks, from, moved, to);
+        sinks, {from}, moved, to);
     for(const quint32 index: streams)
     {
         runBlocking({"move-sink-input", QString::number(index), to});

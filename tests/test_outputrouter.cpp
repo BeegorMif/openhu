@@ -58,6 +58,15 @@ QString cards(const QString& activeProfile)
         .arg(activeProfile);
 }
 
+// connected hands-free only: the A2DP profiles not available (yet)
+QString handsFreeOnly()
+{
+    QString json = cards("headset-head-unit");
+    json.replace(R"("priority":18,"available":true)", R"("priority":18,"available":false)");
+    json.replace(R"("priority":19,"available":true)", R"("priority":19,"available":false)");
+    return json;
+}
+
 QString sinks(bool radio)
 {
     QString result = "55\t" + cSpeakers + "\tPipeWire\ts32le 2ch 48000Hz\tRUNNING\n" + "70\t" + cHdmi
@@ -274,38 +283,110 @@ private slots:
         QVERIFY(this->log().contains("set-default-sink " + cRadio));
     }
 
-    // a car radio that connected hands-free only (A2DP not offered yet): its headset sink only after a while
-    void handsFreeOnlyWaitsForA2dp()
+    // a car radio that connected hands-free only: its headset sink is never the output; A2DP after 30 s is
+    void handsFreeNeverA2dpAfter30s()
     {
-        QString json = cards("headset-head-unit");
-        json.replace(R"("sinks":1,"sources":0,"priority":18,"available":true)", R"("sinks":1,"sources":0,"priority":18,"available":false)");
-        json.replace(R"("sinks":1,"sources":0,"priority":19,"available":true)", R"("sinks":1,"sources":0,"priority":19,"available":false)");
-        this->write("cards.json", json);
+        this->write("cards.json", handsFreeOnly());
         auto router = this->router();
         QSignalSpy routed(router.get(), &OutputRouter::routed);
-        for(int i = 0; i < 15; ++i)
+        for(int i = 0; i < 30; ++i)  // CarAudio looks every 1-2 s
         {
             router->route(cAddress);
             QTRY_VERIFY(!router->busy());
         }
         QCOMPARE(routed.size(), 0);
-        QVERIFY(this->log().isEmpty());  // no profile to switch to
+        QVERIFY(this->log().isEmpty());  // no default changed, no profile to switch to
+        // Bluetooth audio chosen on the radio
+        this->write("cards.json", cards("a2dp-sink"));
         router->route(cAddress);
         QTRY_COMPARE(routed.size(), 1);
+        QCOMPARE(router->sink(), cRadio);
+        QVERIFY(this->log().contains("set-default-sink " + cRadio));
     }
 
-    void cardThatRefusesA2dpPlaysAnyway()
+    void cardThatRefusesA2dpIsNeverTheOutput()
     {
-        this->write("cards.json", cards("headset-head-unit"));
+        this->write("cards.json", cards("headset-head-unit"));  // stays there, set-card-profile does nothing
         auto router = this->router();
         QSignalSpy routed(router.get(), &OutputRouter::routed);
-        for(int i = 0; i < 4 && routed.isEmpty(); ++i)
+        for(int i = 0; i < 5; ++i)
         {
             router->route(cAddress);
             QTRY_VERIFY(!router->busy());
         }
+        QCOMPARE(routed.size(), 0);
+        QCOMPARE(this->log().count("set-card-profile " + cCard + " a2dp-sink"), 5);
+        QVERIFY(!this->log().join('\n').contains("set-default-sink"));
+    }
+
+    // A2DP goes away while it plays (the radio switched its source, the card went hands-free): the output before
+    // until it comes back
+    void a2dpGoesAndComesBack()
+    {
+        auto router = this->router();
+        QSignalSpy routed(router.get(), &OutputRouter::routed);
+        QSignalSpy lost(router.get(), &OutputRouter::lost);
+        QSignalSpy restored(router.get(), &OutputRouter::restored);
+        router->route(cAddress);
+        QTRY_COMPARE(routed.size(), 1);
+        // still there: nothing happens
+        this->clearLog();
+        router->route(cAddress);
+        QTRY_VERIFY(!router->busy());
+        QVERIFY(this->log().isEmpty());
         QCOMPARE(routed.size(), 1);
-        QCOMPARE(this->log().count("set-card-profile " + cCard + " a2dp-sink"), 3);
+
+        this->write("cards.json", handsFreeOnly());  // the sink keeps its name with the headset profile
+        this->write("sink-inputs.json", streams(80, 80));
+        router->route(cAddress);
+        QTRY_COMPARE(restored.size(), 1);
+        QCOMPARE(lost.size(), 1);
+        QVERIFY(router->sink().isEmpty());
+        QCOMPARE(this->defaultSink(), cSpeakers);
+        QCOMPARE(this->sortedLog(), sorted(QStringList{"set-default-sink " + cSpeakers, "move-sink-input 11 " + cSpeakers,
+                                                       "move-sink-input 12 " + cSpeakers, "move-sink-input 13 " + cSpeakers}));
+        // hands-free: still not the output
+        this->clearLog();
+        router->route(cAddress);
+        QTRY_VERIFY(!router->busy());
+        QVERIFY(this->log().isEmpty());
+
+        // back, under another name this time
+        this->clearLog();
+        this->write("cards.json", cards("a2dp-sink"));
+        this->write("sinks", sinks(false) + "81\tbluez_output.E8_78_29_C0_E5_2D.1\tPipeWire\n");
+        this->write("sink-inputs.json", streams(55, 55));
+        router->route(cAddress);
+        QTRY_COMPARE(routed.size(), 2);
+        QCOMPARE(routed[1][0].toString(), QString("bluez_output.E8_78_29_C0_E5_2D.1"));
+        QVERIFY(this->log().contains("set-default-sink bluez_output.E8_78_29_C0_E5_2D.1"));
+        QVERIFY(this->log().contains("move-sink-input 11 bluez_output.E8_78_29_C0_E5_2D.1"));
+    }
+
+    // the A2DP sink changes its name while it is the output (codec change, reconnect): the streams follow
+    void a2dpSinkRenamed()
+    {
+        auto router = this->router();
+        QSignalSpy routed(router.get(), &OutputRouter::routed);
+        router->route(cAddress);
+        QTRY_COMPARE(routed.size(), 1);
+        this->clearLog();
+        // the old sink is gone, the audio server put the streams on the speakers
+        this->write("sinks", sinks(false) + "81\tbluez_output.E8_78_29_C0_E5_2D.1\tPipeWire\n");
+        this->write("default", cSpeakers + "\n");
+        router->route(cAddress);
+        QTRY_COMPARE(routed.size(), 2);
+        QCOMPARE(router->sink(), QString("bluez_output.E8_78_29_C0_E5_2D.1"));
+        QVERIFY(this->log().contains("move-sink-input 13 bluez_output.E8_78_29_C0_E5_2D.1"));
+    }
+
+    void noCardListHandsFreeByName()
+    {
+        QVERIFY(isA2dpSink(std::nullopt, "bluez_sink.E8_78_29_C0_E5_2D.a2dp_sink"));
+        QVERIFY(!isA2dpSink(std::nullopt, "bluez_sink.E8_78_29_C0_E5_2D.headset_head_unit"));
+        QVERIFY(!isA2dpSink(std::nullopt, QString()));
+        QVERIFY(!isA2dpSink(findBluetoothCard(cards("headset-head-unit").toUtf8(), cAddress), cRadio));
+        QVERIFY(isA2dpSink(findBluetoothCard(cards("a2dp-sink-sbc").toUtf8(), cAddress), cRadio));
     }
 
     void noSinkYet()

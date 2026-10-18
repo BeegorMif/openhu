@@ -27,6 +27,12 @@
 namespace f1x::openauto::autoapp::bt
 {
 
+namespace
+{
+// looks for the A2DP sink after the first 20 s, and while it plays
+constexpr int cWatchMs = 2000;
+}
+
 CarAudio::CarAudio(configuration::IConfiguration::Pointer configuration, BluetoothManager& bluetooth,
                    input::ActionDispatcher& actions, audio::VolumeController& volume, QObject* parent)
     : QObject(parent)
@@ -50,12 +56,24 @@ CarAudio::CarAudio(configuration::IConfiguration::Pointer configuration, Bluetoo
         {
             return;  // disconnected meanwhile: restore() follows
         }
-        sinkTimer_.stop();
-        sinkTimer_.setInterval(1000);
+        // keeps watching: the A2DP sink may go (the radio switches its source) and come back
+        sinkTimer_.setInterval(cWatchMs);
         sink_ = sink;
         OPENAUTO_LOG(info) << "[CarAudio] output " << sink_.toStdString();
         volume_.refresh();
         error_.clear();
+        this->publish();
+    });
+    connect(&router_, &audio::OutputRouter::lost, this, [this]() {
+        if(!connected_)
+        {
+            return;
+        }
+        OPENAUTO_LOG(info) << "[CarAudio] A2DP gone, the output before until it comes back";
+        sink_.clear();
+        sinkAttempts_ = 0;
+        sinkTimer_.setInterval(cWatchMs);
+        error_ = qtTrId("caraudio.connected_but_no_audio");
         this->publish();
     });
     connect(&router_, &audio::OutputRouter::restored, this, [this]() { volume_.refresh(); });
@@ -268,7 +286,13 @@ void CarAudio::requestA2dp()
 void CarAudio::findSink()
 {
     // the A2DP profile and the sink: OutputRouter (in the background, routed() when done)
+    // (also while it plays: the A2DP sink may go away or come under another name)
     router_.route(QString::fromStdString(configuration_->getCarAudioSettings().device));
+    if(!sink_.isEmpty())
+    {
+        return;
+    }
+    // no A2DP: the output stays the one before (never the hands-free sink); ask the radio for A2DP every few looks
     ++sinkAttempts_;
     if(sinkAttempts_ % 5 == 0)
     {
@@ -279,8 +303,8 @@ void CarAudio::findSink()
         // shown, but the radio may still start A2DP (Bluetooth audio chosen on it): keep looking while it is
         // connected, less often
         error_ = qtTrId("caraudio.connected_but_no_audio");
-        OPENAUTO_LOG(warning) << "[CarAudio] no sink for the radio yet, still trying";
-        sinkTimer_.setInterval(5000);
+        OPENAUTO_LOG(warning) << "[CarAudio] no A2DP sink for the radio yet, still trying";
+        sinkTimer_.setInterval(cWatchMs);
         this->publish();
     }
 }
