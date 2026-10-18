@@ -64,7 +64,16 @@ namespace f1x::openauto::autoapp::service::sensor {
   private:
     using std::enable_shared_from_this<SensorService>::shared_from_this;
 
-    void sendDrivingStatusUnrestricted();
+    // unrestricted, or that of the simulated driving state ("vehicle.simulate")
+    void sendDrivingStatus();
+
+    // SENSOR_PARKING_BRAKE, SENSOR_SPEED: only while a driving state is simulated
+    void sendParkingBrakeData();
+
+    void sendSpeedData();
+
+    // "vehicle.simulate" changed: the sensors the phone asked for
+    void sendSimulatedDriving();
 
     void sendNightData();
 
@@ -84,8 +93,11 @@ namespace f1x::openauto::autoapp::service::sensor {
     aasdk::channel::sensorsource::SensorSourceService::Pointer channel_;
     struct gps_data_t gpsData_{};
     bool gpsEnabled_ = false;
-    // strand only: the phone asked for SENSOR_GEAR, the gear sent last
+    // strand only: the phone asked for these sensors, the gear sent last
     bool gearRequested_ = false;
+    bool drivingStatusRequested_ = false;
+    bool parkingBrakeRequested_ = false;
+    bool speedRequested_ = false;
     std::optional<aap_protobuf::service::sensorsource::message::Gear> sentGear_;
     QMetaObject::Connection gearConnection_;
   };
