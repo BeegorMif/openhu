@@ -33,12 +33,14 @@
 #include <f1x/openauto/autoapp/Service/MediaSink/VideoMediaSinkService.hpp>
 #endif
 #include <f1x/openauto/autoapp/Service/Sensor/VehicleGear.hpp>
+#include <f1x/openauto/autoapp/Service/Sensor/SimulatedDriving.hpp>
 
 using f1x::openauto::autoapp::core::EventBus;
 using f1x::openauto::autoapp::plugins::PluginManager;
 using f1x::openauto::autoapp::service::mediasink::VideoFocusPolicy;
 using f1x::openauto::autoapp::service::mediasink::VideoMediaSinkService;
 using f1x::openauto::autoapp::service::sensor::gearFromVehicle;
+using f1x::openauto::autoapp::service::sensor::simulatedDriving;
 using Mode = aap_protobuf::service::media::video::message::VideoFocusMode;
 using aap_protobuf::service::sensorsource::message::Gear;
 
@@ -360,6 +362,32 @@ private slots:
         QCOMPARE(gearFromVehicle({{"gear", "sport"}}), std::optional<Gear>());
         QCOMPARE(gearFromVehicle({}), std::optional<Gear>());
         QCOMPARE(gearFromVehicle({{"kmh", 12}}), std::optional<Gear>());
+    }
+
+    void simulatedDrivingStates()
+    {
+        // parked: no restrictions, parking brake on, standing
+        const auto park = simulatedDriving({{"state", "park"}});
+        QVERIFY(park);
+        QCOMPARE(park->gear, Gear::GEAR_PARK);
+        QVERIFY(park->parkingBrake);
+        QCOMPARE(park->speedE3, 0);
+        QCOMPARE(park->drivingStatus, 0);
+        // driving: every restriction (31), 50 km/h
+        const auto drive = simulatedDriving({{"state", "drive"}});
+        QVERIFY(drive);
+        QCOMPARE(drive->gear, Gear::GEAR_DRIVE);
+        QVERIFY(!drive->parkingBrake);
+        QCOMPARE(drive->speedE3, 13889);
+        QCOMPARE(drive->drivingStatus, 31);
+        const auto reverse = simulatedDriving({{"state", "reverse"}});
+        QVERIFY(reverse);
+        QCOMPARE(reverse->gear, Gear::GEAR_REVERSE);
+        QCOMPARE(reverse->drivingStatus, 31);
+        // off: the real data
+        QVERIFY(!simulatedDriving({{"state", ""}}));
+        QVERIFY(!simulatedDriving({{"state", "off"}}));
+        QVERIFY(!simulatedDriving({}));
     }
 };
 
