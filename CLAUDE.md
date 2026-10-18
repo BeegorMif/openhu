@@ -5,7 +5,7 @@ OpenHU is the head unit shell: C++17/Qt6 (QML), with Android Auto through aasdk.
 ## This repo
 - `src/autoapp/` and `include/f1x/openauto/autoapp/`: App and USB/wireless wait (`App.cpp`), Android Auto services (`Service/`: video, audio, radio, sensors, input), shell (`Shell/`, QML in `Shell/qml/`), plugins, audio (volume, ducking), EventBus/API (`Core/`).
 - `tests/`: QtTest per area (`test_*.cpp`), `shell-smoke.sh` / `shell-plugin-pages.sh` (headless shell), `translations.sh` (the English/German `.ts` files must be complete).
-- `docker/dev.sh`: `build`, `test` (ctest, qmllint, translations, headless shell, like CI), `run` (OpenHU in a window with host audio, USB and Bluetooth), `package` (.deb in `docker/output/`), `shell`. `AASDK_DIR` points to the aasdk checkout.
+- `docker/dev.sh`: `build`, `test` (ctest, qmllint, translations, headless shell, like CI), `run` (OpenHU in a window with host audio, USB and Bluetooth), `package` (.deb in `docker/output/`), `shell`. `AASDK_DIR` points to the aasdk checkout. Each worktree (and each aasdk checkout) gets its own build volumes, the main checkout keeps `openhu-build`.
 - New `.cpp` files need a CMake reconfigure (the source list is a glob).
 - CI (`.github/workflows/ci.yml`) builds amd64 and arm64 against the newest aasdk release that matches `OPENHU_AASDK_VERSION` (`scripts/fetch-aasdk.sh`). Without a release it uses the aasdk CI artifacts. A `v*` tag makes a GitHub release.
 - An OpenHU change that needs a new aasdk API is opened as a PR only once that aasdk version exists (release or CI artifact).
