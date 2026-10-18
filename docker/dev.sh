@@ -28,11 +28,27 @@ IMAGE="openhu:dev"
 
 # Builds, installed aasdk and ccache live in Docker volumes: incremental builds stay fast
 # and no root-owned files end up in the source tree.
-VOLUMES=(openhu-build openhu-aasdk-build openhu-aasdk openhu-ccache)
+# Each checkout (git worktree) gets its own build volumes: Ninja decides by file times, so a build directory shared
+# between worktrees kept objects built from another worktree's headers, and OpenHU crashed with two class layouts
+# in one binary (a segfault in ~QtAudioOutput after unplugging the phone). The main checkout and the aasdk next to
+# it keep the plain names; ccache is shared (it works by content).
+volume_suffix() { # <dir> <default dir>
+  local dir default
+  dir="$(realpath -m "$1")"
+  default="$(realpath -m "$2")"
+  [ "$dir" = "$default" ] && return
+  printf -- '-%s-%s' "$(basename "$dir" | tr -c 'a-zA-Z0-9_.\n-' '-')" "$(printf '%s' "$dir" | sha256sum | cut -c1-6)"
+}
+MAIN_CHECKOUT="$(dirname "$(git -C "$REPO" rev-parse --path-format=absolute --git-common-dir 2>/dev/null || echo "$REPO/.git")")"
+OPENHU_SUFFIX="$(volume_suffix "$REPO" "$MAIN_CHECKOUT")"
+AASDK_SUFFIX="$(volume_suffix "$AASDK_DIR" "$(dirname "$MAIN_CHECKOUT")/aasdk")"
+BUILD_VOLUME="openhu-build$OPENHU_SUFFIX"
+AASDK_VOLUME="openhu-aasdk$AASDK_SUFFIX"
+VOLUMES=("$BUILD_VOLUME" "openhu-aasdk-build$AASDK_SUFFIX" "$AASDK_VOLUME" openhu-ccache)
 BUILD_MOUNTS=(
-  -v openhu-build:/build/openhu
-  -v openhu-aasdk-build:/build/aasdk
-  -v openhu-aasdk:/opt/aasdk
+  -v "$BUILD_VOLUME:/build/openhu"
+  -v "openhu-aasdk-build$AASDK_SUFFIX:/build/aasdk"
+  -v "$AASDK_VOLUME:/opt/aasdk"
   -v openhu-ccache:/ccache
 )
 
@@ -175,8 +191,8 @@ cmd_run() {
     --device /dev/snd \
     --device /dev/dri \
     "${extra[@]}" \
-    -v openhu-build:/build/openhu:ro \
-    -v openhu-aasdk:/opt/aasdk:ro \
+    -v "$BUILD_VOLUME:/build/openhu:ro" \
+    -v "$AASDK_VOLUME:/opt/aasdk:ro" \
     -v "$DOCKER_DIR/config:/config" \
     -v "$DOCKER_DIR/data:/root/.openhu" \
     "$IMAGE" openhu-entrypoint "$@"
