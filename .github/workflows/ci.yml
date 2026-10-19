@@ -39,6 +39,8 @@ jobs:
             esac
           fi
           echo "OPENHU_VERSION=$version" >> "$GITHUB_ENV"
+          # shown in Settings → Info: the tag (v1.0.0) for releases, otherwise the commit
+          echo "GIT_DESCRIBE=$(git describe --tags --always)" >> "$GITHUB_ENV"
 
       - name: aasdk packages (release, else the aasdk CI)
         env:
@@ -57,7 +59,9 @@ jobs:
           context: .
           target: packages
           build-contexts: aasdk=${{ runner.temp }}/aasdk
-          build-args: OPENHU_VERSION=${{ env.OPENHU_VERSION }}
+          build-args: |
+            OPENHU_VERSION=${{ env.OPENHU_VERSION }}
+            GIT_DESCRIBE=${{ env.GIT_DESCRIBE }}
           outputs: type=local,dest=packages
           cache-from: type=gha,scope=${{ matrix.arch }}
           cache-to: type=gha,mode=max,scope=${{ matrix.arch }}

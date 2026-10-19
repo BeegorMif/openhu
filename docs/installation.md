@@ -88,18 +88,10 @@ It installs a udev rule for phones (`/lib/udev/rules.d/99-openhu.rules`).
 
 ### Start
 
-**As a service without desktop** (starts with the system): Debian's Qt 6 has no eglfs platform plugin, which
-the service used with Qt 5. Until it runs in a kiosk Wayland compositor (`cage`, issue #9) it needs a session with
-X11 or Wayland; the commands stay the same:
-
-```bash
-sudo systemctl enable --now openhu
-journalctl -u openhu -f
-```
-
-The service runs as root, keeps `openhu.ini` in `/var/lib/openhu` and its data in `/root/.openhu`. It uses the
-audio server of user 1000 (`XDG_RUNTIME_DIR=/run/user/1000`); adjust the `Environment=` lines with
-`sudo systemctl edit openhu` for another user or display setup.
+The package installs no service and starts nothing by itself. On OpenHU OS, `openhu-session.service` of the image
+starts it; anywhere else start it in one of the ways below. OpenHU reads `openhu.ini` from its working directory
+and keeps plugins, the key map and logs in `~/.openhu` of the user it runs as. Only one OpenHU runs at a time (a
+second one ends right away). Phones need to be accessible for that user (the udev rule of the package allows it).
 
 **On a desktop** (X11/Wayland session): run it as your user from a folder for its configuration, e.g. from an
 autostart entry:
@@ -108,7 +100,72 @@ autostart entry:
 mkdir -p ~/.config/openhu && cd ~/.config/openhu && openhu
 ```
 
-Phones need to be accessible for that user (the udev rule allows it).
+**As a kiosk without desktop** (starts with the system): Debian's Qt 6 has no eglfs platform plugin, so OpenHU
+needs a Wayland compositor. OpenHU OS runs it in [cage](https://github.com/cage-kiosk/cage) on tty1 as its own user
+`openhu`; the same setup on another Debian 13 (an example, only tested as part of OpenHU OS):
+
+```bash
+sudo apt install cage
+sudo useradd --system --create-home --home-dir /var/lib/openhu --shell /usr/sbin/nologin \
+    --groups video,render,input,audio,plugdev,bluetooth,netdev openhu
+```
+
+`/etc/pam.d/openhu-session` (no password; a logind session on tty1, so cage gets the display and input devices):
+
+```
+account  required pam_unix.so
+session  required pam_unix.so
+session  optional pam_loginuid.so
+session  required pam_systemd.so
+```
+
+`/etc/systemd/system/openhu-session.service`:
+
+```ini
+[Unit]
+Description=OpenHU kiosk session (cage + OpenHU)
+Wants=dbus.socket systemd-logind.service
+After=dbus.socket systemd-logind.service systemd-user-sessions.service getty@tty1.service
+After=NetworkManager.service bluetooth.service
+Conflicts=getty@tty1.service
+
+[Service]
+User=openhu
+PAMName=openhu-session
+TTYPath=/dev/tty1
+TTYReset=yes
+TTYVHangup=yes
+TTYVTDisallocate=yes
+StandardInput=tty-fail
+StandardOutput=journal
+StandardError=journal
+UtmpIdentifier=tty1
+UtmpMode=user
+WorkingDirectory=/var/lib/openhu
+Environment=XDG_SESSION_TYPE=wayland XDG_SESSION_CLASS=user
+Environment=QT_QPA_PLATFORM=wayland QT_WAYLAND_DISABLE_WINDOWDECORATION=1
+# "iw reg set" (WiFi country for the hotspot) runs in a child process of OpenHU
+AmbientCapabilities=CAP_NET_ADMIN
+ExecStart=/usr/bin/cage -d -- /usr/libexec/openhu/openhu
+Restart=always
+RestartSec=2
+TimeoutStopSec=15s
+
+[Install]
+WantedBy=graphical.target
+```
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl set-default graphical.target
+sudo systemctl enable --now openhu-session
+journalctl -u openhu-session -f
+```
+
+Sound comes from the PipeWire (or PulseAudio) user service of `openhu`, which the logind session starts. The
+current version of this unit is in openhu-os (`mkosi.extra/usr/lib/systemd/system/openhu-session.service`).
+
+Packages before 1.0.0 shipped an `openhu.service` (root, eglfs); updating the package disables and removes it.
 
 ## Wireless Android Auto
 

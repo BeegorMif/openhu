@@ -48,4 +48,7 @@ fi
 echo "## Installation"
 echo
 echo "OpenHU OS contains OpenHU already. On another Debian 13: install the openhu and libaasdk packages of your"
-echo "architecture together, e.g. \`sudo apt install ./openhu_*_amd64.deb ./libaasdk_*_amd64.deb\`."
+echo "architecture together, e.g. \`sudo apt install ./openhu_*_amd64.deb ./libaasdk_*_amd64.deb\`. The package"
+echo "starts nothing by itself: see [Start](https://github.com/$REPO/blob/v$VERSION/docs/installation.md#start)."
+echo
+echo "Check the downloads against \`SHA256SUMS\`: \`sha256sum -c SHA256SUMS --ignore-missing\`."

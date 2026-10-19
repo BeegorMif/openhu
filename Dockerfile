@@ -1,20 +1,21 @@
 # syntax=docker/dockerfile:1
-# * Project: OpenAuto
-# * This file is part of openauto project.
+# * Project: OpenHU
+# * This file is part of OpenHU, based on the openauto project.
 # * Copyright (C) 2025 OpenCarDev Team
+# * Copyright (C) 2026 Leon Strauß
 # *
-# *  openauto is free software: you can redistribute it and/or modify
+# *  OpenHU is free software: you can redistribute it and/or modify
 # *  it under the terms of the GNU General Public License as published by
 # *  the Free Software Foundation; either version 3 of the License, or
 # *  (at your option) any later version.
 # *
-# *  openauto is distributed in the hope that it will be useful,
+# *  OpenHU is distributed in the hope that it will be useful,
 # *  but WITHOUT ANY WARRANTY; without even the implied warranty of
 # *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # *  GNU General Public License for more details.
 # *
 # *  You should have received a copy of the GNU General Public License
-# *  along with openauto. If not, see <http://www.gnu.org/licenses/>.
+# *  along with OpenHU. If not, see <https://www.gnu.org/licenses/>.
 
 # Images for OpenHU (docker/dev.sh uses the dev target):
 #   --target dev       build dependencies + runtime tools; sources, builds and aasdk stay outside in volumes
@@ -155,6 +156,8 @@ RUN --mount=type=bind,from=aasdk,target=/aasdk-src,rw \
 FROM aasdk-build AS openhu-build
 # release version from the tag (CI); empty: the build date
 ARG OPENHU_VERSION=
+# git describe of the source for Settings → Info (CI); the build context has no .git
+ARG GIT_DESCRIBE=unknown
 WORKDIR /src
 COPY CMakeLists.txt LICENSE ./
 COPY cmake_modules cmake_modules
