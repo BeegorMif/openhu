@@ -610,6 +610,7 @@ void PluginManager::startProcess(Plugin& plugin)
     core::startChild(*plugin.process, command, arguments, core::ChildGroup::OwnGroup);
     OPENAUTO_LOG(info) << "[PluginManager] started " << id.toStdString() << ": " << command.toStdString() << " "
                        << arguments.join(' ').toStdString();
+    emit processStarted(id);
 }
 
 void PluginManager::stopProcess(Plugin& plugin)
