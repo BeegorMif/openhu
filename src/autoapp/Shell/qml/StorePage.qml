@@ -169,20 +169,24 @@ Item {
                         Text {
                             Layout.fillWidth: true
                             text: {
+                                // first, the rest of the line is cut off
+                                if (modelData.installed && page.locked(modelData.id))
+                                    return qsTrId("store.disconnect_phone").arg(modelData.name || modelData.id)
                                 var parts = []
                                 parts.push(modelData.source ? (modelData.official ? qsTrId("store.official") : qsTrId("store.not_official") + " · " + modelData.source)
                                                             : qsTrId("store.installed_locally"))
                                 if (modelData.permissions && modelData.permissions.length)
                                     parts.push(qsTrId("store.permissions").arg(modelData.permissions.join(", ")))
-                                if (page.androidAutoText(modelData.androidAuto))
-                                    parts.push(qsTrId("store.provides_android_auto").arg(page.androidAutoText(modelData.androidAuto)))
-                                if (modelData.installed && page.locked(modelData.id))
-                                    parts.push(qsTrId("store.disconnect_phone").arg(modelData.name || modelData.id))
+                                // an index from before the section: what the installed plugin declares
+                                var androidAuto = page.androidAutoText(modelData.androidAuto || page.pluginInfo(modelData.id).androidAuto)
+                                if (androidAuto)
+                                    parts.push(qsTrId("store.provides_android_auto").arg(androidAuto))
                                 if (!modelData.compatible)
                                     parts.push(qsTrId("store.not_device_openhu_version"))
                                 return parts.join(" · ")
                             }
-                            color: modelData.official ? Theme.success : Theme.textDim
+                            color: modelData.installed && page.locked(modelData.id) ? Theme.text
+                                 : modelData.official ? Theme.success : Theme.textDim
                             font.pixelSize: Theme.fontSmall * 0.9
                             elide: Text.ElideRight
                         }
