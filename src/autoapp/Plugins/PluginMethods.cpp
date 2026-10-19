@@ -73,6 +73,10 @@ void registerPluginMethods(api::ApiServer& server, PluginManager& manager, Plugi
     server.registerMethod("plugin.disable", [&manager](const QVariantMap& params) -> QVariant {
         const QString id = requireString(params, "id");
         checkError(manager.changeBlocked(id));
+        // the plugins that require it stop too: only on purpose (#104)
+        const QStringList dependents = manager.dependents(id);
+        check(dependents.isEmpty() || params.value("force").toBool(),
+              "required by " + dependents.join(", ") + " (force: true disables them too)");
         check(manager.setEnabled(id, false), "unknown plugin: " + id);
         return manager.plugin(id);
     });
@@ -130,6 +134,9 @@ void registerPluginMethods(api::ApiServer& server, PluginManager& manager, Plugi
     server.registerMethod("store.remove", [&store, &manager](const QVariantMap& params) -> QVariant {
         const QString id = requireString(params, "id");
         checkError(manager.changeBlocked(id));
+        const QStringList dependents = manager.dependents(id);
+        check(dependents.isEmpty() || params.value("force").toBool(),
+              "required by " + dependents.join(", ") + " (force: true removes it anyway, they stop)");
         store.remove(id);
         return QVariantMap{{"queued", true}};
     });

@@ -42,6 +42,7 @@ namespace plugins
 //   ui.page / ui.overlay  QML shown in the shell, ui.dock adds a dock button
 //   process.exec          background process (any language) that talks to the API
 //   androidAuto           sensors/services the plugin provides to Android Auto (#123, AndroidAutoProviders.hpp)
+//   requires/recommends   other plugins it needs (with a minimum version) or works with (#104)
 class PluginManager: public QObject
 {
     Q_OBJECT
@@ -79,6 +80,14 @@ public:
     static bool androidAutoConnected();
     // the plugin whose process got this token (OPENHU_PLUGIN_TOKEN), empty if none
     QString pluginForToken(const QString& token) const;
+
+    // Plugins (#104): "requires": {"id": "minimum version"} (or a list of ids), "recommends": ["id", ...]
+    static QVariantMap requiresOf(const QVariantMap& manifest);
+    static QStringList recommendsOf(const QVariantMap& manifest);
+    // the enabled plugins that require this one (directly or through others)
+    QStringList dependents(const QString& id) const;
+    // why a plugin is not started: [{id, version, reason: notInstalled|tooOld|disabled|incompatible}]
+    QVariantList missingRequirements(const QString& id) const;
 
     // Stops a plugin before its files are replaced or removed.
     void unload(const QString& id);
@@ -118,6 +127,8 @@ private:
     };
 
     void startProcess(Plugin& plugin);
+    // the enabled plugins whose requirements are met, required ones first
+    void startEnabled();
     void stopProcess(Plugin& plugin);
     void stopProcesses(const std::vector<Plugin*>& plugins);
     void onProcessFinished(const QString& id, int exitCode, QProcess::ExitStatus status);

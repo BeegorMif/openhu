@@ -38,6 +38,8 @@ It can bring a QML page, an overlay and a background process in any language tha
 | `shared` | files from the repository's `common/` copied to `lib/` when the archive is built |
 | `packages` | Debian packages the plugin needs on the head unit, e.g. libraries of its native programs (informational, copied to the index) |
 | `androidAuto` | what the plugin provides to Android Auto, see [Android Auto](#android-auto) |
+| `requires` | other plugins it needs: `{"org.openhu.can": "1.0.0"}` (id and minimum version, `""` for any) or a list of ids. Installed first by the store (refused when no source offers them), enabled along with it, started before it; without them it does not start and the store shows why. Disabling or removing a required plugin asks first and stops what requires it |
+| `recommends` | plugins it works with (list of ids), shown in the store ("Works with …") |
 
 Processes get `OPENHU_API_URL`, `OPENHU_PLUGIN_ID`, `OPENHU_PLUGIN_DIR`, `OPENHU_LANGUAGE` (language of the shell at
 the start, see [Translations](#translations)), `OPENHU_DATA_DIR` (persistent data,

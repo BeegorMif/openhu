@@ -1967,5 +1967,33 @@
         <source></source>
         <translation>Kein gültiger Wert für %1</translation>
     </message>
+    <message id="store.requirement_disabled">
+        <source></source>
+        <translation>deaktiviert</translation>
+    </message>
+    <message id="store.not_started_requires">
+        <source></source>
+        <translation>Nicht gestartet, braucht: %1</translation>
+    </message>
+    <message id="store.requires">
+        <source></source>
+        <translation>Braucht: %1</translation>
+    </message>
+    <message id="store.works_with">
+        <source></source>
+        <translation>Arbeitet mit: %1</translation>
+    </message>
+    <message id="store.disable_also_stops">
+        <source></source>
+        <translation>%1 braucht dieses Plugin und wird mit beendet. Trotzdem deaktivieren?</translation>
+    </message>
+    <message id="store.remove_also_stops">
+        <source></source>
+        <translation>%1 braucht dieses Plugin und startet ohne es nicht mehr. Trotzdem entfernen?</translation>
+    </message>
+    <message id="store.requirement_not_offered">
+        <source></source>
+        <translation>%1 braucht %2, das keine Quelle anbietet</translation>
+    </message>
 </context>
 </TS>
