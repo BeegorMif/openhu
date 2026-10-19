@@ -34,6 +34,7 @@
 #include <QQuickWindow>
 #include <QScreen>
 #include <QSocketNotifier>
+#include <QTimer>
 #include <aasdk/USB/USBHub.hpp>
 #include <aasdk/USB/ConnectedAccessoriesEnumerator.hpp>
 #include <aasdk/USB/AccessoryModeQueryChain.hpp>
@@ -54,6 +55,7 @@
 #include <f1x/openauto/autoapp/Core/EventBus.hpp>
 #include <f1x/openauto/autoapp/Core/InstanceLock.hpp>
 #include <f1x/openauto/autoapp/Core/LogLevel.hpp>
+#include <f1x/openauto/autoapp/Core/ServiceNotifier.hpp>
 #include <f1x/openauto/autoapp/Core/UsbReset.hpp>
 #include <f1x/openauto/autoapp/Input/ActionDispatcher.hpp>
 #include <f1x/openauto/autoapp/Plugins/PluginManager.hpp>
@@ -185,6 +187,9 @@ int main(int argc, char* argv[])
     QLoggingCategory::setFilterRules("qt.virtualkeyboard.hunspell.warning=false");
 
     QGuiApplication application(argc, argv);
+    // systemd (OpenHU OS, #129): READY=1 once the shell is up, then watchdog pings from the GUI thread. Takes
+    // NOTIFY_SOCKET out of the environment before the first child process starts.
+    autoapp::core::ServiceNotifier serviceNotifier;
 
     auto configuration = std::make_shared<autoapp::configuration::Configuration>();
     autoapp::shell::AaBridge::instance().configure(configuration);
@@ -345,6 +350,8 @@ int main(int argc, char* argv[])
     QObject::connect(&shellController, &autoapp::shell::ShellController::restartRequested,
                      &settingsController, &autoapp::shell::SettingsController::restart);
     QObject::connect(&settingsController, &autoapp::shell::SettingsController::aboutToRestart, [&]() {
+        // first: stopping the plugins below can take seconds
+        serviceNotifier.prepareRestart();
         duckingController.restoreNow();
         carAudio.stop();
         wirelessController.stop();
@@ -407,6 +414,9 @@ int main(int argc, char* argv[])
         std::fflush(nullptr);
         std::_Exit(1);
     });
+
+    // the event loop runs: the shell is up
+    QTimer::singleShot(0, &serviceNotifier, &autoapp::core::ServiceNotifier::ready);
 
     auto result = application.exec();
     carAudio.stop();
