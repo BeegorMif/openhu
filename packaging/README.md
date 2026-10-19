@@ -4,8 +4,8 @@ Files that end up in the `openhu` Debian package (built with CPack, see `build.s
 
 ```
 packaging/
-├── debian/                 # maintainer scripts (postinst, prerm, postrm, preinst)
-├── systemd/openhu.service  # runs /usr/libexec/openhu/openhu
+├── debian/                 # maintainer scripts: preinst (removes the old openhu.service on updates),
+│                           # postinst (reloads the udev rules)
 └── udev/99-openhu.rules    # USB access for Android phones (also in accessory mode)
 ```
 
@@ -15,7 +15,7 @@ packaging/
 |---|---|
 | Program | `/usr/libexec/openhu/openhu`, started as `/usr/bin/openhu` (link). OpenHU OS removes the link (its command line is `openhu-cli`) |
 | Single instance | a second OpenHU ends right away: lock `/run/lock/openhu.lock` (holds the pid) |
-| Service | `openhu.service` (enabled on install, not started) |
+| Service | none: OpenHU OS starts it with its `openhu-session.service`, elsewhere see [Start](../docs/installation.md#start) |
 | Depends | Qt 6 (Quick, Multimedia, WebSockets), FFmpeg, `pulseaudio-utils` |
 | Recommends | `bluez`, `network-manager`, `iw` – only needed for wireless Android Auto |
 | Replaces | `openauto` (`/usr/bin/autoapp`) |
@@ -33,12 +33,7 @@ Requirements:
 
 Enable it on the settings page under **Wireless**, then pair the phone there once.
 
-## Service
+## Start
 
-```bash
-sudo systemctl start openhu
-journalctl -u openhu -f
-```
-
-The service runs as root with `eglfs` (no desktop needed). Edit the `Environment=` lines in
-`/lib/systemd/system/openhu.service` for other display setups.
+The package starts nothing by itself. How to run it outside OpenHU OS, on a desktop or in a kiosk session with
+cage: [docs/installation.md](../docs/installation.md#start).

@@ -232,12 +232,6 @@ install(FILES packaging/udev/99-openhu.rules
     DESTINATION /lib/udev/rules.d
 )
 
-# Install systemd service files
-install(FILES 
-    packaging/systemd/openhu.service
-    DESTINATION /lib/systemd/system
-)
-
 # Packaging configuration (DEB via CPack)
 # Auto-detect architecture for proper Debian packaging
 execute_process(
@@ -274,15 +268,15 @@ else()
     set(CPACK_PACKAGE_NAME "openhu")
 endif()
 
-set(CPACK_PACKAGE_VENDOR "OpenCarDev")
-set(CPACK_PACKAGE_CONTACT "OpenCarDev Team <opencardevuk@gmail.com>")
+set(CPACK_PACKAGE_VENDOR "OpenHU")
+set(CPACK_PACKAGE_CONTACT "Leon Strauß <openhu.dev@alias.strauss-hub.de>")
 set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "OpenHU head unit: Android Auto, plugins and API (based on OpenAuto)")
 set(CPACK_PACKAGE_DESCRIPTION "OpenHU is a head unit for Raspberry Pi and other Linux devices: Android Auto inside a QML shell, a WebSocket API and plugins (CAN bus, steering wheel keys, camera, radio). Based on OpenAuto by f1x.studio and OpenCarDev.")
 set(CPACK_PACKAGE_VERSION "${PROGRAM_VERSION_STRING}")
 set(CPACK_PACKAGE_HOMEPAGE_URL "https://github.com/average-web-dev/openhu")
 
 # Debian package configuration
-set(CPACK_DEBIAN_PACKAGE_MAINTAINER "OpenCarDev Team <opencardevuk@gmail.com>")
+set(CPACK_DEBIAN_PACKAGE_MAINTAINER "${CPACK_PACKAGE_CONTACT}")
 set(CPACK_DEBIAN_PACKAGE_SECTION "utils")
 set(CPACK_DEBIAN_PACKAGE_PRIORITY "optional")
 set(CPACK_DEBIAN_PACKAGE_HOMEPAGE "https://github.com/average-web-dev/openhu")
@@ -300,12 +294,11 @@ string(REGEX MATCH "^([0-9]+)\\.([0-9]+)" _aasdk_version "${OPENHU_AASDK_VERSION
 math(EXPR _aasdk_next_minor "${CMAKE_MATCH_2} + 1")
 set(CPACK_DEBIAN_PACKAGE_DEPENDS "libaasdk (>= ${OPENHU_AASDK_VERSION}), libaasdk (<< ${CMAKE_MATCH_1}.${_aasdk_next_minor}), pulseaudio-utils, qt6-svg-plugins, qml6-module-qtquick, qml6-module-qtquick-window, qml6-module-qtquick-layouts, qml6-module-qtquick-controls, qml6-module-qtmultimedia, qml6-module-qtquick-virtualkeyboard, qt6-virtualkeyboard-plugin")
 
-# Debian package control scripts
+# Debian package control scripts (no systemd unit: OpenHU OS starts OpenHU with its own session unit, elsewhere see
+# docs/installation.md)
 set(CPACK_DEBIAN_PACKAGE_CONTROL_EXTRA
-    "${CMAKE_CURRENT_SOURCE_DIR}/packaging/debian/postinst"
-    "${CMAKE_CURRENT_SOURCE_DIR}/packaging/debian/prerm"
-    "${CMAKE_CURRENT_SOURCE_DIR}/packaging/debian/postrm"
     "${CMAKE_CURRENT_SOURCE_DIR}/packaging/debian/preinst"
+    "${CMAKE_CURRENT_SOURCE_DIR}/packaging/debian/postinst"
 )
 
 # Configure DEB package filename using the DebPackageFilename module
