@@ -1875,5 +1875,93 @@
         <source></source>
         <translation>There is another DHCP server on the cable: this device stays a DHCP client</translation>
     </message>
+    <message id="settings.debug.simulate">
+        <source></source>
+        <translation>Simulated driving state</translation>
+    </message>
+    <message id="settings.debug.simulate_description">
+        <source></source>
+        <translation>Android Auto gets this gear, parking brake, speed and driving status instead of the vehicle data. Off after every start. Parking brake and speed only from a connection made while a state is set.</translation>
+    </message>
+    <message id="settings.debug.off">
+        <source></source>
+        <translation>Off</translation>
+    </message>
+    <message id="settings.debug.park">
+        <source></source>
+        <translation>Parked</translation>
+    </message>
+    <message id="settings.debug.drive">
+        <source></source>
+        <translation>Driving</translation>
+    </message>
+    <message id="settings.debug.reverse">
+        <source></source>
+        <translation>Reverse</translation>
+    </message>
+    <message id="settings.debug.log_level">
+        <source></source>
+        <translation>Log level</translation>
+    </message>
+    <message id="settings.debug.log_level_description">
+        <source></source>
+        <translation>Applies right away until OpenHU restarts (then OPENHU_LOG, default info). debug and trace log every Android Auto packet.</translation>
+    </message>
+    <message id="settings.debug.video_overlay">
+        <source></source>
+        <translation>Video overlay</translation>
+    </message>
+    <message id="settings.debug.video_overlay_description">
+        <source></source>
+        <translation>Codec, resolution, frame rate and decoder over the Android Auto picture. Off after every start.</translation>
+    </message>
+    <message id="settings.debug.video_decoder">
+        <source></source>
+        <translation>Video decoder</translation>
+    </message>
+    <message id="settings.debug.video_decoder_description">
+        <source></source>
+        <translation>Automatic: hardware if there is one (Raspberry Pi), otherwise software. Applies at the next connection.</translation>
+    </message>
+    <message id="settings.debug.auto">
+        <source></source>
+        <translation>Automatic</translation>
+    </message>
+    <message id="settings.debug.software">
+        <source></source>
+        <translation>Software</translation>
+    </message>
+    <message id="settings.debug.video_codec">
+        <source></source>
+        <translation>Video codec</translation>
+    </message>
+    <message id="settings.debug.video_codec_description">
+        <source></source>
+        <translation>What OpenHU offers the phone. Applies at the next connection.</translation>
+    </message>
+    <message id="settings.info.debug_mode">
+        <source></source>
+        <translation>Debug mode</translation>
+    </message>
+    <message id="settings.info.debug_mode_description">
+        <source></source>
+        <translation>Settings for development and tests (Settings → Debug). Some of them change what Android Auto is told, e.g. a simulated parked car: not for driving.</translation>
+    </message>
+    <message id="settings.page.debug">
+        <source></source>
+        <translation>Debug</translation>
+    </message>
+    <message id="statusbar.debug_simulated">
+        <source></source>
+        <translation>DEBUG: %1</translation>
+    </message>
+    <message id="settings.error.debug_mode_off">
+        <source></source>
+        <translation>Only with the debug mode on (Settings → Info)</translation>
+    </message>
+    <message id="settings.error.unknown_value">
+        <source></source>
+        <translation>Not a value for %1</translation>
+    </message>
 </context>
 </TS>

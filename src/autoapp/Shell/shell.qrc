@@ -23,6 +23,7 @@
         <file>qml/settings/SettingsPage.qml</file>
         <file>qml/settings/SettingsSection.qml</file>
         <file>qml/settings/GeneralSettings.qml</file>
+        <file>qml/settings/DebugSettings.qml</file>
         <file>qml/settings/AndroidAutoSettings.qml</file>
         <file>qml/settings/AudioSettings.qml</file>
         <file>qml/settings/WifiSettings.qml</file>

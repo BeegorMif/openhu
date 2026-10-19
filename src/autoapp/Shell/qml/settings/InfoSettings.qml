@@ -43,6 +43,12 @@ SettingsSection {
             onClicked: shell.quit()
         }
     }
+    // settings for development and tests (#120)
+    SettingSwitch {
+        title: qsTrId("settings.info.debug_mode")
+        description: qsTrId("settings.info.debug_mode_description")
+        key: "debug.enabled"
+    }
     // why some settings are missing
     SettingRow {
         visible: !info.hasWifi || !info.hasBluetooth

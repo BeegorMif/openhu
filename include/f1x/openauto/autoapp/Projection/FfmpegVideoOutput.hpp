@@ -148,6 +148,8 @@ private:
     QVideoFrame toVideoFrame(const AVFrame* frame);
     void present(QVideoFrame frame);
     void logStats(bool force);
+    // "video.stats" once a second while the debug video overlay is on (#120)
+    void publishOverlayStats();
     std::vector<std::string> decoderCandidates() const;
 
     QPointer<QVideoSink> testSink_;
@@ -180,6 +182,13 @@ private:
     int packetsWithoutFrame_ = 0;
     Stats stats_;
     int64_t statsSince_ = 0;
+    struct OverlayStats {
+        int frames = 0;
+        double decodeMs = 0;
+        int width = 0;
+        int height = 0;
+    } overlay_;
+    int64_t overlaySince_ = 0;
     StreamStart streamStart_;
     bool debugLog_ = false;
     // OPENHU_DEBUG_DECODE_DELAY_MS: simulated slow decoder

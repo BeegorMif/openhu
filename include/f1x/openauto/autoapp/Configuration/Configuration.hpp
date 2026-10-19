@@ -58,6 +58,10 @@ public:
     void setApiListenAddress(const std::string& value) override;
     bool getApiAllowHotspot() const override;
     void setApiAllowHotspot(bool value) override;
+    bool getDebugEnabled() const override;
+    void setDebugEnabled(bool value) override;
+    std::string getVideoCodec() const override;
+    void setVideoCodec(const std::string& value) override;
     std::string getApiToken() const override;
     void setApiToken(const std::string& value) override;
     std::string getApiAllowedOrigins() const override;
@@ -116,6 +120,8 @@ private:
     uint16_t apiPort_;
     std::string apiListenAddress_;
     bool apiAllowHotspot_;
+    bool debugEnabled_;
+    std::string videoCodec_;
     std::string apiToken_;
     std::string apiAllowedOrigins_;
     aap_protobuf::service::media::sink::message::VideoFrameRateType videoFPS_;

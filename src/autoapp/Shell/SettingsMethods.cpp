@@ -91,8 +91,17 @@ QVariant convert(const QString& key, const QVariantMap& schema, const QVariant& 
 
 void registerSettingsMethods(api::ApiServer& server, SettingsController& settings)
 {
-    server.registerMethod("settings.keys", [](const QVariantMap&) -> QVariant {
-        return SettingsController::keys();
+    // the debug keys only while the debug mode is on (#120)
+    server.registerMethod("settings.keys", [&settings](const QVariantMap&) -> QVariant {
+        QVariantMap keys = SettingsController::keys();
+        if(!settings.debugEnabled())
+        {
+            for(auto it = keys.begin(); it != keys.end();)
+            {
+                it = it.value().toMap().value("debug").toBool() ? keys.erase(it) : std::next(it);
+            }
+        }
+        return keys;
     });
     // secrets only for clients on this device
     server.registerMethod("settings.list", [&settings](const QVariantMap& params) -> QVariant {
