@@ -53,7 +53,7 @@ public:
     // who published the kept value of a topic
     QString source(const QString& topic) const;
     // The source went away (plugin process ended, API client disconnected): its vehicle.* values become
-    // {"available": false}, so nothing stale is passed on.
+    // {"available": false}, so nothing stale is passed on (except vehicle.simulate, a test topic).
     void releaseSource(const QString& source);
 
     static QString sourcePlugin(const QString& id) { return QStringLiteral("plugin:") + id; }

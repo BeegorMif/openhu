@@ -82,7 +82,9 @@ void EventBus::releaseSource(const QString& source)
         std::lock_guard<std::mutex> lock(mutex_);
         for(auto it = sources_.cbegin(); it != sources_.cend(); ++it)
         {
+            // vehicle.simulate is set with a one-shot "openhu-cli api bus.publish" and kept until OpenHU ends
             if(it.value() == source && it.key().startsWith(QLatin1String("vehicle."))
+               && it.key() != QLatin1String("vehicle.simulate")
                && last_.value(it.key()).value("available", true).toBool())
             {
                 topics.append(it.key());

@@ -107,6 +107,7 @@ private slots:
         bus.publish("vehicle.testSource", {{"kmh", 50}}, "plugin:a");
         bus.publish("test.notVehicle", {{"value", 1}}, "plugin:a");
         bus.publish("vehicle.testOther", {{"kmh", 50}}, "plugin:b");
+        bus.publish("vehicle.simulate", {{"state", "park"}}, "plugin:a");
         QCOMPARE(bus.source("vehicle.testSource"), QString("plugin:a"));
 
         bus.releaseSource("plugin:a");
@@ -114,6 +115,9 @@ private slots:
         QCOMPARE(bus.source("vehicle.testSource"), QString("plugin:a"));
         QCOMPARE(bus.last("test.notVehicle").value("value").toInt(), 1);
         QCOMPARE(bus.last("vehicle.testOther").value("kmh").toInt(), 50);
+        // the test topic stays until OpenHU ends
+        QCOMPARE(bus.last("vehicle.simulate").value("state").toString(), QString("park"));
+        bus.publish("vehicle.simulate", {});
 
         bus.publish("vehicle.testSource", {{"kmh", 30}});
         QVERIFY(bus.source("vehicle.testSource").isEmpty());
