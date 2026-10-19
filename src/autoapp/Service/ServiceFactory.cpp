@@ -41,6 +41,7 @@
 #include <f1x/openauto/autoapp/Service/PhoneStatus/PhoneStatusService.hpp>
 #include <f1x/openauto/autoapp/Service/Radio/RadioService.hpp>
 #include <f1x/openauto/autoapp/Plugins/AndroidAutoProviders.hpp>
+#include <f1x/openauto/autoapp/Service/CarControl/CarControlService.hpp>
 #include <f1x/openauto/autoapp/Core/EventBus.hpp>
 #include <f1x/openauto/autoapp/Projection/FfmpegVideoOutput.hpp>
 #include <f1x/openauto/autoapp/Projection/QtAudioOutput.hpp>
@@ -80,6 +81,16 @@ namespace f1x::openauto::autoapp::service {
         // The radio plugin as a media source in Android Auto (openhu#75). The services cannot change during a
         // connection: the plugin cannot be enabled or disabled while one runs.
         serviceList.emplace_back(std::make_shared<radio::RadioService>(ioService_, messenger));
+    }
+    if (carcontrol::CarControlService::available())
+    {
+        // Car controls from a plugin (openhu#121), shown in the phone's climate rail. The rail exists only in the
+        // phone's "hero" layout, which Android Auto uses only for video above 720p.
+        if (shell::AaBridge::instance().videoSize().height() <= 720) {
+          OPENAUTO_LOG(warning) << "[ServiceFactory] car controls: the phone shows them only with a video resolution "
+                                   "above 720p (Settings -> Android Auto -> Resolution)";
+        }
+        serviceList.emplace_back(std::make_shared<carcontrol::CarControlService>(ioService_, messenger));
     }
     if (configuration_->getWirelessProjectionEnabled()
         || configuration_->getBluetoothAdapterType() == configuration::BluetoothAdapterType::LOCAL)

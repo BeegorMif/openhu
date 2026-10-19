@@ -80,6 +80,8 @@ networks you trust.
 | `projection.exit` | – one-shot: "exit" inside Android Auto, the shell shows its home page |
 | `vehicle.gear` | published by a plugin (e.g. the CAN plugin): `reverse` (bool) and/or `gear` (`park`, `reverse`, `neutral`, `drive` or a number 0–10; wins over `reverse`) → Android Auto `SENSOR_GEAR` (`reverse: false` without `gear` counts as drive). See [Vehicle data](#vehicle-data-android-auto-sensors) |
 | `vehicle.speed`, `vehicle.parkingBrake`, `vehicle.drivingStatus`, `vehicle.fuel`, `vehicle.info`, `vehicle.odometer`, `vehicle.engine`, `vehicle.climate`, `vehicle.compass` | vehicle data from plugins or API clients, passed to Android Auto as sensors, see [Vehicle data](#vehicle-data-android-auto-sensors) |
+| `vehicle.controls` | car controls for Android Auto's climate rail, from the plugin that declares `carControl`, see [Car controls](#car-controls-android-auto-climate-rail) |
+| `vehicle.control.set`, `vehicle.control.result`, `vehicle.control.action` | events between OpenHU and that plugin, see [Car controls](#car-controls-android-auto-climate-rail) |
 | `vehicle.simulate` | `state` (`park`, `drive`, `reverse`, empty = off) – a driving state for tests, only through the API (`openhu-cli api bus.publish '{"topic": "vehicle.simulate", "data": {"state": "park"}}'`), kept until OpenHU ends: Android Auto gets its gear, parking brake, speed (0, 50 or 5 km/h) and driving status (parked: unrestricted, otherwise every restriction) instead of the vehicle data from plugins. Parking brake and speed are announced only when a state is set at the connect: set it, then reconnect the phone; afterwards it can be switched during the session |
 | `plugins.state` | `plugins` – installed plugins (like `plugin.list`), on every change (load, enable, disable, dock) |
 | `store.state` | `busy`, `status`, `error` – progress of store operations |
@@ -134,6 +136,46 @@ phone that the sensor failed; the next value recovers it. Fields that are missin
 3. Without parking brake, gear and speed, Android Auto is unrestricted (head units without vehicle data).
 
 `vehicle.simulate` (topics table above) replaces gear, parking brake, speed and driving status for tests.
+
+### Car controls (Android Auto climate rail)
+
+A plugin that declares the service `carControl` ([plugins.md](plugins.md#android-auto)), or an API client that is not a
+plugin, describes the car's controls in the kept topic `vehicle.controls`. OpenHU shows them in Android Auto's climate
+rail (#121) and passes the user's changes back. The rail exists only in the phone's "hero" layout, which Android Auto
+uses only for **video above 720p** (Settings → Android Auto → Resolution, e.g. 1920x1080).
+
+```json
+{"driverSide": "left", "units": "celsius", "properties": [
+  {"name": "temperature", "area": "driver", "min": 16, "max": 28, "step": 0.5, "value": 21.5},
+  {"name": "temperature", "area": "passenger", "min": 16, "max": 28, "step": 0.5, "value": 22},
+  {"name": "seatHeating", "area": "driver", "min": 0, "max": 3, "value": 0},
+  {"name": "steeringWheelHeating", "min": 0, "max": 3, "value": 1},
+  {"name": "ac", "area": "front", "value": true},
+  {"name": "ignition", "value": true}
+]}
+```
+
+| Field | |
+|---|---|
+| `driverSide` | `left` (default) or `right`: which front seat `driver` is |
+| `units` | display unit of the temperature: `celsius` (default) or `fahrenheit`; values are always °C |
+| `name` | `temperature` (°C), `seatHeating` (levels; `min` < 0 = cooling), `steeringWheelHeating` (levels), `ac`, `fanSpeed`, `recirculation`, `dual` (sync), `defrost`, with a widget in the rail; `auto`, `maxAc`, `hvacPower` (the temperature shows only while it is on) and `ignition` (the controls work only while it is `true`) have none |
+| `area` | seats: `driver`, `passenger`, `front`, `rearLeft`, `rearRight`, `rear` (default `front`); `defrost`: `windshield` (default), `rearWindow`; `steeringWheelHeating`, `ignition`: none |
+| `min`, `max`, `step` | range of numbers; the temperature is shown in steps of `step` (default 0.5), `min` and `max` as LO and HI |
+| `value` | current value (number or bool); missing or `"available": false`: shown as unavailable |
+| `writable` | `false` for a value the user cannot change (default `true` for controls with a widget) |
+
+- The structure (which controls and areas) is read when the phone connects; publish `vehicle.controls` before that.
+  Afterwards only the values follow, every new `vehicle.controls` updates the rail. Unknown names or areas are logged
+  and left out.
+- A change on the phone becomes the event `vehicle.control.set` {`name`, `area`, `value`, `requestId`, `restricted`}
+  (`restricted`: the car is not parked, see the driving status rules above; the plugin decides what it allows). The
+  plugin answers with the event `vehicle.control.result` {`requestId`, `ok`, `error`} and publishes the new value in
+  `vehicle.controls`: the phone shows the change right away and falls back to the old value without the new one
+  within 2 seconds. Without a result within 2 seconds the phone is told that the change failed.
+- An action button of the phone becomes the event `vehicle.control.action` {`action`} (e.g. `launchHvac`).
+- When the plugin process ends, `vehicle.controls` becomes `{"available": false}` and the rail shows the controls as
+  unavailable.
 
 Android Auto is told when the head unit covers it (video focus `NATIVE`, the phone may stop rendering): while a
 plugin overlay is shown, and while a plugin page replaced the Android Auto page (`aa` → `plugin:<id>`, e.g. the camera

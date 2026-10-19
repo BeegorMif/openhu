@@ -65,6 +65,10 @@ namespace f1x::openauto::autoapp::service::sensor {
 
     void onChannelError(const aasdk::error::Error &e) override;
 
+    // A topic as Android Auto may see it: empty if its value comes from a plugin that does not declare the sensor
+    // in its manifest (#123)
+    static QVariantMap androidAutoTopic(const QString &topic);
+
   private:
     using std::enable_shared_from_this<SensorService>::shared_from_this;
 
@@ -77,9 +81,7 @@ namespace f1x::openauto::autoapp::service::sensor {
 
     // vehicle data from plugins and the API (#115)
     static const VehicleSensor *findVehicleSensor(aap_protobuf::service::sensorsource::message::SensorType type);
-    // A topic as Android Auto may see it: empty if its value comes from a plugin that does not declare the sensor
-    // in its manifest (#123)
-    static QVariantMap androidAutoTopic(const QString &topic);
+
 
     void onVehicleTopic(const QString &topic);
 
