@@ -41,6 +41,7 @@ namespace plugins
 // Plugins live in ~/.openhu/plugins/<id>/ with a manifest.json (see docs/plugins.md):
 //   ui.page / ui.overlay  QML shown in the shell, ui.dock adds a dock button
 //   process.exec          background process (any language) that talks to the API
+//   androidAuto           sensors/services the plugin provides to Android Auto (#123, AndroidAutoProviders.hpp)
 class PluginManager: public QObject
 {
     Q_OBJECT
@@ -72,6 +73,13 @@ public:
     Q_INVOKABLE bool setOverlayVisible(const QString& id, bool visible);
     Q_INVOKABLE bool overlayVisible(const QString& id) const;
 
+    // Plugins that provide to Android Auto cannot be enabled, disabled, updated or removed while the phone is
+    // connected (the services and sensors are fixed for a connection, #123): the reason, empty if allowed.
+    QString changeBlocked(const QString& id) const;
+    static bool androidAutoConnected();
+    // the plugin whose process got this token (OPENHU_PLUGIN_TOKEN), empty if none
+    QString pluginForToken(const QString& token) const;
+
     // Stops a plugin before its files are replaced or removed.
     void unload(const QString& id);
 
@@ -96,6 +104,8 @@ private:
         QString id;
         QString dir;
         QVariantMap manifest;
+        QVariantMap androidAuto;  // parsed "androidAuto", empty without
+        QString token;            // of the running process
         bool enabled = true;
         bool compatible = true;
         int dock = -1;  // -1: manifest, 0/1: user setting
@@ -115,6 +125,8 @@ private:
     void saveState() const;
     // "ui.overlay" {overlays: ids of the plugins whose overlay is shown}
     void publishOverlays();
+    // "plugins.state" {plugins: [...]}: the services read the enabled plugins and their androidAuto sections
+    void publishState();
     QVariantMap loadState() const;
 
     quint16 apiPort_;

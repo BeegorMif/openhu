@@ -25,8 +25,10 @@
 #include <QProcessEnvironment>
 #include <QQmlEngine>
 #include <QUrl>
+#include <QUuid>
 #include <f1x/openauto/autoapp/Core/ChildProcesses.hpp>
 #include <f1x/openauto/autoapp/Plugins/PluginManager.hpp>
+#include <f1x/openauto/autoapp/Plugins/AndroidAutoProviders.hpp>
 #include <f1x/openauto/autoapp/Core/EventBus.hpp>
 #include <f1x/openauto/Common/Log.hpp>
 
@@ -81,6 +83,7 @@ PluginManager::PluginManager(quint16 apiPort, QObject* parent)
     : QObject(parent)
     , apiPort_(apiPort)
 {
+    connect(this, &PluginManager::pluginsChanged, this, &PluginManager::publishState);
 }
 
 PluginManager::~PluginManager()
@@ -107,7 +110,13 @@ QString PluginManager::pluginsDir()
 void PluginManager::load()
 {
     this->stopAll();
+    QStringList known;
+    for(const auto& entry: plugins_)
+    {
+        known.append(entry.first);
+    }
     plugins_.clear();
+    bool stateChanged = false;
 
     QDir().mkpath(pluginsDir());
     const QVariantMap state = this->loadState();
@@ -130,6 +139,21 @@ void PluginManager::load()
         plugin->dir = pluginDir;
         plugin->manifest = manifest;
         plugin->enabled = state.value(id).toMap().value("enabled", true).toBool();
+        QStringList ignored;
+        plugin->androidAuto = parseAndroidAuto(manifest, &ignored);
+        if(!ignored.isEmpty())
+        {
+            OPENAUTO_LOG(warning) << "[PluginManager] " << id.toStdString() << ": unknown in androidAuto, ignored: "
+                                  << ignored.join(", ").toStdString();
+        }
+        // installed while the phone is connected: it may only start providing at the next connection
+        if(!plugin->androidAuto.isEmpty() && !known.contains(id) && androidAutoConnected() && plugin->enabled)
+        {
+            OPENAUTO_LOG(info) << "[PluginManager] " << id.toStdString()
+                               << " provides to Android Auto: installed disabled while the phone is connected";
+            plugin->enabled = false;
+            stateChanged = true;
+        }
         plugin->compatible = compatible(manifest);
         if(!plugin->compatible)
         {
@@ -161,8 +185,11 @@ void PluginManager::load()
         }
     }
 
+    if(stateChanged)
+    {
+        this->saveState();
+    }
     emit pluginsChanged();
-    core::EventBus::instance().publish("plugins.state", {{"plugins", this->plugins()}});
     // overlays shown before the reload are gone
     this->publishOverlays();
 }
@@ -198,10 +225,41 @@ bool PluginManager::contains(const QString& id) const
     return plugins_.find(id) != plugins_.end();
 }
 
+QString PluginManager::changeBlocked(const QString& id) const
+{
+    auto it = plugins_.find(id);
+    if(it != plugins_.end() && !it->second->androidAuto.isEmpty() && androidAutoConnected())
+    {
+        return QStringLiteral("android auto connected");
+    }
+    return QString();
+}
+
+bool PluginManager::androidAutoConnected()
+{
+    return core::EventBus::instance().last("projection.state").value("connected").toBool();
+}
+
+QString PluginManager::pluginForToken(const QString& token) const
+{
+    if(token.isEmpty())
+    {
+        return QString();
+    }
+    for(const auto& entry: plugins_)
+    {
+        if(entry.second->token == token)
+        {
+            return entry.first;
+        }
+    }
+    return QString();
+}
+
 bool PluginManager::setEnabled(const QString& id, bool enabled)
 {
     auto it = plugins_.find(id);
-    if(it == plugins_.end())
+    if(it == plugins_.end() || !this->changeBlocked(id).isEmpty())
     {
         return false;
     }
@@ -376,6 +434,9 @@ void PluginManager::startProcess(Plugin& plugin)
     environment.insert("OPENHU_API_URL", QString("ws://127.0.0.1:%1").arg(apiPort_));
     environment.insert("OPENHU_PLUGIN_ID", plugin.id);
     environment.insert("OPENHU_PLUGIN_DIR", plugin.dir);
+    // the plugin logs in with it, so its values count as its own (Android Auto providers, #123)
+    plugin.token = QUuid::createUuid().toString(QUuid::WithoutBraces);
+    environment.insert("OPENHU_PLUGIN_TOKEN", plugin.token);
     environment.insert("OPENHU_DATA_DIR", dataDir);
     // at the start; a switch later comes as the topic ui.language
     environment.insert("OPENHU_LANGUAGE", core::EventBus::instance().last("ui.language").value("language").toString());
@@ -455,6 +516,9 @@ void PluginManager::onProcessFinished(const QString& id, int exitCode, QProcess:
     }
 
     auto& plugin = *it->second;
+    plugin.token.clear();
+    // its vehicle data is not current any more
+    core::EventBus::instance().releaseSource(core::EventBus::sourcePlugin(id));
     if(plugin.stopping)
     {
         // terminated by OpenHU (quit, disable, update): SIGTERM counts as CrashExit for Qt
@@ -501,7 +565,17 @@ QVariantMap PluginManager::toVariant(const Plugin& plugin) const
     result["overlayVisible"] = plugin.overlayVisible;
     result["running"] = plugin.process && plugin.process->state() != QProcess::NotRunning;
     result["permissions"] = plugin.manifest.value("permissions");
+    if(!plugin.androidAuto.isEmpty())
+    {
+        // enable, disable, update and remove wait for the phone to disconnect (changeBlocked)
+        result["androidAuto"] = plugin.androidAuto;
+    }
     return result;
+}
+
+void PluginManager::publishState()
+{
+    core::EventBus::instance().publish("plugins.state", {{"plugins", this->plugins()}});
 }
 
 void PluginManager::saveState() const

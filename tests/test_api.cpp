@@ -256,6 +256,51 @@ private slots:
         QVERIFY(client.next().value("error").toString().contains("unknown message type"));
     }
 
+    // plugin processes log in with their token, their values count as the plugin's (#123)
+    void pluginTokenSetsTheSource()
+    {
+        ApiServer server;
+        server.setPluginResolver([](const QString& token) { return token == "plugin-token" ? QString("org.test") : QString(); });
+        server.registerMethod("test.echo", [](const QVariantMap& params) -> QVariant { return params; });
+        server.registerMethod("test.publish", [](const QVariantMap& params) -> QVariant {
+            EventBus::instance().publish(params.value("topic").toString(), {{"value", 1}},
+                                         params.value(ApiServer::cSource).toString());
+            return QVariantMap();
+        });
+        const quint16 port = freePort();
+        QVERIFY(server.listen(QHostAddress::LocalHost, port));
+
+        Client plugin(port);
+        QVERIFY(plugin.connected());
+        plugin.send({{"type", "auth"}, {"pluginToken", "plugin-token"}});
+        const QVariantMap auth = plugin.next();
+        QVERIFY(auth.value("authenticated").toBool());
+        QCOMPARE(auth.value("plugin").toString(), QString("org.test"));
+        QCOMPARE(plugin.call("test.echo").value(ApiServer::cSource).toString(), QString("plugin:org.test"));
+        // a client cannot claim a source
+        QCOMPARE(plugin.call("test.echo", {{ApiServer::cSource, "plugin:other"}}).value(ApiServer::cSource).toString(),
+                 QString("plugin:org.test"));
+
+        Client client(port);
+        QVERIFY(client.connected());
+        QVERIFY(client.call("test.echo").value(ApiServer::cSource).toString().startsWith("client:"));
+
+        // values of a closed connection are not current any more
+        plugin.call("test.publish", {{"topic", "vehicle.testPlugin"}});
+        client.call("test.publish", {{"topic", "vehicle.testClient"}});
+        QCOMPARE(EventBus::instance().source("vehicle.testPlugin"), QString("plugin:org.test"));
+        plugin.socket().close();
+        QTRY_VERIFY(!EventBus::instance().last("vehicle.testPlugin").value("available", true).toBool());
+        QVERIFY(EventBus::instance().last("vehicle.testClient").value("available", true).toBool());
+        client.socket().close();
+        QTRY_VERIFY(!EventBus::instance().last("vehicle.testClient").value("available", true).toBool());
+
+        Client wrong(port);
+        QVERIFY(wrong.connected());
+        wrong.send({{"type", "auth"}, {"pluginToken", "guess"}});
+        QVERIFY(wrong.closedWith(QWebSocketProtocol::CloseCodePolicyViolated));
+    }
+
     void subscriptions()
     {
         ApiServer server;

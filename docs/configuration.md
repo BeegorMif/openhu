@@ -82,7 +82,7 @@ Where the keys are in the settings:
 
 | Key | Default | |
 |---|---|---|
-| `AndroidAuto` | `true` | the radio plugin as a media source in Android Auto (radio channel); only announced while the plugin runs (`radio.state`) |
+| `AndroidAuto` | `true` | the radio plugin as a media source in Android Auto (radio channel); announced while a plugin that declares the `radio` service ([plugins.md](plugins.md#android-auto)) is enabled |
 
 ### [CarAudio]
 

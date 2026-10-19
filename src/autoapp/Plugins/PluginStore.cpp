@@ -276,6 +276,12 @@ void PluginStore::refresh()
 void PluginStore::install(const QString& id)
 {
     this->enqueue(qtTrId("store.installing").arg(id), [this, id](std::function<void()> done) {
+        if(!manager_.changeBlocked(id).isEmpty())
+        {
+            this->setStatus(qtTrId("store.disconnect_phone").arg(id), true);
+            done();
+            return;
+        }
         this->installPackage(id, std::move(done));
     });
 }
@@ -298,6 +304,12 @@ void PluginStore::remove(const QString& id)
         if(!validId(id) || !QDir(PluginManager::pluginsDir() + "/" + id).exists())
         {
             this->setStatus(qtTrId("store.plugin_not_installed").arg(id), true);
+            done();
+            return;
+        }
+        if(!manager_.changeBlocked(id).isEmpty())
+        {
+            this->setStatus(qtTrId("store.disconnect_phone").arg(id), true);
             done();
             return;
         }

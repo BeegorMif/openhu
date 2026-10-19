@@ -96,6 +96,11 @@ QVariant ApiServer::call(const QString& method, const QVariantMap& params)
     return it.value()(params);
 }
 
+void ApiServer::setPluginResolver(std::function<QString(const QString& token)> resolver)
+{
+    pluginResolver_ = std::move(resolver);
+}
+
 void ApiServer::setClientFilter(std::function<bool(const QHostAddress&)> filter)
 {
     clientFilter_ = std::move(filter);
@@ -152,6 +157,7 @@ void ApiServer::onNewConnection()
         }
         // browsers send an Origin header: a web page must not get the rights of a program on this device
         Client client;
+        client.number = ++nextClient_;
         client.local = isLoopbackPeer(socket->peerAddress()) && socket->origin().isEmpty();
         client.authenticated = client.local;
         const QString token = handshakeToken(socket->request());
@@ -263,6 +269,8 @@ void ApiServer::onTextMessage(QWebSocket* socket, const QString& message)
         {
             QVariantMap params = request.value("params").toMap();
             params.insert(cLocal, client.local);
+            params.insert(cSource, client.plugin.isEmpty() ? core::EventBus::sourceClient(client.number)
+                                                           : core::EventBus::sourcePlugin(client.plugin));
             response["result"] = this->call(request.value("method").toString(), params);
         }
         catch(const std::exception& e)
@@ -279,6 +287,22 @@ void ApiServer::onTextMessage(QWebSocket* socket, const QString& message)
 
 void ApiServer::onAuth(QWebSocket* socket, Client& client, const QVariantMap& request)
 {
+    // a plugin process: its values count as the plugin's (Android Auto providers, #123)
+    if(request.contains("pluginToken"))
+    {
+        const QString plugin = pluginResolver_ ? pluginResolver_(request.value("pluginToken").toString()) : QString();
+        if(plugin.isEmpty())
+        {
+            this->send(socket, {{"type", "error"}, {"error", "invalid plugin token"}});
+            this->refuse(socket, "invalid plugin token");
+            return;
+        }
+        client.plugin = plugin;
+        client.authenticated = true;
+        OPENAUTO_LOG(info) << "[ApiServer] plugin logged in: " << plugin.toStdString();
+        this->send(socket, {{"type", "auth"}, {"authenticated", true}, {"plugin", plugin}});
+        return;
+    }
     if(!client.authenticated)
     {
         if(!tokenMatches(request.value("token").toString(), token_))
@@ -302,6 +326,14 @@ void ApiServer::refuse(QWebSocket* socket, const QString& reason)
 
 void ApiServer::onDisconnected(QWebSocket* socket)
 {
+    auto it = clients_.find(socket);
+    if(it != clients_.end())
+    {
+        // its vehicle data is not current any more
+        const Client& client = it.value();
+        core::EventBus::instance().releaseSource(client.plugin.isEmpty() ? core::EventBus::sourceClient(client.number)
+                                                                        : core::EventBus::sourcePlugin(client.plugin));
+    }
     clients_.remove(socket);
     socket->deleteLater();
 }
