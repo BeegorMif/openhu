@@ -29,6 +29,7 @@
 #include <f1x/openauto/autoapp/Core/ChildProcesses.hpp>
 #include <f1x/openauto/autoapp/Plugins/PluginManager.hpp>
 #include <f1x/openauto/autoapp/Plugins/AndroidAutoProviders.hpp>
+#include <f1x/openauto/autoapp/Plugins/PluginStore.hpp>
 #include <f1x/openauto/autoapp/Core/EventBus.hpp>
 #include <f1x/openauto/Common/Log.hpp>
 
@@ -177,13 +178,7 @@ void PluginManager::load()
         plugins_.emplace(id, std::move(plugin));
     }
 
-    for(auto& entry: plugins_)
-    {
-        if(entry.second->enabled && entry.second->compatible)
-        {
-            this->startProcess(*entry.second);
-        }
-    }
+    this->startEnabled();
 
     if(stateChanged)
     {
@@ -228,9 +223,20 @@ bool PluginManager::contains(const QString& id) const
 QString PluginManager::changeBlocked(const QString& id) const
 {
     auto it = plugins_.find(id);
-    if(it != plugins_.end() && !it->second->androidAuto.isEmpty() && androidAutoConnected())
+    if(it == plugins_.end() || !androidAutoConnected())
     {
-        return QStringLiteral("android auto connected");
+        return QString();
+    }
+    // also a plugin that a locked one requires (e.g. the CAN plugin under the vehicle plugin, #104)
+    QStringList affected = this->dependents(id);
+    affected.prepend(id);
+    for(const auto& name: affected)
+    {
+        auto plugin = plugins_.find(name);
+        if(plugin != plugins_.end() && !plugin->second->androidAuto.isEmpty())
+        {
+            return QStringLiteral("android auto connected");
+        }
     }
     return QString();
 }
@@ -256,6 +262,130 @@ QString PluginManager::pluginForToken(const QString& token) const
     return QString();
 }
 
+QVariantMap PluginManager::requiresOf(const QVariantMap& manifest)
+{
+    const QVariant value = manifest.value("requires");
+    if(value.typeId() == QMetaType::QVariantList || value.typeId() == QMetaType::QStringList)
+    {
+        QVariantMap result;
+        for(const auto& id: value.toStringList())
+        {
+            result.insert(id, QString());
+        }
+        return result;
+    }
+    return value.toMap();
+}
+
+QStringList PluginManager::recommendsOf(const QVariantMap& manifest)
+{
+    return manifest.value("recommends").toStringList();
+}
+
+QStringList PluginManager::dependents(const QString& id) const
+{
+    QStringList result;
+    QStringList queue{id};
+    while(!queue.isEmpty())
+    {
+        const QString current = queue.takeFirst();
+        for(const auto& entry: plugins_)
+        {
+            if(entry.second->enabled && !result.contains(entry.first) && entry.first != id
+               && requiresOf(entry.second->manifest).contains(current))
+            {
+                result.append(entry.first);
+                queue.append(entry.first);
+            }
+        }
+    }
+    return result;
+}
+
+QVariantList PluginManager::missingRequirements(const QString& id) const
+{
+    QVariantList missing;
+    auto it = plugins_.find(id);
+    if(it == plugins_.end())
+    {
+        return missing;
+    }
+    const QVariantMap requirements = requiresOf(it->second->manifest);
+    for(auto req = requirements.cbegin(); req != requirements.cend(); ++req)
+    {
+        const QString version = req.value().toString();
+        auto required = plugins_.find(req.key());
+        QString reason;
+        if(required == plugins_.end())
+        {
+            reason = "notInstalled";
+        }
+        else if(!version.isEmpty()
+                && PluginStore::compareVersions(required->second->manifest.value("version").toString(), version) < 0)
+        {
+            reason = "tooOld";
+        }
+        else if(!required->second->compatible)
+        {
+            reason = "incompatible";
+        }
+        else if(!required->second->enabled)
+        {
+            reason = "disabled";
+        }
+        if(!reason.isEmpty())
+        {
+            missing.append(QVariantMap{{"id", req.key()}, {"version", version}, {"reason", reason}});
+        }
+    }
+    return missing;
+}
+
+void PluginManager::startEnabled()
+{
+    // required ones first: start what is ready, again until nothing changes (a cycle never starts)
+    QStringList started;
+    bool progress = true;
+    while(progress)
+    {
+        progress = false;
+        for(auto& entry: plugins_)
+        {
+            Plugin& plugin = *entry.second;
+            if(!plugin.enabled || !plugin.compatible || started.contains(entry.first)
+               || !this->missingRequirements(entry.first).isEmpty())
+            {
+                continue;
+            }
+            bool ready = true;
+            for(const auto& required: requiresOf(plugin.manifest).keys())
+            {
+                ready = ready && started.contains(required);
+            }
+            if(ready)
+            {
+                this->startProcess(plugin);
+                started.append(entry.first);
+                progress = true;
+            }
+        }
+    }
+    for(const auto& entry: plugins_)
+    {
+        const QVariantList missing = this->missingRequirements(entry.first);
+        if(entry.second->enabled && !missing.isEmpty())
+        {
+            QStringList names;
+            for(const auto& item: missing)
+            {
+                names.append(item.toMap().value("id").toString() + " (" + item.toMap().value("reason").toString() + ")");
+            }
+            OPENAUTO_LOG(warning) << "[PluginManager] " << entry.first.toStdString() << " not started, requires "
+                                  << names.join(", ").toStdString();
+        }
+    }
+}
+
 bool PluginManager::setEnabled(const QString& id, bool enabled)
 {
     auto it = plugins_.find(id);
@@ -265,20 +395,42 @@ bool PluginManager::setEnabled(const QString& id, bool enabled)
     }
 
     auto& plugin = *it->second;
-    if(!enabled)
-    {
-        this->setOverlayVisible(id, false);
-    }
-
-    plugin.enabled = enabled;
     if(enabled)
     {
+        plugin.enabled = true;
         plugin.restartDelay = 0;
-        this->startProcess(plugin);
+        // what it requires comes along (unless it is locked by an Android Auto session, #123)
+        QStringList queue = requiresOf(plugin.manifest).keys();
+        while(!queue.isEmpty())
+        {
+            auto required = plugins_.find(queue.takeFirst());
+            if(required != plugins_.end() && !required->second->enabled && this->changeBlocked(required->first).isEmpty())
+            {
+                OPENAUTO_LOG(info) << "[PluginManager] enabling " << required->first.toStdString() << ", required by "
+                                   << id.toStdString();
+                required->second->enabled = true;
+                required->second->restartDelay = 0;
+                queue.append(requiresOf(required->second->manifest).keys());
+            }
+        }
+        this->startEnabled();
     }
     else
     {
-        this->stopProcess(plugin);
+        // what requires it stops too
+        QStringList stopping = this->dependents(id);
+        stopping.prepend(id);
+        for(const auto& name: stopping)
+        {
+            auto entry = plugins_.find(name);
+            if(entry == plugins_.end() || (name != id && !this->changeBlocked(name).isEmpty()))
+            {
+                continue;
+            }
+            this->setOverlayVisible(name, false);
+            entry->second->enabled = false;
+            this->stopProcess(*entry->second);
+        }
     }
 
     this->saveState();
@@ -565,6 +717,9 @@ QVariantMap PluginManager::toVariant(const Plugin& plugin) const
     result["overlayVisible"] = plugin.overlayVisible;
     result["running"] = plugin.process && plugin.process->state() != QProcess::NotRunning;
     result["permissions"] = plugin.manifest.value("permissions");
+    result["requires"] = requiresOf(plugin.manifest);
+    result["recommends"] = recommendsOf(plugin.manifest);
+    result["missing"] = this->missingRequirements(plugin.id);
     if(!plugin.androidAuto.isEmpty())
     {
         // enable, disable, update and remove wait for the phone to disconnect (changeBlocked)

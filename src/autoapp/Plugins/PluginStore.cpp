@@ -273,7 +273,59 @@ void PluginStore::refresh()
     });
 }
 
+bool PluginStore::installOrder(const QString& id, QStringList& order, QString& error, QStringList& visiting) const
+{
+    if(visiting.contains(id) || order.contains(id))
+    {
+        return true;  // a cycle or already planned
+    }
+    visiting.append(id);
+    const QVariantMap package = this->findPackage(id);
+    const QVariantMap requirements = PluginManager::requiresOf(package);
+    for(auto it = requirements.cbegin(); it != requirements.cend(); ++it)
+    {
+        const QString minimum = it.value().toString();
+        const QString installed = manager_.plugin(it.key()).value("version").toString();
+        if(manager_.contains(it.key()) && (minimum.isEmpty() || compareVersions(installed, minimum) >= 0))
+        {
+            continue;
+        }
+        const QVariantMap offered = this->findPackage(it.key());
+        if(offered.isEmpty() || (!minimum.isEmpty() && compareVersions(offered.value("version").toString(), minimum) < 0))
+        {
+            error = qtTrId("store.requirement_not_offered").arg(id, (it.key() + " " + minimum).trimmed());
+            return false;
+        }
+        if(!this->installOrder(it.key(), order, error, visiting))
+        {
+            return false;
+        }
+    }
+    order.append(id);
+    return true;
+}
+
 void PluginStore::install(const QString& id)
+{
+    // what it requires first (#104); nothing of it when a requirement is not offered
+    QStringList order;
+    QStringList visiting;
+    QString error;
+    if(!this->installOrder(id, order, error, visiting))
+    {
+        this->enqueue(QString(), [this, error](std::function<void()> done) {
+            this->setStatus(error, true);
+            done();
+        });
+        return;
+    }
+    for(const auto& name: order)
+    {
+        this->installOne(name);
+    }
+}
+
+void PluginStore::installOne(const QString& id)
 {
     this->enqueue(qtTrId("store.installing").arg(id), [this, id](std::function<void()> done) {
         if(!manager_.changeBlocked(id).isEmpty())

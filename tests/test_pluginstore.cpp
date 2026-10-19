@@ -44,7 +44,8 @@ public:
     // Packs a plugin and adds it to the index. manifestId differs from id to test broken archives,
     // nested = false puts manifest.json at the top of the archive instead of <id>/manifest.json.
     QVariantMap add(const QString& id, const QString& version, const QStringList& arch = {"all"},
-                    QString manifestId = QString(), bool nested = true, int api = PluginManager::cApiVersion)
+                    QString manifestId = QString(), bool nested = true, int api = PluginManager::cApiVersion,
+                    const QVariantMap& extra = QVariantMap())
     {
         if(manifestId.isEmpty())
         {
@@ -53,7 +54,12 @@ public:
         const QString staging = path_ + "/staging-" + id + "-" + version;
         const QString pluginDir = nested ? staging + "/" + id : staging;
         QDir().mkpath(pluginDir);
-        writeJson(pluginDir + "/manifest.json", {{"id", manifestId}, {"name", id}, {"version", version}, {"api", api}});
+        QVariantMap manifest{{"id", manifestId}, {"name", id}, {"version", version}, {"api", api}};
+        for(auto it = extra.cbegin(); it != extra.cend(); ++it)
+        {
+            manifest.insert(it.key(), it.value());
+        }
+        writeJson(pluginDir + "/manifest.json", manifest);
 
         const QString archive = id + "-" + version + ".tar.gz";
         QProcess tar;
@@ -67,6 +73,10 @@ public:
 
         QVariantMap entry{{"id", id}, {"name", id}, {"version", version}, {"arch", arch},
                           {"archive", archive}, {"sha256", sha256}, {"api", api}};
+        for(auto it = extra.cbegin(); it != extra.cend(); ++it)
+        {
+            entry.insert(it.key(), it.value());  // like openhu-repo-index copies requires/recommends
+        }
         for(int i = entries_.size() - 1; i >= 0; --i)
         {
             if(entries_[i].toMap().value("id") == id)
@@ -263,6 +273,42 @@ private slots:
         QVERIFY(!QDir(PluginManager::pluginsDir() + "/hello").exists());
         QVERIFY(!manager.contains("hello"));
         QVERIFY(!readJson(PluginManager::baseDir() + "/installed.json").contains("hello"));
+    }
+
+    // #104: what a plugin requires is installed first; nothing when a requirement is not offered
+    void installRequirementsFirst()
+    {
+        TestHome home;
+        Repository repo(home.path("repo"));
+        repo.add("vehicle", "1.0.0", {"all"}, QString(), true, PluginManager::cApiVersion,
+                 {{"requires", QVariantMap{{"can", "1.0.0"}}}});
+        repo.add("lonely", "1.0.0", {"all"}, QString(), true, PluginManager::cApiVersion,
+                 {{"requires", QVariantMap{{"absent", "1.0.0"}}}});
+        repo.add("picky", "1.0.0", {"all"}, QString(), true, PluginManager::cApiVersion,
+                 {{"requires", QVariantMap{{"can", "2.0.0"}}}});
+        repo.add("can", "1.0.0");
+        writeSources({"file " + repo.path()});
+
+        PluginManager manager(0);
+        PluginStore store(manager);
+        store.refresh();
+        QVERIFY(waitIdle(store));
+
+        store.install("lonely");
+        QVERIFY(waitIdle(store));
+        QVERIFY(!manager.contains("lonely"));
+        QVERIFY(store.status().contains("absent"));
+
+        store.install("vehicle");
+        QVERIFY(waitIdle(store));
+        QVERIFY2(manager.contains("can") && manager.contains("vehicle"), qPrintable(store.status()));
+        QVERIFY(manager.plugin("vehicle").value("missing").toList().isEmpty());
+
+        // the offered version is too old
+        store.install("picky");
+        QVERIFY(waitIdle(store));
+        QVERIFY(!manager.contains("picky"));
+        QVERIFY(store.status().contains("can 2.0.0"));
     }
 
     void archiveFor()

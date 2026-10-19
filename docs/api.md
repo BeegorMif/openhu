@@ -221,16 +221,16 @@ is on, and always need the token.
 | `input.action` | `action`, `phase` (`click` default, `press`, `release`) | `{handled}` |
 | `input.actions` | – | built-in actions with description |
 | `input.keymap` | – | active keyboard mapping |
-| `plugin.list` | – | installed plugins (`id`, `name`, `version`, `enabled`, `running`, `dock`, `page`, `overlay`, `androidAuto`, …) |
-| `plugin.enable` / `plugin.disable` | `id` | plugin; error `android auto connected` for a plugin with `androidAuto` while the phone is connected |
+| `plugin.list` | – | installed plugins (`id`, `name`, `version`, `enabled`, `running`, `dock`, `page`, `overlay`, `androidAuto`, `requires`, `recommends`, `missing`: [{`id`, `version`, `reason`: `notInstalled`/`tooOld`/`disabled`/`incompatible`}], …) |
+| `plugin.enable` / `plugin.disable` | `id`, `force` (disable) | plugin; enabling also enables what it `requires`; disabling one that enabled plugins require is refused (`required by …`) unless `force: true`, which disables them too. Error `android auto connected` for a plugin with `androidAuto` (or one such a plugin requires) while the phone is connected |
 | `plugin.restart` | `id` | plugin – restarts its process |
 | `plugin.setDock` | `id`, `dock` (bool) | plugin – page as dock entry |
 | `ui.overlay.show` / `ui.overlay.hide` | `id` | `{}` – plugin overlay above everything, including Android Auto (the phone is told, see above) |
 | `store.list` | – | packages of all sources with `installed`, `installedVersion`, `updateAvailable`, `source`, `official` |
 | `store.refresh` | – | `{queued}` – reload `index.json` of all sources |
-| `store.install` | `id` | `{queued}` – install or update; a new plugin with `androidAuto` is installed disabled while the phone is connected, updating one is refused (`android auto connected`) |
+| `store.install` | `id` | `{queued}` – install or update, what it `requires` first (refused when a requirement is not offered); a new plugin with `androidAuto` is installed disabled while the phone is connected, updating one is refused (`android auto connected`) |
 | `store.update` | `id` (optional) | `{queued}` – one or all updates (same rule) |
-| `store.remove` | `id` | `{queued}` (same rule) |
+| `store.remove` | `id`, `force` | `{queued}` (same rule); refused (`required by …`) for a plugin that enabled plugins require, unless `force: true` (they no longer start) |
 | `store.sources.list` | – | sources |
 | `store.sources.add` | `type` (`github`/`url`/`file`), `location`, `branch` | sources |
 | `store.sources.remove` | `index` | sources |

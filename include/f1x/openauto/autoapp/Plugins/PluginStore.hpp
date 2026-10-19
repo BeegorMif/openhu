@@ -107,6 +107,10 @@ private:
     void afterQmlReleased(std::function<void()> next);
 
     // Package entry for id from the highest priority source (and its source index), empty if not offered.
+    // id and the plugins it requires that are missing or too old, required ones first; false with error when one
+    // is not offered by any source
+    bool installOrder(const QString& id, QStringList& order, QString& error, QStringList& visiting) const;
+    void installOne(const QString& id);
     QVariantMap findPackage(const QString& id, int* sourceIndex = nullptr) const;
     QVariantMap installed() const;
     void saveInstalled(const QVariantMap& installed) const;

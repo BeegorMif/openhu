@@ -34,6 +34,66 @@ Item {
         return (section.sensors || []).concat(section.services || []).join(", ")
     }
 
+    // installed plugins that require this one and run (#104); they stop with it
+    function dependentsOf(id) {
+        return plugins.plugins.filter(p => p.enabled && p.requires && p.requires[id] !== undefined)
+                              .map(p => PluginText.name(p))
+    }
+
+    // the plugin names of a "requires" map or a "recommends" list
+    function namesOf(ids) {
+        if (!ids)
+            return ""
+        var list = Array.isArray(ids) ? ids : Object.keys(ids)
+        return list.map(id => { var p = page.pluginInfo(id); return p.id ? PluginText.name(p) : id }).join(", ")
+    }
+
+    function missingText(missing) {
+        return (missing || []).map(m => (page.pluginInfo(m.id).id ? PluginText.name(page.pluginInfo(m.id)) : m.id)
+                                         + (m.reason === "disabled" ? " (" + qsTrId("store.requirement_disabled") + ")"
+                                            : m.version ? " " + m.version : "")).join(", ")
+    }
+
+    // asks before something that also stops other plugins
+    Dialog {
+        id: confirmDialog
+        property string pluginId
+        property string kind  // "disable" or "remove"
+        anchors.centerIn: parent
+        modal: true
+        standardButtons: Dialog.Ok | Dialog.Cancel
+        width: Math.min(parent.width * 0.8, Theme.dockWidth * 8)
+        property alias text: confirmText.text
+        Text {
+            id: confirmText
+            width: parent.width
+            wrapMode: Text.WordWrap
+            color: Theme.text
+            font.pixelSize: Theme.fontNormal
+        }
+        onAccepted: page.change(pluginId, kind)
+    }
+
+    function change(id, kind) {
+        if (kind === "remove")
+            store.remove(id)
+        else
+            api.request("plugin.disable", { id: id, force: true })
+    }
+
+    function confirmIfRequired(id, kind) {
+        var dependents = page.dependentsOf(id)
+        if (dependents.length === 0) {
+            page.change(id, kind)
+            return
+        }
+        confirmDialog.text = (kind === "remove" ? qsTrId("store.remove_also_stops") : qsTrId("store.disable_also_stops"))
+                             .arg(dependents.join(", "))
+        confirmDialog.pluginId = id
+        confirmDialog.kind = kind
+        confirmDialog.open()
+    }
+
     function pluginInfo(id) {
         var list = plugins.plugins
         for (var i = 0; i < list.length; ++i)
@@ -171,7 +231,11 @@ Item {
                             text: {
                                 // first, the rest of the line is cut off
                                 if (modelData.installed && page.locked(modelData.id))
-                                    return qsTrId("store.disconnect_phone").arg(modelData.name || modelData.id)
+                                    return qsTrId("store.disconnect_phone").arg(PluginText.name(modelData))
+                                var missing = modelData.installed && page.pluginInfo(modelData.id).enabled
+                                              ? page.pluginInfo(modelData.id).missing : []
+                                if (missing && missing.length)
+                                    return qsTrId("store.not_started_requires").arg(page.missingText(missing))
                                 var parts = []
                                 parts.push(modelData.source ? (modelData.official ? qsTrId("store.official") : qsTrId("store.not_official") + " · " + modelData.source)
                                                             : qsTrId("store.installed_locally"))
@@ -181,11 +245,19 @@ Item {
                                 var androidAuto = page.androidAutoText(modelData.androidAuto || page.pluginInfo(modelData.id).androidAuto)
                                 if (androidAuto)
                                     parts.push(qsTrId("store.provides_android_auto").arg(androidAuto))
+                                var requires = page.namesOf(modelData.requires || page.pluginInfo(modelData.id).requires)
+                                if (requires)
+                                    parts.push(qsTrId("store.requires").arg(requires))
+                                var recommends = page.namesOf(modelData.recommends || page.pluginInfo(modelData.id).recommends)
+                                if (recommends)
+                                    parts.push(qsTrId("store.works_with").arg(recommends))
                                 if (!modelData.compatible)
                                     parts.push(qsTrId("store.not_device_openhu_version"))
                                 return parts.join(" · ")
                             }
-                            color: modelData.installed && page.locked(modelData.id) ? Theme.text
+                            color: modelData.installed && (page.locked(modelData.id)
+                                     || (page.pluginInfo(modelData.id).enabled && (page.pluginInfo(modelData.id).missing || []).length))
+                                 ? Theme.text
                                  : modelData.official ? Theme.success : Theme.textDim
                             font.pixelSize: Theme.fontSmall * 0.9
                             elide: Text.ElideRight
@@ -209,7 +281,16 @@ Item {
                         enabled: !page.locked(modelData.id)
                         text: qsTrId("store.active")
                         checked: !!page.pluginInfo(modelData.id).enabled
-                        onToggled: api.request(checked ? "plugin.enable" : "plugin.disable", { id: modelData.id })
+                        onToggled: {
+                            if (checked) {
+                                api.request("plugin.enable", { id: modelData.id })
+                                return
+                            }
+                            const id = modelData.id
+                            // stays on until confirmed (the plugin list resets it)
+                            checked = Qt.binding(() => !!page.pluginInfo(id).enabled)
+                            page.confirmIfRequired(id, "disable")
+                        }
                     }
                     Button {
                         visible: !modelData.installed || modelData.updateAvailable
@@ -223,7 +304,10 @@ Item {
                         enabled: !store.busy && !page.locked(modelData.id)
                         text: qsTrId("store.remove")
                         flat: true
-                        onClicked: store.remove(modelData.id)
+                        onClicked: {
+                            const id = modelData.id
+                            page.confirmIfRequired(id, "remove")
+                        }
                     }
                 }
             }
