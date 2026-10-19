@@ -65,7 +65,7 @@ void registerCoreMethods(ApiServer& server, audio::VolumeController& volume, she
         {
             throw ApiError("empty topic");
         }
-        bus.publish(topic, params.value("data").toMap());
+        bus.publish(topic, params.value("data").toMap(), params.value(ApiServer::cSource).toString());
         return QVariantMap();
     });
     server.registerMethod("bus.emit", [&bus](const QVariantMap& params) -> QVariant {

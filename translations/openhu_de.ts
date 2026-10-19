@@ -1463,6 +1463,14 @@
         <source></source>
         <translation>Entferne %1</translation>
     </message>
+    <message id="store.disconnect_phone">
+        <source></source>
+        <translation>Trenne das Handy, um %1 zu ändern</translation>
+    </message>
+    <message id="store.provides_android_auto">
+        <source></source>
+        <translation>Liefert an Android Auto: %1</translation>
+    </message>
     <message id="store.plugin_not_installed">
         <source></source>
         <translation>Plugin %1 ist nicht installiert</translation>

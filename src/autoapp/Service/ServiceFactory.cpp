@@ -40,6 +40,7 @@
 #include <f1x/openauto/autoapp/Service/MediaPlaybackStatus/MediaPlaybackStatusService.hpp>
 #include <f1x/openauto/autoapp/Service/PhoneStatus/PhoneStatusService.hpp>
 #include <f1x/openauto/autoapp/Service/Radio/RadioService.hpp>
+#include <f1x/openauto/autoapp/Plugins/AndroidAutoProviders.hpp>
 #include <f1x/openauto/autoapp/Core/EventBus.hpp>
 #include <f1x/openauto/autoapp/Projection/FfmpegVideoOutput.hpp>
 #include <f1x/openauto/autoapp/Projection/QtAudioOutput.hpp>
@@ -58,18 +59,8 @@ namespace f1x::openauto::autoapp::service {
   }
 
   bool ServiceFactory::radioPluginActive() {
-    // radio.state stays on the bus after the plugin stopped: the plugin has to be enabled too
-    if (core::EventBus::instance().last("radio.state").isEmpty()) {
-      return false;
-    }
-    const QVariantList plugins = core::EventBus::instance().last("plugins.state").value("plugins").toList();
-    for (const QVariant &plugin: plugins) {
-      const QVariantMap map = plugin.toMap();
-      if (map.value("id").toString() == "org.openhu.radio") {
-        return map.value("enabled").toBool();
-      }
-    }
-    return false;
+    // an enabled plugin declares the radio service in its manifest (#123)
+    return plugins::androidAutoDeclared(core::EventBus::instance().last("plugins.state"), "services", "radio");
   }
 
   ServiceList ServiceFactory::create(aasdk::messenger::IMessenger::Pointer messenger) {
@@ -86,8 +77,8 @@ namespace f1x::openauto::autoapp::service {
     serviceList.emplace_back(std::make_shared<phonestatus::PhoneStatusService>(ioService_, messenger));
     if (configuration_->radioServiceEnabled() && radioPluginActive())
     {
-        // The radio plugin as a media source in Android Auto (openhu#75). Announced only for connections while
-        // the plugin runs: the services cannot change during a connection.
+        // The radio plugin as a media source in Android Auto (openhu#75). The services cannot change during a
+        // connection: the plugin cannot be enabled or disabled while one runs.
         serviceList.emplace_back(std::make_shared<radio::RadioService>(ioService_, messenger));
     }
     if (configuration_->getWirelessProjectionEnabled()

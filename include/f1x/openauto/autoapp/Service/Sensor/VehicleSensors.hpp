@@ -34,9 +34,9 @@
 
 namespace f1x::openauto::autoapp::service::sensor {
 
-  // Vehicle data from plugins (e.g. the CAN plugin) and API clients -> Android Auto sensors (#115). OpenHU reads no
-  // vehicle data itself: the "vehicle.*" topics are the contract (docs/api.md), a sensor is announced only while its
-  // topic has a value at the connect.
+  // Vehicle data from plugins and API clients -> Android Auto sensors (#115). OpenHU reads no vehicle data itself:
+  // the "vehicle.*" topics are the contract (docs/api.md). Which sources may feed Android Auto and what is announced:
+  // Plugins/AndroidAutoProviders.hpp (#123).
 
   using SensorBatch = aap_protobuf::service::sensorsource::message::SensorBatch;
   using SensorType = aap_protobuf::service::sensorsource::message::SensorType;

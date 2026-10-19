@@ -259,6 +259,8 @@ int main(int argc, char* argv[])
     autoapp::system::registerSystemMethods(apiServer, systemController);
 
     // the wireless hotspot is for the phone; API devices there only when allowed
+    // plugin processes log in with their token: their values count as the plugin's (#123)
+    apiServer.setPluginResolver([&pluginManager](const QString& token) { return pluginManager.pluginForToken(token); });
     apiServer.setClientFilter([configuration, &wirelessController](const QHostAddress& peer) {
         autoapp::api::HotspotNetwork hotspot;
         hotspot.subnet = QString::fromStdString(configuration->getWirelessSettings().address);

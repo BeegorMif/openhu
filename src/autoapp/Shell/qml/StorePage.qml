@@ -21,6 +21,19 @@ Item {
         return result
     }
 
+    BusTopic { id: projection; topic: "projection.state" }
+
+    // plugins that provide to Android Auto change only while no phone is connected (#123)
+    function locked(id) {
+        return projection.data.connected === true && !!page.pluginInfo(id).androidAuto
+    }
+
+    function androidAutoText(section) {
+        if (!section)
+            return ""
+        return (section.sensors || []).concat(section.services || []).join(", ")
+    }
+
     function pluginInfo(id) {
         var list = plugins.plugins
         for (var i = 0; i < list.length; ++i)
@@ -161,6 +174,10 @@ Item {
                                                             : qsTrId("store.installed_locally"))
                                 if (modelData.permissions && modelData.permissions.length)
                                     parts.push(qsTrId("store.permissions").arg(modelData.permissions.join(", ")))
+                                if (page.androidAutoText(modelData.androidAuto))
+                                    parts.push(qsTrId("store.provides_android_auto").arg(page.androidAutoText(modelData.androidAuto)))
+                                if (modelData.installed && page.locked(modelData.id))
+                                    parts.push(qsTrId("store.disconnect_phone").arg(modelData.name || modelData.id))
                                 if (!modelData.compatible)
                                     parts.push(qsTrId("store.not_device_openhu_version"))
                                 return parts.join(" · ")
@@ -185,20 +202,21 @@ Item {
                     }
                     Switch {
                         visible: modelData.installed
+                        enabled: !page.locked(modelData.id)
                         text: qsTrId("store.active")
                         checked: !!page.pluginInfo(modelData.id).enabled
                         onToggled: api.request(checked ? "plugin.enable" : "plugin.disable", { id: modelData.id })
                     }
                     Button {
                         visible: !modelData.installed || modelData.updateAvailable
-                        enabled: !store.busy && modelData.compatible
+                        enabled: !store.busy && modelData.compatible && !(modelData.installed && page.locked(modelData.id))
                         text: modelData.installed ? qsTrId("store.update") : qsTrId("store.install")
                         highlighted: true
                         onClicked: store.install(modelData.id)
                     }
                     Button {
                         visible: modelData.installed
-                        enabled: !store.busy
+                        enabled: !store.busy && !page.locked(modelData.id)
                         text: qsTrId("store.remove")
                         flat: true
                         onClicked: store.remove(modelData.id)

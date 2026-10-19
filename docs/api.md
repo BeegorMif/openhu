@@ -31,6 +31,11 @@ The token goes with the handshake or as the first message:
 | URL | `ws://<head unit>:5520/?token=<token>` (browsers cannot set headers) |
 | Message | → `{"type":"auth","token":"<token>"}` ← `{"type":"auth","authenticated":true}` |
 
+Plugin processes log in with their own token: → `{"type":"auth","pluginToken":"<OPENHU_PLUGIN_TOKEN>"}` ←
+`{"type":"auth","authenticated":true,"plugin":"<id>"}`. Their values then count as the plugin's (which matters for
+Android Auto, see [Vehicle data](#vehicle-data-android-auto-sensors) and [plugins.md](plugins.md#android-auto)); a
+wrong plugin token closes the connection.
+
 Before the login every other message is answered with the error `authentication required`, and no events are
 sent. A wrong token closes the connection (close code 1008), and so does no login within 10 seconds.
 
@@ -76,7 +81,7 @@ networks you trust.
 | `vehicle.gear` | published by a plugin (e.g. the CAN plugin): `reverse` (bool) and/or `gear` (`park`, `reverse`, `neutral`, `drive` or a number 0–10; wins over `reverse`) → Android Auto `SENSOR_GEAR` (`reverse: false` without `gear` counts as drive). See [Vehicle data](#vehicle-data-android-auto-sensors) |
 | `vehicle.speed`, `vehicle.parkingBrake`, `vehicle.drivingStatus`, `vehicle.fuel`, `vehicle.info`, `vehicle.odometer`, `vehicle.engine`, `vehicle.climate`, `vehicle.compass` | vehicle data from plugins or API clients, passed to Android Auto as sensors, see [Vehicle data](#vehicle-data-android-auto-sensors) |
 | `vehicle.simulate` | `state` (`park`, `drive`, `reverse`, empty = off) – a driving state for tests, only through the API (`openhu-cli api bus.publish '{"topic": "vehicle.simulate", "data": {"state": "park"}}'`), kept until OpenHU ends: Android Auto gets its gear, parking brake, speed (0, 50 or 5 km/h) and driving status (parked: unrestricted, otherwise every restriction) instead of the vehicle data from plugins. Parking brake and speed are announced only when a state is set at the connect: set it, then reconnect the phone; afterwards it can be switched during the session |
-| `plugins.state` | `plugins` – installed plugins after (re)loading |
+| `plugins.state` | `plugins` – installed plugins (like `plugin.list`), on every change (load, enable, disable, dock) |
 | `store.state` | `busy`, `status`, `error` – progress of store operations |
 | `wireless.state` | `enabled`, `wifiAvailable` (a WiFi card is there), `wifiInterface`, `bluetoothAvailable` (a Bluetooth adapter is there; wireless Android Auto needs both and starts by itself when one is plugged in later), `running`, `hotspot` (`off`, `starting`, `on`, `error`), `hotspotMode` (`always`, `demand`), `hotspotError`, `hotspotRoom` (the hotspot leaves the card to WiFi networks: `search`, `client`, empty), `searchUntil` (ms since 1970), `wifiOff`, `interface`, `channel`, `ssid`, `bluetooth` (`off`, `on`, `error`), `bluetoothError`, `phase` (`idle`, `waiting`, `hotspot`, `handshake`, `joining`, `connected`, `error`), `phaseText`, `device` |
 | `wifi.state` | `available` (a WiFi card is there), `ready` (the cards are known), `enabled`, `devices` (WiFi cards), `client` (`ssid`, `ip`, `device`, `uuid`) while OpenHU is in a known WiFi network, `internet`, `networks` (saved ones, `uuid`, `ssid`, `priority`, `secured`, `hidden`, `active`, `joined` = connected at least once; highest priority first), `found` (after `wifi.scan`: `ssid`, `signal`, `security`, `secured`, `known`), `scanning`, `busy`, `message`, `hotspotDevice` (the card runs OpenHU's hotspot) |
@@ -93,9 +98,17 @@ Plugins publish their own topics with `bus.publish` (e.g. `vehicle.speed`).
 
 ### Vehicle data (Android Auto sensors)
 
-OpenHU reads no vehicle data itself. Plugins (e.g. the CAN plugin with a profile for the car) or API clients publish
-it with `bus.publish`, and OpenHU passes it to Android Auto as sensors. A sensor is announced to the phone only when its
-topic has a value when the phone connects; a plugin that starts later is picked up at the next connection. Values are
+OpenHU reads no vehicle data itself. Plugins or API clients publish it with `bus.publish`, and OpenHU passes it to
+Android Auto as sensors. Who may feed Android Auto (#123):
+
+- **Plugins** only with the sensor declared in their manifest (`androidAuto`, [plugins.md](plugins.md#android-auto)).
+  OpenHU announces the declared sensors of enabled plugins at every connect, also before a value is there. Data from
+  a plugin that does not declare the sensor is not passed on.
+- **API clients that are not plugins** (scripts, other devices): their sensors are announced only when the topic has
+  a value when the phone connects; one that starts later is picked up at the next connection. When the connection
+  closes, OpenHU sets its `vehicle.*` topics to `{"available": false}`.
+
+Values are
 sent on every change; speed, rpm and heading are also repeated at the rate the phone asks for (at most every 250 ms),
 so plugins may publish only changes. A topic with `"available": false` (e.g. the plugin lost the CAN bus) tells the
 phone that the sensor failed; the next value recovers it. Fields that are missing or no number are left out.
@@ -164,16 +177,16 @@ is on, and always need the token.
 | `input.action` | `action`, `phase` (`click` default, `press`, `release`) | `{handled}` |
 | `input.actions` | – | built-in actions with description |
 | `input.keymap` | – | active keyboard mapping |
-| `plugin.list` | – | installed plugins (`id`, `name`, `version`, `enabled`, `running`, `dock`, `page`, `overlay`, …) |
-| `plugin.enable` / `plugin.disable` | `id` | plugin |
+| `plugin.list` | – | installed plugins (`id`, `name`, `version`, `enabled`, `running`, `dock`, `page`, `overlay`, `androidAuto`, …) |
+| `plugin.enable` / `plugin.disable` | `id` | plugin; error `android auto connected` for a plugin with `androidAuto` while the phone is connected |
 | `plugin.restart` | `id` | plugin – restarts its process |
 | `plugin.setDock` | `id`, `dock` (bool) | plugin – page as dock entry |
 | `ui.overlay.show` / `ui.overlay.hide` | `id` | `{}` – plugin overlay above everything, including Android Auto (the phone is told, see above) |
 | `store.list` | – | packages of all sources with `installed`, `installedVersion`, `updateAvailable`, `source`, `official` |
 | `store.refresh` | – | `{queued}` – reload `index.json` of all sources |
-| `store.install` | `id` | `{queued}` – install or update |
-| `store.update` | `id` (optional) | `{queued}` – one or all updates |
-| `store.remove` | `id` | `{queued}` |
+| `store.install` | `id` | `{queued}` – install or update; a new plugin with `androidAuto` is installed disabled while the phone is connected, updating one is refused (`android auto connected`) |
+| `store.update` | `id` (optional) | `{queued}` – one or all updates (same rule) |
+| `store.remove` | `id` | `{queued}` (same rule) |
 | `store.sources.list` | – | sources |
 | `store.sources.add` | `type` (`github`/`url`/`file`), `location`, `branch` | sources |
 | `store.sources.remove` | `index` | sources |

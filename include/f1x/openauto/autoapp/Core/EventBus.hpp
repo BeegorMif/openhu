@@ -43,11 +43,21 @@ public:
     static EventBus& instance();
 
     // Thread safe, may be called from any thread. Subscribers are notified in the GUI thread.
-    void publish(const QString& topic, const QVariantMap& data);
+    // source: who published the value (sourcePlugin()/sourceClient(), empty = OpenHU itself or a QML page); Android
+    // Auto takes vehicle data only from sources that may provide it (#123).
+    void publish(const QString& topic, const QVariantMap& data, const QString& source = QString());
     // Like publish, but without keeping the value: commands/one-shot events ("radio.command").
     void emitEvent(const QString& topic, const QVariantMap& data);
 
     Q_INVOKABLE QVariantMap last(const QString& topic) const;
+    // who published the kept value of a topic
+    QString source(const QString& topic) const;
+    // The source went away (plugin process ended, API client disconnected): its vehicle.* values become
+    // {"available": false}, so nothing stale is passed on.
+    void releaseSource(const QString& source);
+
+    static QString sourcePlugin(const QString& id) { return QStringLiteral("plugin:") + id; }
+    static QString sourceClient(int number) { return QStringLiteral("client:") + QString::number(number); }
     QHash<QString, QVariantMap> snapshot() const;
 
     // "*" matches everything, "nav.*" matches "nav.turn", exact names match themselves.
@@ -61,6 +71,7 @@ private:
 
     mutable std::mutex mutex_;
     QHash<QString, QVariantMap> last_;
+    QHash<QString, QString> sources_;
 };
 
 }

@@ -66,11 +66,13 @@ void registerPluginMethods(api::ApiServer& server, PluginManager& manager, Plugi
     });
     server.registerMethod("plugin.enable", [&manager](const QVariantMap& params) -> QVariant {
         const QString id = requireString(params, "id");
+        checkError(manager.changeBlocked(id));
         check(manager.setEnabled(id, true), "unknown plugin: " + id);
         return manager.plugin(id);
     });
     server.registerMethod("plugin.disable", [&manager](const QVariantMap& params) -> QVariant {
         const QString id = requireString(params, "id");
+        checkError(manager.changeBlocked(id));
         check(manager.setEnabled(id, false), "unknown plugin: " + id);
         return manager.plugin(id);
     });
@@ -105,15 +107,19 @@ void registerPluginMethods(api::ApiServer& server, PluginManager& manager, Plugi
         store.refresh();
         return QVariantMap{{"queued", true}};
     });
-    server.registerMethod("store.install", [&store](const QVariantMap& params) -> QVariant {
-        store.install(requireString(params, "id"));
+    server.registerMethod("store.install", [&store, &manager](const QVariantMap& params) -> QVariant {
+        const QString id = requireString(params, "id");
+        checkError(manager.changeBlocked(id));
+        store.install(id);
         return QVariantMap{{"queued", true}};
     });
-    server.registerMethod("store.update", [&store](const QVariantMap& params) -> QVariant {
-        // without id: all updates
+    server.registerMethod("store.update", [&store, &manager](const QVariantMap& params) -> QVariant {
+        // without id: all updates (those of locked plugins report the error in store.state)
         if(params.contains("id"))
         {
-            store.install(requireString(params, "id"));
+            const QString id = requireString(params, "id");
+            checkError(manager.changeBlocked(id));
+            store.install(id);
         }
         else
         {
@@ -121,8 +127,10 @@ void registerPluginMethods(api::ApiServer& server, PluginManager& manager, Plugi
         }
         return QVariantMap{{"queued", true}};
     });
-    server.registerMethod("store.remove", [&store](const QVariantMap& params) -> QVariant {
-        store.remove(requireString(params, "id"));
+    server.registerMethod("store.remove", [&store, &manager](const QVariantMap& params) -> QVariant {
+        const QString id = requireString(params, "id");
+        checkError(manager.changeBlocked(id));
+        store.remove(id);
         return QVariantMap{{"queued", true}};
     });
     server.registerMethod("store.sources.list", [&store](const QVariantMap&) -> QVariant {
