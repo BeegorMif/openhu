@@ -107,6 +107,17 @@ inline bool androidAutoDeclared(const QVariantMap& pluginsState, const QString& 
     return false;
 }
 
+// May the data of an Android Auto service (e.g. vehicle.controls for "carControl") come from this source? A plugin
+// only if it is enabled and declares the service; API clients that are not plugins and OpenHU itself: yes.
+inline bool androidAutoServiceSourceAllowed(const QVariantMap& pluginsState, const QString& service, const QString& source)
+{
+    if(!source.startsWith(QLatin1String("plugin:")))
+    {
+        return true;
+    }
+    return androidAutoProviders(pluginsState).value(source.mid(7)).toMap().value("services").toStringList().contains(service);
+}
+
 // May a value of this vehicle.* topic from this source (EventBus::source) go to Android Auto?
 // - a plugin: only if it is enabled and declares the sensor
 // - an API client that is not a plugin, a QML page or OpenHU itself (empty): yes (decided in #123)
