@@ -38,6 +38,7 @@ SettingsSection {
         title: qsTrId("settings.debug.video_codec")
         description: qsTrId("settings.debug.video_codec_description")
         key: "debug.videoCodec"
-        options: [{ value: "auto", label: qsTrId("settings.debug.auto") }, { value: "h264", label: "H.264" }]
+        options: [{ value: "auto", label: qsTrId("settings.debug.auto") }, { value: "h264", label: "H.264" },
+                  { value: "h265", label: "H.265" }]
     }
 }

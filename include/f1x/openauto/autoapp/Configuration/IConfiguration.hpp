@@ -109,7 +109,7 @@ public:
     // [Debug] Enabled: shows the debug settings (#120)
     virtual bool getDebugEnabled() const = 0;
     virtual void setDebugEnabled(bool value) = 0;
-    // [Video] Codec: auto or h264 (#116 adds h265); a debug setting
+    // [Video] Codec: auto, h264 or h265 (#116); a debug setting
     virtual std::string getVideoCodec() const = 0;
     virtual void setVideoCodec(const std::string& value) = 0;
     // Token for API clients from the network and browsers; generated at the first start (openhu#23)

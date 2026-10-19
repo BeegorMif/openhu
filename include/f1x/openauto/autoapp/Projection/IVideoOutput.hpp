@@ -25,6 +25,7 @@
 #include <aasdk/Messenger/Timestamp.hpp>
 #include <aap_protobuf/service/media/sink/message/VideoFrameRateType.pb.h>
 #include <aap_protobuf/service/media/sink/message/VideoCodecResolutionType.pb.h>
+#include <aap_protobuf/service/media/shared/message/MediaCodecType.pb.h>
 
 namespace f1x
 {
@@ -60,6 +61,12 @@ public:
     // that returns false here has no queue worth waiting for: the service acknowledges every message at once.
     using ConsumedHandler = std::function<void(int count)>;
     virtual bool setConsumedHandler(ConsumedHandler) { return false; }
+
+    // H.265 (#116): offered to the phone when true (one config with video_codec_type H265 switches the whole channel,
+    // a phone without an H.265 encoder shows an error and stays on H.264); the phone's choice comes in the setup
+    // message, before init()
+    virtual bool offerH265() const { return false; }
+    virtual void setCodec(aap_protobuf::service::media::shared::message::MediaCodecType) {}
 
     virtual aap_protobuf::service::media::sink::message::VideoFrameRateType getVideoFPS() const = 0;
     virtual aap_protobuf::service::media::sink::message::VideoCodecResolutionType getVideoResolution() const = 0;
