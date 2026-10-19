@@ -60,7 +60,7 @@ Where the keys are in the settings:
 | `ScreenDPI` | `140` | larger = bigger text and icons in Android Auto |
 | `MarginWidth`, `MarginHeight` | `0` | `0`/`0` = computed so the projection fills the area undistorted |
 | `Decoder` | `auto` | debug setting: H.264 decoder (FFmpeg): `auto` = hardware decoder where available (`h264_v4l2m2m` on ARM), else software; `software`; or the name of an FFmpeg decoder. The log shows which one runs and its speed every 10 s |
-| `Codec` | `auto` | debug setting: the video codec offered to the phone, `auto` or `h264` (H.265 follows with #116) |
+| `Codec` | `auto` | debug setting: the video codec offered to the phone: `h264`, `h265` (the phone switches the whole stream to H.265 if it has an encoder for it, otherwise it shows an error and stays on H.264; decoded with `hevc`, on ARM first `hevc_v4l2m2m`), `auto` (H.264 for now; the choice per device follows with the Raspberry Pi 5 measurements, #10) |
 
 ### [Debug]
 

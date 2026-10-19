@@ -174,6 +174,11 @@ namespace f1x {
             videoConfig1->set_height_margin(videoMargins.height());
             videoConfig1->set_width_margin(videoMargins.width());
             videoConfig1->set_density(videoOutput_->getScreenDPI());
+            if (videoOutput_->offerH265()) {
+              videoConfig1->set_video_codec_type(
+                  aap_protobuf::service::media::shared::message::MediaCodecType::MEDIA_CODEC_VIDEO_H265);
+              OPENAUTO_LOG(info) << "[VideoMediaSinkService] offering H.265";
+            }
 
             OPENAUTO_LOG(info) << "[VideoMediaSinkService] getVideoResolution " << VideoCodecResolutionType_Name(videoOutput_->getVideoResolution());
             OPENAUTO_LOG(info) << "[VideoMediaSinkService] getVideoFPS " << VideoFrameRateType_Name(videoOutput_->getVideoFPS());
@@ -190,6 +195,7 @@ namespace f1x {
                                << MediaCodecType_Name(request.type());
 
 
+            videoOutput_->setCodec(request.type());
             auto status = videoOutput_->init()
                           ? aap_protobuf::service::media::shared::message::Config::STATUS_READY
                           : aap_protobuf::service::media::shared::message::Config::STATUS_WAIT;

@@ -77,6 +77,8 @@ public:
 
     bool open() override;
     bool init() override;
+    void setCodec(aap_protobuf::service::media::shared::message::MediaCodecType codec) override;
+    bool offerH265() const override;
     void write(uint64_t timestamp, const aasdk::common::DataConstBuffer& buffer) override;
     void stop() override;
     void streamStopped() override;
@@ -151,6 +153,8 @@ private:
     // "video.stats" once a second while the debug video overlay is on (#120)
     void publishOverlayStats();
     std::vector<std::string> decoderCandidates() const;
+    // "hevc" or "h264"
+    std::string softwareDecoder() const;
 
     QPointer<QVideoSink> testSink_;
     const bool useTestSink_;
@@ -179,6 +183,8 @@ private:
     AVFrame* frame_ = nullptr;
     SwsContext* sws_ = nullptr;
     bool hardware_ = false;
+    // H.265 stream (setCodec), else H.264
+    std::atomic<bool> hevc_{false};
     int packetsWithoutFrame_ = 0;
     Stats stats_;
     int64_t statsSince_ = 0;

@@ -1555,6 +1555,10 @@
         <source></source>
         <translation>manifest.json fehlt oder hat eine andere id</translation>
     </message>
+    <message id="video.no_h_265_decoder">
+        <source></source>
+        <translation>Kein H.265-Decoder verfügbar, Android Auto zeigt kein Bild</translation>
+    </message>
     <message id="video.no_h_264_decoder">
         <source></source>
         <translation>Kein H.264-Decoder verfügbar, Android Auto zeigt kein Bild</translation>

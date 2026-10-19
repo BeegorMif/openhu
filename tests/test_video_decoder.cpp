@@ -170,10 +170,10 @@ constexpr int cHeight = 240;
 
 // Access units: 'frames' pictures, first one an IDR with SPS/PPS; luma changes per frame so every frame differs.
 // The first 'black' pictures are black (luma 16), like the phone's first frames after a stream restart.
-QList<QByteArray> encode(int frames, int luma, int black = 0)
+QList<QByteArray> encode(int frames, int luma, int black = 0, const char* encoder = "libx264")
 {
     QList<QByteArray> packets;
-    const AVCodec* codec = avcodec_find_encoder_by_name("libx264");
+    const AVCodec* codec = avcodec_find_encoder_by_name(encoder);
     if(codec == nullptr)
     {
         return packets;
@@ -360,6 +360,36 @@ private slots:
     }
 
     void init() { hook::reset(); }
+
+    // H.265 (#116): the codec of the setup message picks the decoder; a [Video] Decoder of the other codec does not
+    // apply
+    void hevcStream()
+    {
+        const auto packets = encode(10, 40, 0, "libx265");
+        if(packets.isEmpty())
+        {
+            QSKIP("FFmpeg has no libx265 encoder to create the test stream");
+        }
+        TestHome home;
+        auto configuration = std::make_shared<Configuration>();
+        configuration->setVideoDecoder("h264_v4l2m2m");
+        configuration->setVideoCodec("h265");
+        QVideoSink sink;
+        FfmpegVideoOutput output(configuration, &sink);
+        QVERIFY(output.offerH265());
+        output.setCodec(aap_protobuf::service::media::shared::message::MEDIA_CODEC_VIDEO_H265);
+        QVERIFY(output.init());
+        QTRY_COMPARE(output.decoderName(), std::string("hevc"));
+        for(const auto& packet: packets)
+        {
+            write(output, packet);
+        }
+        QTRY_COMPARE(hook::framesOut.load(), 10);
+        output.stop();
+
+        configuration->setVideoCodec("auto");
+        QVERIFY(!output.offerH265());
+    }
 
     // EAGAIN from avcodec_send_packet: the packet is sent again, every picture is decoded
     void eagainSendsThePacketAgain()

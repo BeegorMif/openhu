@@ -192,7 +192,7 @@ QVariantMap SettingsController::keys()
         {"debug.videoOverlay", debugKey(flag("now"))},
         // saved: [Video] Decoder and Codec
         {"debug.videoDecoder", debugKey(choice({"auto", "software", "h264_v4l2m2m"}, cReconnect))},
-        {"debug.videoCodec", debugKey(choice({"auto", "h264"}, cReconnect))},
+        {"debug.videoCodec", debugKey(choice({"auto", "h264", "h265"}, cReconnect))},
     };
 }
 
@@ -331,7 +331,8 @@ QString SettingsController::set(const QString& key, const QVariant& value)
     }
     else if(key == "debug.videoCodec")
     {
-        configuration_->setVideoCodec(value.toString() == "h264" ? "h264" : "auto");
+        const QString codec = value.toString();
+        configuration_->setVideoCodec(codec == "h264" || codec == "h265" ? codec.toStdString() : "auto");
         this->markPending(cReconnect);
     }
     else if(key == "general.driverSide")
