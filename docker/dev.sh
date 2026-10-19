@@ -11,6 +11,7 @@
 #   ./dev.sh clean        delete the build volumes and ccache (the next build starts from scratch)
 #
 # Start without building: ./dev.sh run --no-build, resolution: OPENHU_RESOLUTION=800x480 ./dev.sh run
+# aasdk source: AASDK_DIR=<checkout>, default ../aasdk-ref or ../aasdk next to the main checkout (also from a worktree)
 # Protocol capture of the Android Auto connection (aasdk AASDK_CAPTURE, average-web-dev/aasdk#14):
 #   OPENHU_CAPTURE=1 ./dev.sh run    writes data/capture-<time>.jsonl (with OPENHU_CAPTURE=media also audio/video
 #                                    data); evaluate with ../aasdk/tools/capture_summary.py. Contains personal data.
@@ -19,11 +20,14 @@ set -euo pipefail
 
 DOCKER_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO="$(dirname "$DOCKER_DIR")"
-# aasdk source (default: aasdk-ref or aasdk next to this repository; a missing one would become an empty folder)
+# The main checkout of this repository (differs from REPO in a git worktree under openhu.worktrees/<name>)
+MAIN_CHECKOUT="$(dirname "$(git -C "$REPO" rev-parse --path-format=absolute --git-common-dir 2>/dev/null || echo "$REPO/.git")")"
+# aasdk source (default: aasdk-ref or aasdk next to the main checkout, also from a worktree)
 if [ -z "${AASDK_DIR:-}" ]; then
-  AASDK_DIR="$(dirname "$REPO")/aasdk-ref"
-  [ -f "$AASDK_DIR/CMakeLists.txt" ] || AASDK_DIR="$(dirname "$REPO")/aasdk"
+  AASDK_DIR="$(dirname "$MAIN_CHECKOUT")/aasdk-ref"
+  [ -f "$AASDK_DIR/CMakeLists.txt" ] || AASDK_DIR="$(dirname "$MAIN_CHECKOUT")/aasdk"
 fi
+AASDK_DIR="$(realpath -m "$AASDK_DIR")"
 IMAGE="openhu:dev"
 
 # Builds, installed aasdk and ccache live in Docker volumes: incremental builds stay fast
@@ -39,7 +43,6 @@ volume_suffix() { # <dir> <default dir>
   [ "$dir" = "$default" ] && return
   printf -- '-%s-%s' "$(basename "$dir" | tr -c 'a-zA-Z0-9_.\n-' '-')" "$(printf '%s' "$dir" | sha256sum | cut -c1-6)"
 }
-MAIN_CHECKOUT="$(dirname "$(git -C "$REPO" rev-parse --path-format=absolute --git-common-dir 2>/dev/null || echo "$REPO/.git")")"
 OPENHU_SUFFIX="$(volume_suffix "$REPO" "$MAIN_CHECKOUT")"
 AASDK_SUFFIX="$(volume_suffix "$AASDK_DIR" "$(dirname "$MAIN_CHECKOUT")/aasdk")"
 BUILD_VOLUME="openhu-build$OPENHU_SUFFIX"
@@ -63,6 +66,11 @@ ensure_image() {
 }
 
 dev_container() {
+  # docker run -v would turn a missing folder into an empty root-owned one
+  if [ ! -f "$AASDK_DIR/CMakeLists.txt" ]; then
+    echo "dev.sh: no aasdk source in $AASDK_DIR (set AASDK_DIR to an aasdk checkout)" >&2
+    exit 1
+  fi
   local tty=()
   [ -t 0 ] && [ -t 1 ] && tty=(-it)
   docker run --rm "${tty[@]}" \
@@ -78,6 +86,8 @@ cmd_build() {
   dev_container bash -euo pipefail -c '
     echo "=== aasdk ==="
     if [ -f /build/aasdk/build.ninja ]; then
+      # configure again: the source lists (*.proto, *.cpp) are globbed there, so Ninja alone misses new files
+      cmake /build/aasdk >/dev/null
       cmake --build /build/aasdk
     else
       cd /aasdk && BUILD_DIR=/build/aasdk BUILD_TESTS=OFF bash ./build.sh release --skip-protobuf --skip-absl
@@ -227,5 +237,5 @@ case "${1:-}" in
   reconnect) cmd_reconnect ;;
   image) ensure_image --pull --no-cache ;;
   clean) cmd_clean ;;
-  *) sed -n '2,13p' "$0"; exit 1 ;;
+  *) sed -n '2,14p' "$0"; exit 1 ;;
 esac
