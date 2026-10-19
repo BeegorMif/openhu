@@ -35,7 +35,12 @@ InputPanel {
     y: shown ? Window.height - height : Window.height
     visible: y < Window.height
 
+    // Slides only when it is shown or hidden: at the start the window has no height yet (y = 0), an animation to
+    // the real height would show the keyboard sliding down out of the picture
+    property bool animate: false
+    onShownChanged: animate = true
     Behavior on y {
+        enabled: panel.animate
         NumberAnimation { duration: 150; easing.type: Easing.OutQuad }
     }
 
