@@ -23,7 +23,8 @@ Item {
         { id: "keys", label: qsTrId("settings.page.keys"), file: "KeymapSettings.qml" },
         { id: "apps", label: qsTrId("settings.page.apps_store"), file: "../StorePage.qml" }
     ], system.available ? [{ id: "system", label: qsTrId("settings.page.system"), file: "SystemSettings.qml" }] : [],
-             [{ id: "info", label: qsTrId("settings.page.info"), file: "InfoSettings.qml" }])
+             [{ id: "info", label: qsTrId("settings.page.info"), file: "InfoSettings.qml" }],
+             settings.values["debug.enabled"] ? [{ id: "debug", label: qsTrId("settings.page.debug"), file: "DebugSettings.qml" }] : [])
     // a category that is not there (no adapter, not on OpenHU OS): General
     readonly property var shown: categories.find(entry => entry.id === category) || categories[0]
 

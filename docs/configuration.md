@@ -37,6 +37,8 @@ Where the keys are in the settings:
 | WiFi | `[Wireless]` (WiFi networks, hotspot) |
 | Bluetooth | `[Bluetooth]` AdapterType, AdapterAddress |
 | Network | `[Api]` |
+| Info | `[Debug]` Enabled |
+| Debug (only with the debug mode on) | `[Video]` Decoder, Codec; at runtime, not saved: simulated driving state, log level, video overlay |
 
 ### [General]
 
@@ -57,7 +59,14 @@ Where the keys are in the settings:
 | `FPS` | `2` | `1` = 60 fps, `2` = 30 fps |
 | `ScreenDPI` | `140` | larger = bigger text and icons in Android Auto |
 | `MarginWidth`, `MarginHeight` | `0` | `0`/`0` = computed so the projection fills the area undistorted |
-| `Decoder` | `auto` | H.264 decoder (FFmpeg): `auto` = hardware decoder where available (`h264_v4l2m2m` on ARM), else software; `software`; or the name of an FFmpeg decoder. The log shows which one runs and its speed every 10 s |
+| `Decoder` | `auto` | debug setting: H.264 decoder (FFmpeg): `auto` = hardware decoder where available (`h264_v4l2m2m` on ARM), else software; `software`; or the name of an FFmpeg decoder. The log shows which one runs and its speed every 10 s |
+| `Codec` | `auto` | debug setting: the video codec offered to the phone, `auto` or `h264` (H.265 follows with #116) |
+
+### [Debug]
+
+| Key | Default | |
+|---|---|---|
+| `Enabled` | `false` | debug mode (Settings → Info): shows Settings → Debug and the `debug.*` settings (#120). The simulated driving state, the log level and the video overlay set there are not saved and are off after every start |
 
 ### [Input]
 

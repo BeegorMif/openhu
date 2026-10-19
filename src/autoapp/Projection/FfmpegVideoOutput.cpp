@@ -16,6 +16,7 @@
 */
 
 #include <algorithm>
+#include <cmath>
 #include <chrono>
 #include <cstdlib>
 #include <cstring>
@@ -23,6 +24,7 @@
 #include <QThread>
 #include <QVideoFrameFormat>
 #include <boost/log/keywords/severity.hpp>
+#include <f1x/openauto/autoapp/Core/EventBus.hpp>
 #include <f1x/openauto/autoapp/Projection/FfmpegVideoOutput.hpp>
 #include <f1x/openauto/autoapp/Shell/AaBridge.hpp>
 #include <f1x/openauto/Common/Log.hpp>
@@ -580,6 +582,7 @@ void FfmpegVideoOutput::decodeLoop()
         }
 
         this->logStats(false);
+        this->publishOverlayStats();
     }
 
     this->logStats(true);
@@ -617,7 +620,9 @@ void FfmpegVideoOutput::decode(AVPacket* packet)
         gotFrame = true;
     }
     packetsWithoutFrame_ = gotFrame ? 0 : packetsWithoutFrame_ + 1;
-    stats_.decodeMs += std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - started).count();
+    const double decodeMs = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - started).count();
+    stats_.decodeMs += decodeMs;
+    overlay_.decodeMs += decodeMs;
 }
 
 bool FfmpegVideoOutput::receiveFrames()
@@ -627,6 +632,9 @@ bool FfmpegVideoOutput::receiveFrames()
     {
         gotFrame = true;
         ++stats_.frames;
+        ++overlay_.frames;
+        overlay_.width = frame_->width;
+        overlay_.height = frame_->height;
         {
             std::lock_guard<std::mutex> lock(mutex_);
             ++counters_.decodedFrames;
@@ -860,6 +868,32 @@ void FfmpegVideoOutput::present(QVideoFrame frame)
             shell::AaBridge::instance().setPictureWaiting(this, false);
         }
     }, Qt::QueuedConnection);
+}
+
+void FfmpegVideoOutput::publishOverlayStats()
+{
+    const int64_t now = nowMs();
+    if(now - overlaySince_ < 1000)
+    {
+        return;
+    }
+    const int64_t elapsed = now - overlaySince_;
+    const OverlayStats stats = overlay_;
+    overlay_ = OverlayStats{0, 0, stats.width, stats.height};
+    overlaySince_ = now;
+    if(!core::EventBus::instance().last("debug.state").value("videoOverlay").toBool())
+    {
+        return;
+    }
+    core::EventBus::instance().publish("video.stats", {
+        {"fps", std::round(stats.frames * 10000.0 / std::max<int64_t>(elapsed, 1)) / 10},
+        {"decodeMs", stats.frames > 0 ? std::round(stats.decodeMs / stats.frames * 10) / 10 : 0.0},
+        {"decoder", QString::fromStdString(this->decoderName())},
+        {"hardware", hardware_},
+        {"codec", QStringLiteral("h264")},
+        {"width", stats.width},
+        {"height", stats.height},
+    });
 }
 
 void FfmpegVideoOutput::logStats(bool force)

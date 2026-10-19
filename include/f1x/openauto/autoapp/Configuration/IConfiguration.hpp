@@ -106,6 +106,12 @@ public:
     // API clients on the wireless hotspot (10.42.0.0/24); API devices normally use Ethernet
     virtual bool getApiAllowHotspot() const = 0;
     virtual void setApiAllowHotspot(bool value) = 0;
+    // [Debug] Enabled: shows the debug settings (#120)
+    virtual bool getDebugEnabled() const = 0;
+    virtual void setDebugEnabled(bool value) = 0;
+    // [Video] Codec: auto or h264 (#116 adds h265); a debug setting
+    virtual std::string getVideoCodec() const = 0;
+    virtual void setVideoCodec(const std::string& value) = 0;
     // Token for API clients from the network and browsers; generated at the first start (openhu#23)
     virtual std::string getApiToken() const = 0;
     virtual void setApiToken(const std::string& value) = 0;

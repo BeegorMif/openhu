@@ -53,6 +53,7 @@
 #include <f1x/openauto/autoapp/Core/ChildProcesses.hpp>
 #include <f1x/openauto/autoapp/Core/EventBus.hpp>
 #include <f1x/openauto/autoapp/Core/InstanceLock.hpp>
+#include <f1x/openauto/autoapp/Core/LogLevel.hpp>
 #include <f1x/openauto/autoapp/Core/UsbReset.hpp>
 #include <f1x/openauto/autoapp/Input/ActionDispatcher.hpp>
 #include <f1x/openauto/autoapp/Plugins/PluginManager.hpp>
@@ -107,15 +108,13 @@ void startIOServiceWorkers(boost::asio::io_service& ioService, ThreadPool& threa
 // Severity from OPENHU_LOG (trace, debug, info, warning, error, fatal), default info: debug lines come per
 // Android Auto packet and flood the journal (journald then drops lines). openhu-logs.ini replaces it.
 void configureLogging() {
-    namespace logging = boost::log;
-    auto severity = logging::trivial::info;
+    autoapp::core::setLogLevel("info");
     if (const char* level = std::getenv("OPENHU_LOG"); level != nullptr && *level != '\0') {
-        if (!logging::trivial::from_string(level, std::strlen(level), severity)) {
-            severity = logging::trivial::info;
+        // also changeable at runtime: Settings → Debug (debug.logLevel)
+        if (!autoapp::core::setLogLevel(QString::fromLocal8Bit(level))) {
             OPENAUTO_LOG(warning) << "[OpenHU] OPENHU_LOG=" << level << " is not a log level, using info";
         }
     }
-    logging::core::get()->set_filter(logging::trivial::severity >= severity);
 
     const std::string logIni = "openhu-logs.ini";
     std::ifstream logSettings(logIni);
