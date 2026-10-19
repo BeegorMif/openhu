@@ -106,6 +106,8 @@ signals:
     // Installed/enabled set changed (QML rebuilds plugin pages)
     void pluginsChanged();
     void overlayChanged(const QString& id, bool visible);
+    // a plugin's process was launched, in the order the manager starts them
+    void processStarted(const QString& id);
 
 private:
     struct Plugin

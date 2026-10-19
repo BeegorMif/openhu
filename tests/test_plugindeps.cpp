@@ -4,6 +4,7 @@
 #include <QFile>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QSignalSpy>
 #include <QtTest>
 #include <f1x/openauto/autoapp/Core/EventBus.hpp>
 #include <f1x/openauto/autoapp/Plugins/PluginManager.hpp>
@@ -15,7 +16,8 @@ using f1x::openauto::autoapp::plugins::PluginManager;
 namespace
 {
 
-// a plugin whose process writes its start to a shared file and keeps running
+// a plugin whose process writes its start to a shared file and keeps running. The file shows that the processes
+// ran, not their order: they race to write, so the start order comes from PluginManager::processStarted.
 void writePlugin(const QString& id, const QString& version, const QVariantMap& extra = QVariantMap())
 {
     const QString dir = PluginManager::pluginsDir() + "/" + id;
@@ -39,6 +41,22 @@ QStringList starts()
     QFile file(PluginManager::baseDir() + "/starts");
     file.open(QIODevice::ReadOnly);
     return QString::fromUtf8(file.readAll()).split('\n', Qt::SkipEmptyParts);
+}
+
+QStringList sorted(QStringList ids)
+{
+    ids.sort();
+    return ids;
+}
+
+QStringList startOrder(const QSignalSpy& spy)
+{
+    QStringList ids;
+    for(const auto& arguments: spy)
+    {
+        ids.append(arguments.first().toString());
+    }
+    return ids;
 }
 
 QString reasonOf(const PluginManager& manager, const QString& id)
@@ -76,9 +94,10 @@ private slots:
         writePlugin("a", "1.0.0", {{"requires", QVariantMap{{"b", "1.0.0"}}}});
         writePlugin("b", "1.1.0");
         PluginManager manager(0);
+        QSignalSpy started(&manager, &PluginManager::processStarted);
         manager.load();
-        QTRY_COMPARE(starts().size(), 2);
-        QCOMPARE(starts(), QStringList({"b", "a"}));
+        QCOMPARE(startOrder(started), QStringList({"b", "a"}));
+        QTRY_COMPARE(sorted(starts()), QStringList({"a", "b"}));
         QVERIFY(manager.plugin("a").value("missing").toList().isEmpty());
         QCOMPARE(manager.plugin("a").value("requires").toMap().value("b").toString(), QString("1.0.0"));
         QCOMPARE(manager.dependents("b"), QStringList{"a"});
@@ -105,7 +124,9 @@ private slots:
         writePlugin("lib", "1.0.0", {{"requires", QStringList{"base"}}});
         writePlugin("base", "1.0.0");
         PluginManager manager(0);
+        QSignalSpy started(&manager, &PluginManager::processStarted);
         manager.load();
+        QCOMPARE(startOrder(started), QStringList({"base", "lib", "app"}));
         QTRY_COMPARE(starts().size(), 3);
 
         // disabling a required plugin disables what requires it
@@ -119,8 +140,9 @@ private slots:
         QVERIFY(manager.setEnabled("app", true));
         QVERIFY(manager.plugin("lib").value("enabled").toBool());
         QVERIFY(manager.plugin("base").value("enabled").toBool());
+        QCOMPARE(startOrder(started).mid(3), QStringList({"base", "lib", "app"}));
         QTRY_COMPARE(starts().size(), 6);
-        QCOMPARE(starts().mid(3), QStringList({"base", "lib", "app"}));
+        QCOMPARE(sorted(starts().mid(3)), QStringList({"app", "base", "lib"}));
     }
 
     void requiredByALockedPlugin()
