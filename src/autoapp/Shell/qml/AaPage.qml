@@ -50,7 +50,8 @@ Rectangle {
     BusTopic { id: videoStats; topic: "video.stats" }
     Rectangle {
         visible: debugState.data.videoOverlay === true && aaBridge.videoActive
-        anchors.right: parent.right
+        // bottom center: Android Auto has its clock and buttons in the corners
+        anchors.horizontalCenter: parent.horizontalCenter
         anchors.bottom: parent.bottom
         anchors.margins: Theme.spacing / 2
         width: statsText.implicitWidth + Theme.spacing
