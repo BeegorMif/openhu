@@ -57,7 +57,10 @@ QtAudioOutput::QtAudioOutput(uint32_t channelCount, uint32_t sampleSize, uint32_
     connect(this, &QtAudioOutput::suspendPlayback, this, &QtAudioOutput::onSuspendPlayback);
     connect(this, &QtAudioOutput::stopPlayback, this, &QtAudioOutput::onStopPlayback);
 
-    QMetaObject::invokeMethod(this, "createAudioOutput", Qt::BlockingQueuedConnection);
+    // created in the GUI thread itself (tests), a BlockingQueuedConnection would wait for itself
+    QMetaObject::invokeMethod(this, "createAudioOutput",
+                              QThread::currentThread() == this->thread() ? Qt::DirectConnection
+                                                                         : Qt::BlockingQueuedConnection);
 }
 
 void QtAudioOutput::createAudioOutput()
@@ -80,6 +83,19 @@ void QtAudioOutput::write(aasdk::messenger::Timestamp::ValueType, const aasdk::c
 {
     this->watchPacket(qint64(buffer.size));
     std::lock_guard<std::mutex> lock(outputMutex_);
+    // start() only queues onStartPlayback() for the GUI thread, the first packets of a stream come before the sink
+    // runs (also before the old one is reset after a stop()): kept and written in onStartPlayback(). Dropping them
+    // cut ~43 ms of media / 64 ms of guidance at every stream start, the first syllable of a prompt (#127).
+    if (startPending_)
+    {
+        if (pending_.size() > audioFormat_.bytesForDuration(cMaxQueuedUs))
+        {
+            ++droppedPackets_;
+            return;
+        }
+        pending_.append(reinterpret_cast<const char*>(buffer.cdata), qsizetype(buffer.size));
+        return;
+    }
     if (audioBuffer_ == nullptr)
     {
         return;
@@ -87,8 +103,7 @@ void QtAudioOutput::write(aasdk::messenger::Timestamp::ValueType, const aasdk::c
     // After a transmission stall the phone sends the late packets at once; playing them all would keep that
     // delay for the rest of the stream (measured: 18 -> 210 ms after a 250 ms stall). With more unplayed audio
     // than the jitter of a normal stream the packet is dropped instead: one skip, then the normal latency again.
-    const qint64 queued = audioOutput_->bufferSize() - audioOutput_->bytesFree();
-    if (queued > audioFormat_.bytesForDuration(cMaxQueuedUs))
+    if (this->queuedBytes() > audioFormat_.bytesForDuration(cMaxQueuedUs))
     {
         ++droppedPackets_;
         return;
@@ -104,19 +119,33 @@ void QtAudioOutput::start()
         streamStart_ = std::chrono::steady_clock::now();
         lastPacket_ = {};
     }
+    {
+        std::lock_guard<std::mutex> lock(outputMutex_);
+        startPending_ = true;
+    }
     emit startPlayback();
 }
 
 void QtAudioOutput::stop()
 {
     this->logStreamEnd();
+    this->dropPending();
     emit stopPlayback();
 }
 
 void QtAudioOutput::suspend()
 {
     this->logStreamEnd();
+    this->dropPending();
     emit suspendPlayback();
+}
+
+void QtAudioOutput::dropPending()
+{
+    // here and not in onStopPlayback(): a start() right after it already collects the packets of the next stream
+    std::lock_guard<std::mutex> lock(outputMutex_);
+    startPending_ = false;
+    pending_.clear();
 }
 
 void QtAudioOutput::watchPacket(qint64 bytes)
@@ -178,24 +207,44 @@ uint32_t QtAudioOutput::getSampleRate() const
     return audioFormat_.sampleRate();
 }
 
+QIODevice* QtAudioOutput::startSink()
+{
+    const QAudioDevice device = QMediaDevices::defaultAudioOutput();
+    if(!device.isNull() && device.id() != device_.id())
+    {
+        OPENAUTO_LOG(info) << "[QtAudioOutput] " << name_ << ": default output now " << device.id().toStdString();
+        device_ = device;
+        audioOutput_ = std::make_unique<QAudioSink>(device_, audioFormat_);
+    }
+    return audioOutput_->start();
+}
+
+qint64 QtAudioOutput::queuedBytes() const
+{
+    return audioOutput_->bufferSize() - audioOutput_->bytesFree();
+}
+
 void QtAudioOutput::onStartPlayback()
 {
     std::lock_guard<std::mutex> lock(outputMutex_);
     if(!playbackStarted_)
     {
-        const QAudioDevice device = QMediaDevices::defaultAudioOutput();
-        if(!device.isNull() && device.id() != device_.id())
-        {
-            OPENAUTO_LOG(info) << "[QtAudioOutput] " << name_ << ": default output now " << device.id().toStdString();
-            device_ = device;
-            audioOutput_ = std::make_unique<QAudioSink>(device_, audioFormat_);
-        }
-        audioBuffer_ = audioOutput_->start();
+        audioBuffer_ = this->startSink();
         playbackStarted_ = true;
     }
     else
     {
         audioOutput_->resume();
+    }
+    // false when a stop() or suspend() came after the start() (dropPending)
+    if(startPending_)
+    {
+        if(audioBuffer_ != nullptr && !pending_.isEmpty())
+        {
+            audioBuffer_->write(pending_);
+        }
+        pending_.clear();
+        startPending_ = false;
     }
 }
 

@@ -23,6 +23,7 @@
 #include <mutex>
 #include <string>
 #include <QAudioSink>
+#include <QByteArray>
 #include <QMediaDevices>
 #include <QAudioFormat>
 #include <f1x/openauto/autoapp/Projection/IAudioOutput.hpp>
@@ -63,16 +64,28 @@ protected slots:
     void onSuspendPlayback();
     void onStopPlayback();
 
+protected:
+    // starts audioOutput_ and returns the device to write to; virtual for the tests (no sound server there)
+    virtual QIODevice* startSink();
+    // unplayed bytes in the sink
+    virtual qint64 queuedBytes() const;
+
 private:
     QAudioFormat audioFormat_;
     // audioOutput_ and audioBuffer_: write() in the io_service thread, start/suspend/stop in the GUI thread
     std::mutex outputMutex_;
     QIODevice * audioBuffer_;
+    // start() was called, onStartPlayback() has not run yet: the packets of that time wait in pending_ (#127)
+    bool startPending_ = false;
+    QByteArray pending_;
     std::unique_ptr<QAudioSink> audioOutput_;
     // the device audioOutput_ plays on (the default when it was created)
     QAudioDevice device_;
     bool playbackStarted_;
     std::atomic<uint64_t> droppedPackets_{0};
+
+    // stop()/suspend(): the packets kept for a start() that is no longer wanted
+    void dropPending();
 
     // stall watcher: packets that come much later than the stream's rhythm (while the phone did not stop it)
     void watchPacket(qint64 bytes);
