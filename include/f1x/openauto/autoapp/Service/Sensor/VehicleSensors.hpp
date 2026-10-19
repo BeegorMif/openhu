@@ -1,18 +1,19 @@
 /*
-*  This file is part of openauto project.
+*  This file is part of OpenHU.
+*  Copyright (C) 2026 Leon Strauß
 *
-*  openauto is free software: you can redistribute it and/or modify
+*  OpenHU is free software: you can redistribute it and/or modify
 *  it under the terms of the GNU General Public License as published by
 *  the Free Software Foundation; either version 3 of the License, or
 *  (at your option) any later version.
-
-*  openauto is distributed in the hope that it will be useful,
+*
+*  OpenHU is distributed in the hope that it will be useful,
 *  but WITHOUT ANY WARRANTY; without even the implied warranty of
 *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 *  GNU General Public License for more details.
 *
 *  You should have received a copy of the GNU General Public License
-*  along with openauto. If not, see <http://www.gnu.org/licenses/>.
+*  along with OpenHU. If not, see <https://www.gnu.org/licenses/>.
 */
 
 #pragma once
@@ -34,9 +35,9 @@
 
 namespace f1x::openauto::autoapp::service::sensor {
 
-  // Vehicle data from plugins (e.g. the CAN plugin) and API clients -> Android Auto sensors (#115). OpenHU reads no
-  // vehicle data itself: the "vehicle.*" topics are the contract (docs/api.md), a sensor is announced only while its
-  // topic has a value at the connect.
+  // Vehicle data from plugins and API clients -> Android Auto sensors (#115). OpenHU reads no vehicle data itself:
+  // the "vehicle.*" topics are the contract (docs/api.md). Which sources may feed Android Auto and what is announced:
+  // Plugins/AndroidAutoProviders.hpp (#123).
 
   using SensorBatch = aap_protobuf::service::sensorsource::message::SensorBatch;
   using SensorType = aap_protobuf::service::sensorsource::message::SensorType;

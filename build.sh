@@ -1,24 +1,25 @@
 #!/bin/bash
-# * Project: OpenAuto
-# * This file is part of openauto project.
+# * Project: OpenHU
+# * This file is part of OpenHU, based on the openauto project.
 # * Copyright (C) 2025 OpenCarDev Team
+# * Copyright (C) 2026 Leon Strauß
 # *
-# *  openauto is free software: you can redistribute it and/or modify
+# *  OpenHU is free software: you can redistribute it and/or modify
 # *  it under the terms of the GNU General Public License as published by
 # *  the Free Software Foundation; either version 3 of the License, or
 # *  (at your option) any later version.
 # *
-# *  openauto is distributed in the hope that it will be useful,
+# *  OpenHU is distributed in the hope that it will be useful,
 # *  but WITHOUT ANY WARRANTY; without even the implied warranty of
 # *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # *  GNU General Public License for more details.
 # *
 # *  You should have received a copy of the GNU General Public License
-# *  along with openauto. If not, see <http://www.gnu.org/licenses/>.
+# *  along with OpenHU. If not, see <https://www.gnu.org/licenses/>.
 
 set -e
 
-# Script to build OpenAuto consistently across Docker and local environments
+# Script to build OpenHU consistently across Docker and local environments
 # Usage: ./build.sh [release|debug] [--clean] [--package] [--output-dir DIR]
 
 # Default values

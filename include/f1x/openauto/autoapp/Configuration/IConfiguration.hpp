@@ -1,19 +1,20 @@
 /*
-*  This file is part of openauto project.
+*  This file is part of OpenHU, based on the openauto project.
 *  Copyright (C) 2018 f1x.studio (Michal Szwaj)
+*  Copyright (C) 2026 Leon Strauß
 *
-*  openauto is free software: you can redistribute it and/or modify
+*  OpenHU is free software: you can redistribute it and/or modify
 *  it under the terms of the GNU General Public License as published by
 *  the Free Software Foundation; either version 3 of the License, or
 *  (at your option) any later version.
-
-*  openauto is distributed in the hope that it will be useful,
+*
+*  OpenHU is distributed in the hope that it will be useful,
 *  but WITHOUT ANY WARRANTY; without even the implied warranty of
 *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 *  GNU General Public License for more details.
 *
 *  You should have received a copy of the GNU General Public License
-*  along with openauto. If not, see <http://www.gnu.org/licenses/>.
+*  along with OpenHU. If not, see <https://www.gnu.org/licenses/>.
 */
 
 #pragma once
@@ -106,6 +107,12 @@ public:
     // API clients on the wireless hotspot (10.42.0.0/24); API devices normally use Ethernet
     virtual bool getApiAllowHotspot() const = 0;
     virtual void setApiAllowHotspot(bool value) = 0;
+    // [Debug] Enabled: shows the debug settings (#120)
+    virtual bool getDebugEnabled() const = 0;
+    virtual void setDebugEnabled(bool value) = 0;
+    // [Video] Codec: auto, h264 or h265 (#116); a debug setting
+    virtual std::string getVideoCodec() const = 0;
+    virtual void setVideoCodec(const std::string& value) = 0;
     // Token for API clients from the network and browsers; generated at the first start (openhu#23)
     virtual std::string getApiToken() const = 0;
     virtual void setApiToken(const std::string& value) = 0;

@@ -1,19 +1,20 @@
 /*
-*  This file is part of openauto project.
+*  This file is part of OpenHU, based on the openauto project.
 *  Copyright (C) 2018 f1x.studio (Michal Szwaj)
+*  Copyright (C) 2026 Leon Strauß
 *
-*  openauto is free software: you can redistribute it and/or modify
+*  OpenHU is free software: you can redistribute it and/or modify
 *  it under the terms of the GNU General Public License as published by
 *  the Free Software Foundation; either version 3 of the License, or
 *  (at your option) any later version.
-
-*  openauto is distributed in the hope that it will be useful,
+*
+*  OpenHU is distributed in the hope that it will be useful,
 *  but WITHOUT ANY WARRANTY; without even the implied warranty of
 *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 *  GNU General Public License for more details.
 *
 *  You should have received a copy of the GNU General Public License
-*  along with openauto. If not, see <http://www.gnu.org/licenses/>.
+*  along with OpenHU. If not, see <https://www.gnu.org/licenses/>.
 */
 
 #include <csignal>
@@ -53,6 +54,7 @@
 #include <f1x/openauto/autoapp/Core/ChildProcesses.hpp>
 #include <f1x/openauto/autoapp/Core/EventBus.hpp>
 #include <f1x/openauto/autoapp/Core/InstanceLock.hpp>
+#include <f1x/openauto/autoapp/Core/LogLevel.hpp>
 #include <f1x/openauto/autoapp/Core/UsbReset.hpp>
 #include <f1x/openauto/autoapp/Input/ActionDispatcher.hpp>
 #include <f1x/openauto/autoapp/Plugins/PluginManager.hpp>
@@ -107,15 +109,13 @@ void startIOServiceWorkers(boost::asio::io_service& ioService, ThreadPool& threa
 // Severity from OPENHU_LOG (trace, debug, info, warning, error, fatal), default info: debug lines come per
 // Android Auto packet and flood the journal (journald then drops lines). openhu-logs.ini replaces it.
 void configureLogging() {
-    namespace logging = boost::log;
-    auto severity = logging::trivial::info;
+    autoapp::core::setLogLevel("info");
     if (const char* level = std::getenv("OPENHU_LOG"); level != nullptr && *level != '\0') {
-        if (!logging::trivial::from_string(level, std::strlen(level), severity)) {
-            severity = logging::trivial::info;
+        // also changeable at runtime: Settings → Debug (debug.logLevel)
+        if (!autoapp::core::setLogLevel(QString::fromLocal8Bit(level))) {
             OPENAUTO_LOG(warning) << "[OpenHU] OPENHU_LOG=" << level << " is not a log level, using info";
         }
     }
-    logging::core::get()->set_filter(logging::trivial::severity >= severity);
 
     const std::string logIni = "openhu-logs.ini";
     std::ifstream logSettings(logIni);
@@ -259,6 +259,8 @@ int main(int argc, char* argv[])
     autoapp::system::registerSystemMethods(apiServer, systemController);
 
     // the wireless hotspot is for the phone; API devices there only when allowed
+    // plugin processes log in with their token: their values count as the plugin's (#123)
+    apiServer.setPluginResolver([&pluginManager](const QString& token) { return pluginManager.pluginForToken(token); });
     apiServer.setClientFilter([configuration, &wirelessController](const QHostAddress& peer) {
         autoapp::api::HotspotNetwork hotspot;
         hotspot.subnet = QString::fromStdString(configuration->getWirelessSettings().address);

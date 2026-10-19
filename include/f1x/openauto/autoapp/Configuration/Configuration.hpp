@@ -1,19 +1,20 @@
 /*
-*  This file is part of openauto project.
+*  This file is part of OpenHU, based on the openauto project.
 *  Copyright (C) 2018 f1x.studio (Michal Szwaj)
+*  Copyright (C) 2026 Leon Strauß
 *
-*  openauto is free software: you can redistribute it and/or modify
+*  OpenHU is free software: you can redistribute it and/or modify
 *  it under the terms of the GNU General Public License as published by
 *  the Free Software Foundation; either version 3 of the License, or
 *  (at your option) any later version.
-
-*  openauto is distributed in the hope that it will be useful,
+*
+*  OpenHU is distributed in the hope that it will be useful,
 *  but WITHOUT ANY WARRANTY; without even the implied warranty of
 *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 *  GNU General Public License for more details.
 *
 *  You should have received a copy of the GNU General Public License
-*  along with openauto. If not, see <http://www.gnu.org/licenses/>.
+*  along with OpenHU. If not, see <https://www.gnu.org/licenses/>.
 */
 
 #pragma once
@@ -58,6 +59,10 @@ public:
     void setApiListenAddress(const std::string& value) override;
     bool getApiAllowHotspot() const override;
     void setApiAllowHotspot(bool value) override;
+    bool getDebugEnabled() const override;
+    void setDebugEnabled(bool value) override;
+    std::string getVideoCodec() const override;
+    void setVideoCodec(const std::string& value) override;
     std::string getApiToken() const override;
     void setApiToken(const std::string& value) override;
     std::string getApiAllowedOrigins() const override;
@@ -116,6 +121,8 @@ private:
     uint16_t apiPort_;
     std::string apiListenAddress_;
     bool apiAllowHotspot_;
+    bool debugEnabled_;
+    std::string videoCodec_;
     std::string apiToken_;
     std::string apiAllowedOrigins_;
     aap_protobuf::service::media::sink::message::VideoFrameRateType videoFPS_;

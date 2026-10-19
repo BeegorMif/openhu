@@ -32,8 +32,8 @@ warnings. Locally: `docker/dev.sh test`. For this, all code except `main()` live
 Qt 6.8 (branch `qt6`, issue #5): video through an own FFmpeg decoder (`Projection/FfmpegVideoOutput`, one
 AA message = one `AVPacket`, newest frame to the `QVideoSink` of the `VideoOutput` in `AaPage.qml`, decoder chosen with
 `Video.Decoder`), GStreamer is gone. Audio through `QAudioSink`/`QAudioSource`. Plugin API 2 (`api` in the manifest);
-plugins of another API are neither installed nor loaded. Debian's Qt 6 has no eglfs: the service without a desktop
-comes with #9 (kiosk compositor `cage`).
+plugins of another API are neither installed nor loaded. Debian's Qt 6 has no eglfs: without a desktop OpenHU runs
+in the kiosk compositor `cage` (OpenHU OS, #9); the package has no service of its own any more (#130).
 
 ## Phases
 

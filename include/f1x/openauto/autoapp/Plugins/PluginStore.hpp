@@ -1,18 +1,19 @@
 /*
-*  This file is part of openauto project.
+*  This file is part of OpenHU.
+*  Copyright (C) 2026 Leon Strauß
 *
-*  openauto is free software: you can redistribute it and/or modify
+*  OpenHU is free software: you can redistribute it and/or modify
 *  it under the terms of the GNU General Public License as published by
 *  the Free Software Foundation; either version 3 of the License, or
 *  (at your option) any later version.
-
-*  openauto is distributed in the hope that it will be useful,
+*
+*  OpenHU is distributed in the hope that it will be useful,
 *  but WITHOUT ANY WARRANTY; without even the implied warranty of
 *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 *  GNU General Public License for more details.
 *
 *  You should have received a copy of the GNU General Public License
-*  along with openauto. If not, see <http://www.gnu.org/licenses/>.
+*  along with OpenHU. If not, see <https://www.gnu.org/licenses/>.
 */
 
 #pragma once
@@ -107,6 +108,10 @@ private:
     void afterQmlReleased(std::function<void()> next);
 
     // Package entry for id from the highest priority source (and its source index), empty if not offered.
+    // id and the plugins it requires that are missing or too old, required ones first; false with error when one
+    // is not offered by any source
+    bool installOrder(const QString& id, QStringList& order, QString& error, QStringList& visiting) const;
+    void installOne(const QString& id);
     QVariantMap findPackage(const QString& id, int* sourceIndex = nullptr) const;
     QVariantMap installed() const;
     void saveInstalled(const QVariantMap& installed) const;

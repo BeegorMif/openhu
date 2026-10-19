@@ -1,19 +1,20 @@
 /*
-*  This file is part of openauto project.
+*  This file is part of OpenHU, based on the openauto project.
 *  Copyright (C) 2018 f1x.studio (Michal Szwaj)
+*  Copyright (C) 2026 Leon Strauß
 *
-*  openauto is free software: you can redistribute it and/or modify
+*  OpenHU is free software: you can redistribute it and/or modify
 *  it under the terms of the GNU General Public License as published by
 *  the Free Software Foundation; either version 3 of the License, or
 *  (at your option) any later version.
-
-*  openauto is distributed in the hope that it will be useful,
+*
+*  OpenHU is distributed in the hope that it will be useful,
 *  but WITHOUT ANY WARRANTY; without even the implied warranty of
 *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 *  GNU General Public License for more details.
 *
 *  You should have received a copy of the GNU General Public License
-*  along with openauto. If not, see <http://www.gnu.org/licenses/>.
+*  along with OpenHU. If not, see <https://www.gnu.org/licenses/>.
 */
 
 #pragma once
@@ -23,6 +24,7 @@
 #include <mutex>
 #include <string>
 #include <QAudioSink>
+#include <QByteArray>
 #include <QMediaDevices>
 #include <QAudioFormat>
 #include <f1x/openauto/autoapp/Projection/IAudioOutput.hpp>
@@ -63,16 +65,28 @@ protected slots:
     void onSuspendPlayback();
     void onStopPlayback();
 
+protected:
+    // starts audioOutput_ and returns the device to write to; virtual for the tests (no sound server there)
+    virtual QIODevice* startSink();
+    // unplayed bytes in the sink
+    virtual qint64 queuedBytes() const;
+
 private:
     QAudioFormat audioFormat_;
     // audioOutput_ and audioBuffer_: write() in the io_service thread, start/suspend/stop in the GUI thread
     std::mutex outputMutex_;
     QIODevice * audioBuffer_;
+    // start() was called, onStartPlayback() has not run yet: the packets of that time wait in pending_ (#127)
+    bool startPending_ = false;
+    QByteArray pending_;
     std::unique_ptr<QAudioSink> audioOutput_;
     // the device audioOutput_ plays on (the default when it was created)
     QAudioDevice device_;
     bool playbackStarted_;
     std::atomic<uint64_t> droppedPackets_{0};
+
+    // stop()/suspend(): the packets kept for a start() that is no longer wanted
+    void dropPending();
 
     // stall watcher: packets that come much later than the stream's rhythm (while the phone did not stop it)
     void watchPacket(qint64 bytes);

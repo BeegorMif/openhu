@@ -1,18 +1,19 @@
 /*
-*  This file is part of openauto project.
+*  This file is part of OpenHU.
+*  Copyright (C) 2026 Leon Strauß
 *
-*  openauto is free software: you can redistribute it and/or modify
+*  OpenHU is free software: you can redistribute it and/or modify
 *  it under the terms of the GNU General Public License as published by
 *  the Free Software Foundation; either version 3 of the License, or
 *  (at your option) any later version.
-
-*  openauto is distributed in the hope that it will be useful,
+*
+*  OpenHU is distributed in the hope that it will be useful,
 *  but WITHOUT ANY WARRANTY; without even the implied warranty of
 *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 *  GNU General Public License for more details.
 *
 *  You should have received a copy of the GNU General Public License
-*  along with openauto. If not, see <http://www.gnu.org/licenses/>.
+*  along with OpenHU. If not, see <https://www.gnu.org/licenses/>.
 */
 
 #pragma once
@@ -41,6 +42,8 @@ namespace plugins
 // Plugins live in ~/.openhu/plugins/<id>/ with a manifest.json (see docs/plugins.md):
 //   ui.page / ui.overlay  QML shown in the shell, ui.dock adds a dock button
 //   process.exec          background process (any language) that talks to the API
+//   androidAuto           sensors/services the plugin provides to Android Auto (#123, AndroidAutoProviders.hpp)
+//   requires/recommends   other plugins it needs (with a minimum version) or works with (#104)
 class PluginManager: public QObject
 {
     Q_OBJECT
@@ -72,6 +75,21 @@ public:
     Q_INVOKABLE bool setOverlayVisible(const QString& id, bool visible);
     Q_INVOKABLE bool overlayVisible(const QString& id) const;
 
+    // Plugins that provide to Android Auto cannot be enabled, disabled, updated or removed while the phone is
+    // connected (the services and sensors are fixed for a connection, #123): the reason, empty if allowed.
+    QString changeBlocked(const QString& id) const;
+    static bool androidAutoConnected();
+    // the plugin whose process got this token (OPENHU_PLUGIN_TOKEN), empty if none
+    QString pluginForToken(const QString& token) const;
+
+    // Plugins (#104): "requires": {"id": "minimum version"} (or a list of ids), "recommends": ["id", ...]
+    static QVariantMap requiresOf(const QVariantMap& manifest);
+    static QStringList recommendsOf(const QVariantMap& manifest);
+    // the enabled plugins that require this one (directly or through others)
+    QStringList dependents(const QString& id) const;
+    // why a plugin is not started: [{id, version, reason: notInstalled|tooOld|disabled|incompatible}]
+    QVariantList missingRequirements(const QString& id) const;
+
     // Stops a plugin before its files are replaced or removed.
     void unload(const QString& id);
 
@@ -89,6 +107,8 @@ signals:
     // Installed/enabled set changed (QML rebuilds plugin pages)
     void pluginsChanged();
     void overlayChanged(const QString& id, bool visible);
+    // a plugin's process was launched, in the order the manager starts them
+    void processStarted(const QString& id);
 
 private:
     struct Plugin
@@ -96,6 +116,8 @@ private:
         QString id;
         QString dir;
         QVariantMap manifest;
+        QVariantMap androidAuto;  // parsed "androidAuto", empty without
+        QString token;            // of the running process
         bool enabled = true;
         bool compatible = true;
         int dock = -1;  // -1: manifest, 0/1: user setting
@@ -108,6 +130,8 @@ private:
     };
 
     void startProcess(Plugin& plugin);
+    // the enabled plugins whose requirements are met, required ones first
+    void startEnabled();
     void stopProcess(Plugin& plugin);
     void stopProcesses(const std::vector<Plugin*>& plugins);
     void onProcessFinished(const QString& id, int exitCode, QProcess::ExitStatus status);
@@ -115,6 +139,8 @@ private:
     void saveState() const;
     // "ui.overlay" {overlays: ids of the plugins whose overlay is shown}
     void publishOverlays();
+    // "plugins.state" {plugins: [...]}: the services read the enabled plugins and their androidAuto sections
+    void publishState();
     QVariantMap loadState() const;
 
     quint16 apiPort_;

@@ -1,18 +1,19 @@
 /*
-*  This file is part of openauto project.
+*  This file is part of OpenHU.
+*  Copyright (C) 2026 Leon Strauß
 *
-*  openauto is free software: you can redistribute it and/or modify
+*  OpenHU is free software: you can redistribute it and/or modify
 *  it under the terms of the GNU General Public License as published by
 *  the Free Software Foundation; either version 3 of the License, or
 *  (at your option) any later version.
-
-*  openauto is distributed in the hope that it will be useful,
+*
+*  OpenHU is distributed in the hope that it will be useful,
 *  but WITHOUT ANY WARRANTY; without even the implied warranty of
 *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 *  GNU General Public License for more details.
 *
 *  You should have received a copy of the GNU General Public License
-*  along with openauto. If not, see <http://www.gnu.org/licenses/>.
+*  along with OpenHU. If not, see <https://www.gnu.org/licenses/>.
 */
 
 #pragma once
@@ -48,6 +49,7 @@ public:
 
 // WebSocket/JSON API (see docs/api.md):
 //   -> {"type":"auth","token":"..."}                           <- {"type":"auth","authenticated":true}
+//   -> {"type":"auth","pluginToken":"..."}  (a plugin process, OPENHU_PLUGIN_TOKEN) <- {..., "plugin":"<id>"}
 //   -> {"type":"subscribe","topics":["nav.*","media.*"]}       <- {"type":"event","topic":"nav.turn","data":{...}}
 //   -> {"type":"request","id":1,"method":"volume.set","params":{"value":40}}
 //   <- {"type":"response","id":1,"result":{...}}  or  {"type":"response","id":1,"error":"..."}
@@ -60,6 +62,8 @@ public:
     // Set by the server in every method's params: true for clients on this device (loopback, not a browser) and
     // in-process callers, false for clients from a network and browsers. A client cannot set it.
     static constexpr const char* cLocal = "_local";
+    // Also set by the server: who calls (core::EventBus::sourcePlugin/sourceClient), empty for in-process callers.
+    static constexpr const char* cSource = "_source";
 
     explicit ApiServer(QObject* parent = nullptr);
     ~ApiServer() override;
@@ -73,6 +77,8 @@ public:
     void setToken(const QString& token);
     // Origins browsers may connect from (Api.AllowedOrigins), "*" for any
     void setAllowedOrigins(const QStringList& origins);
+    // Plugin id for a plugin token (PluginManager), empty if unknown
+    void setPluginResolver(std::function<QString(const QString& token)> resolver);
     void registerMethod(const QString& name, Method method);
     QStringList methods() const;
 
@@ -85,6 +91,8 @@ private:
         QStringList topics;
         bool local = false;          // on this device and not a browser: no token needed, gets secrets
         bool authenticated = false;  // local or logged in with the token
+        int number = 0;              // for the source of its values
+        QString plugin;              // logged in with a plugin token
     };
 
     void onOriginAuthentication(QWebSocketCorsAuthenticator* authenticator);
@@ -101,6 +109,8 @@ private:
     QHash<QWebSocket*, Client> clients_;
     QMap<QString, Method> methods_;
     std::function<bool(const QHostAddress&)> clientFilter_;
+    std::function<QString(const QString&)> pluginResolver_;
+    int nextClient_ = 0;
     QString token_;
     QStringList allowedOrigins_{QStringLiteral("*")};
 };

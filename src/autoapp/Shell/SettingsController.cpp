@@ -1,18 +1,19 @@
 /*
-*  This file is part of openauto project.
+*  This file is part of OpenHU.
+*  Copyright (C) 2026 Leon Strauß
 *
-*  openauto is free software: you can redistribute it and/or modify
+*  OpenHU is free software: you can redistribute it and/or modify
 *  it under the terms of the GNU General Public License as published by
 *  the Free Software Foundation; either version 3 of the License, or
 *  (at your option) any later version.
-
-*  openauto is distributed in the hope that it will be useful,
+*
+*  OpenHU is distributed in the hope that it will be useful,
 *  but WITHOUT ANY WARRANTY; without even the implied warranty of
 *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 *  GNU General Public License for more details.
 *
 *  You should have received a copy of the GNU General Public License
-*  along with openauto. If not, see <http://www.gnu.org/licenses/>.
+*  along with OpenHU. If not, see <https://www.gnu.org/licenses/>.
 */
 
 #include <unistd.h>
@@ -26,6 +27,7 @@
 #include <f1x/openauto/autoapp/Shell/SettingsController.hpp>
 #include <f1x/openauto/autoapp/Core/ChildProcesses.hpp>
 #include <f1x/openauto/autoapp/Core/EventBus.hpp>
+#include <f1x/openauto/autoapp/Core/LogLevel.hpp>
 #include <f1x/openauto/autoapp/Plugins/PluginManager.hpp>
 #include <f1x/openauto/autoapp/Shell/AaBridge.hpp>
 #include <f1x/openauto/autoapp/Shell/Translations.hpp>
@@ -83,6 +85,19 @@ SettingsController::SettingsController(configuration::IConfiguration::Pointer co
         arguments_.append(QString::fromLocal8Bit(argv[i]));
     }
     this->publishNightMode();
+    this->publishDebugState();
+}
+
+void SettingsController::publishDebugState() const
+{
+    // the video overlay (FfmpegVideoOutput, Main.qml) and the debug badge read it
+    core::EventBus::instance().publish("debug.state", {{"enabled", configuration_->getDebugEnabled()},
+                                                       {"videoOverlay", videoOverlay_}});
+}
+
+bool SettingsController::debugEnabled() const
+{
+    return configuration_->getDebugEnabled();
 }
 
 void SettingsController::publishNightMode() const
@@ -117,6 +132,15 @@ QVariantMap SettingsController::keys()
     for(const QString& language: Translations::available())
     {
         languages << language;
+    }
+    const auto debugKey = [](QVariantMap key) {
+        key.insert("debug", true);
+        return key;
+    };
+    QVariantList logLevels;
+    for(const QString& level: core::logLevels())
+    {
+        logLevels << level;
     }
 
     return {
@@ -161,6 +185,15 @@ QVariantMap SettingsController::keys()
         // for clients from the network and browsers; shown in the shell, a new one only from there
         {"api.token", QVariantMap{{"type", "string"}, {"secret", true}, {"readOnly", true}, {"applies", "now"}}},
         {"api.origins", text("now")},
+        // Settings → Info; the debug.* keys below exist only while it is on (#120)
+        {"debug.enabled", flag("now")},
+        // never saved: off after every start
+        {"debug.simulate", debugKey(choice({"off", "park", "drive", "reverse"}, "now"))},
+        {"debug.logLevel", debugKey(choice(logLevels, "now"))},
+        {"debug.videoOverlay", debugKey(flag("now"))},
+        // saved: [Video] Decoder and Codec
+        {"debug.videoDecoder", debugKey(choice({"auto", "software", "h264_v4l2m2m"}, cReconnect))},
+        {"debug.videoCodec", debugKey(choice({"auto", "h264", "h265"}, cReconnect))},
     };
 }
 
@@ -170,7 +203,7 @@ QVariantMap SettingsController::values() const
     const std::string listen = configuration_->getApiListenAddress();
     const auto wireless = configuration_->getWirelessSettings();
 
-    return {
+    QVariantMap values{
         {"general.driverSide", configuration_->getHandednessOfTrafficType()
                                    == configuration::HandednessOfTrafficType::RIGHT_HAND_DRIVE ? "right" : "left"},
         {"general.showCursor", configuration_->showCursor()},
@@ -214,7 +247,18 @@ QVariantMap SettingsController::values() const
         {"api.hotspot", configuration_->getApiAllowHotspot()},
         {"api.token", QString::fromStdString(configuration_->getApiToken())},
         {"api.origins", QString::fromStdString(configuration_->getApiAllowedOrigins())},
+        {"debug.enabled", configuration_->getDebugEnabled()},
     };
+    if(configuration_->getDebugEnabled())
+    {
+        const QString simulate = core::EventBus::instance().last("vehicle.simulate").value("state").toString();
+        values.insert("debug.simulate", simulate.isEmpty() ? QString("off") : simulate);
+        values.insert("debug.logLevel", core::logLevel());
+        values.insert("debug.videoOverlay", videoOverlay_);
+        values.insert("debug.videoDecoder", QString::fromStdString(configuration_->getVideoDecoder()));
+        values.insert("debug.videoCodec", QString::fromStdString(configuration_->getVideoCodec()));
+    }
+    return values;
 }
 
 QStringList SettingsController::pending() const
@@ -239,7 +283,60 @@ QVariantMap SettingsController::info() const
 
 QString SettingsController::set(const QString& key, const QVariant& value)
 {
-    if(key == "general.driverSide")
+    if(key.startsWith("debug.") && key != "debug.enabled" && !configuration_->getDebugEnabled())
+    {
+        return qtTrId("settings.error.debug_mode_off");
+    }
+    if(key == "debug.enabled")
+    {
+        configuration_->setDebugEnabled(value.toBool());
+        if(!value.toBool())
+        {
+            // nothing of it stays active
+            if(!core::EventBus::instance().last("vehicle.simulate").value("state").toString().isEmpty())
+            {
+                core::EventBus::instance().publish("vehicle.simulate", {});
+            }
+            videoOverlay_ = false;
+        }
+        OPENAUTO_LOG(info) << "[SettingsController] debug mode " << (value.toBool() ? "on" : "off");
+        this->publishDebugState();
+    }
+    else if(key == "debug.simulate")
+    {
+        const QString state = value.toString();
+        if(state != "off" && state != "park" && state != "drive" && state != "reverse")
+        {
+            return qtTrId("settings.error.unknown_value").arg(key);
+        }
+        // the topic of #119; Android Auto announces parking brake and speed only for a state set at the connect
+        core::EventBus::instance().publish("vehicle.simulate", {{"state", state == "off" ? QString() : state}});
+    }
+    else if(key == "debug.logLevel")
+    {
+        if(!core::setLogLevel(value.toString()))
+        {
+            return qtTrId("settings.error.unknown_value").arg(key);
+        }
+        OPENAUTO_LOG(warning) << "[SettingsController] log level " << value.toString().toStdString();
+    }
+    else if(key == "debug.videoOverlay")
+    {
+        videoOverlay_ = value.toBool();
+        this->publishDebugState();
+    }
+    else if(key == "debug.videoDecoder")
+    {
+        configuration_->setVideoDecoder(value.toString().toStdString());
+        this->markPending(cReconnect);
+    }
+    else if(key == "debug.videoCodec")
+    {
+        const QString codec = value.toString();
+        configuration_->setVideoCodec(codec == "h264" || codec == "h265" ? codec.toStdString() : "auto");
+        this->markPending(cReconnect);
+    }
+    else if(key == "general.driverSide")
     {
         configuration_->setHandednessOfTrafficType(value.toString() == "right"
                                                        ? configuration::HandednessOfTrafficType::RIGHT_HAND_DRIVE

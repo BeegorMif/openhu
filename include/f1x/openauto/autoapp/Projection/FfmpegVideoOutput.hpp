@@ -1,18 +1,19 @@
 /*
-*  This file is part of openauto project.
+*  This file is part of OpenHU.
+*  Copyright (C) 2026 Leon Strauß
 *
-*  openauto is free software: you can redistribute it and/or modify
+*  OpenHU is free software: you can redistribute it and/or modify
 *  it under the terms of the GNU General Public License as published by
 *  the Free Software Foundation; either version 3 of the License, or
 *  (at your option) any later version.
-
-*  openauto is distributed in the hope that it will be useful,
+*
+*  OpenHU is distributed in the hope that it will be useful,
 *  but WITHOUT ANY WARRANTY; without even the implied warranty of
 *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 *  GNU General Public License for more details.
 *
 *  You should have received a copy of the GNU General Public License
-*  along with openauto. If not, see <http://www.gnu.org/licenses/>.
+*  along with OpenHU. If not, see <https://www.gnu.org/licenses/>.
 */
 
 #pragma once
@@ -77,6 +78,8 @@ public:
 
     bool open() override;
     bool init() override;
+    void setCodec(aap_protobuf::service::media::shared::message::MediaCodecType codec) override;
+    bool offerH265() const override;
     void write(uint64_t timestamp, const aasdk::common::DataConstBuffer& buffer) override;
     void stop() override;
     void streamStopped() override;
@@ -148,7 +151,11 @@ private:
     QVideoFrame toVideoFrame(const AVFrame* frame);
     void present(QVideoFrame frame);
     void logStats(bool force);
+    // "video.stats" once a second while the debug video overlay is on (#120)
+    void publishOverlayStats();
     std::vector<std::string> decoderCandidates() const;
+    // "hevc" or "h264"
+    std::string softwareDecoder() const;
 
     QPointer<QVideoSink> testSink_;
     const bool useTestSink_;
@@ -177,9 +184,18 @@ private:
     AVFrame* frame_ = nullptr;
     SwsContext* sws_ = nullptr;
     bool hardware_ = false;
+    // H.265 stream (setCodec), else H.264
+    std::atomic<bool> hevc_{false};
     int packetsWithoutFrame_ = 0;
     Stats stats_;
     int64_t statsSince_ = 0;
+    struct OverlayStats {
+        int frames = 0;
+        double decodeMs = 0;
+        int width = 0;
+        int height = 0;
+    } overlay_;
+    int64_t overlaySince_ = 0;
     StreamStart streamStart_;
     bool debugLog_ = false;
     // OPENHU_DEBUG_DECODE_DELAY_MS: simulated slow decoder

@@ -1,19 +1,20 @@
 /*
-*  This file is part of openauto project.
+*  This file is part of OpenHU, based on the openauto project.
 *  Copyright (C) 2018 f1x.studio (Michal Szwaj)
+*  Copyright (C) 2026 Leon Strauß
 *
-*  openauto is free software: you can redistribute it and/or modify
+*  OpenHU is free software: you can redistribute it and/or modify
 *  it under the terms of the GNU General Public License as published by
 *  the Free Software Foundation; either version 3 of the License, or
 *  (at your option) any later version.
-
-*  openauto is distributed in the hope that it will be useful,
+*
+*  OpenHU is distributed in the hope that it will be useful,
 *  but WITHOUT ANY WARRANTY; without even the implied warranty of
 *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 *  GNU General Public License for more details.
 *
 *  You should have received a copy of the GNU General Public License
-*  along with openauto. If not, see <http://www.gnu.org/licenses/>.
+*  along with OpenHU. If not, see <https://www.gnu.org/licenses/>.
 */
 
 
@@ -21,6 +22,7 @@
 #include <f1x/openauto/autoapp/Service/Sensor/SensorService.hpp>
 #include <f1x/openauto/autoapp/Core/EventBus.hpp>
 #include <f1x/openauto/autoapp/Service/Sensor/VehicleSensors.hpp>
+#include <f1x/openauto/autoapp/Plugins/AndroidAutoProviders.hpp>
 #include <fstream>
 #include <cmath>
 #include <gps.h>
@@ -115,16 +117,19 @@ namespace f1x::openauto::autoapp::service::sensor {
         aap_protobuf::service::sensorsource::message::SensorType::SENSOR_LOCATION);
     sensorChannel->add_sensors()->set_sensor_type(
         aap_protobuf::service::sensorsource::message::SensorType::SENSOR_NIGHT_MODE);
-    // vehicle data only while a plugin or API client publishes it (#76, #115): Android Auto would wait for it otherwise
-    const TopicLookup last = [](const QString &topic) { return core::EventBus::instance().last(topic); };
+    // vehicle data (#115, #123): what an enabled plugin declares in its manifest (values may follow later, the
+    // phone does not wait for them), and what an API client that is not a plugin publishes right now
+    const QVariantMap pluginsState = core::EventBus::instance().last("plugins.state");
     for (const auto &sensor: vehicleSensors()) {
-      if (vehicleSensorData(sensor, last)) {
-        OPENAUTO_LOG(info) << "[SensorService] " << sensor.topic << " known: announcing "
-                           << aap_protobuf::service::sensorsource::message::SensorType_Name(sensor.type);
+      const QString name = QString(sensor.topic).mid(8);
+      const bool declared = plugins::androidAutoDeclared(pluginsState, "sensors", name);
+      if (declared || vehicleSensorData(sensor, androidAutoTopic)) {
+        OPENAUTO_LOG(info) << "[SensorService] " << sensor.topic << (declared ? " declared" : " known")
+                           << ": announcing " << aap_protobuf::service::sensorsource::message::SensorType_Name(sensor.type);
         sensorChannel->add_sensors()->set_sensor_type(sensor.type);
       }
     }
-    const QVariantMap info = core::EventBus::instance().last("vehicle.info");
+    const QVariantMap info = androidAutoTopic("vehicle.info");
     for (const auto type: fuelTypes(info)) {
       sensorChannel->add_supported_fuel_types(type);
     }
@@ -187,7 +192,7 @@ namespace f1x::openauto::autoapp::service::sensor {
   }
 
   void SensorService::sendDrivingStatus() {
-    const int status = drivingStatus([](const QString &topic) { return core::EventBus::instance().last(topic); });
+    const int status = drivingStatus(androidAutoTopic);
     if (status == sentDrivingStatus_) {
       return;
     }
@@ -233,6 +238,14 @@ namespace f1x::openauto::autoapp::service::sensor {
     return nullptr;
   }
 
+  QVariantMap SensorService::androidAutoTopic(const QString &topic) {
+    const auto &bus = core::EventBus::instance();
+    if (!plugins::androidAutoSourceAllowed(bus.last("plugins.state"), topic, bus.source(topic))) {
+      return QVariantMap();
+    }
+    return bus.last(topic);
+  }
+
   void SensorService::onVehicleTopic(const QString &topic) {
     // the simulated driving state replaces gear, parking brake and speed
     const bool simulate = topic == "vehicle.simulate";
@@ -248,9 +261,7 @@ namespace f1x::openauto::autoapp::service::sensor {
 
   void SensorService::sendVehicleSensor(const VehicleSensor &sensor, bool force) {
     VehicleSensorState &state = vehicleState_[sensor.type];
-    const auto batch = vehicleSensorData(sensor, [](const QString &topic) {
-      return core::EventBus::instance().last(topic);
-    });
+    const auto batch = vehicleSensorData(sensor, androidAutoTopic);
     // no usable value any more (e.g. "available": false from a plugin that lost the CAN bus): tell the phone once
     if (!batch) {
       if (!state.failed) {

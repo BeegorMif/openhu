@@ -155,6 +155,50 @@ private slots:
     }
 
     // settings.* (openhu#42): the same checks as the settings page, values from the command line as text
+    // Settings → Debug (#120): the debug keys exist only while the debug mode is on
+    void debugSettings()
+    {
+        TestHome home;
+        ApiServer server;
+        SettingsController settings(std::make_shared<Configuration>(), 0, nullptr);
+        f1x::openauto::autoapp::shell::registerSettingsMethods(server, settings);
+
+        QVERIFY(!server.call("settings.keys").toMap().contains("debug.simulate"));
+        QVERIFY(server.call("settings.keys").toMap().contains("debug.enabled"));
+        QVERIFY(!server.call("settings.list").toMap().value("values").toMap().contains("debug.logLevel"));
+        QVERIFY_EXCEPTION_THROWN(server.call("settings.set", {{"key", "debug.simulate"}, {"value", "park"}}), ApiError);
+        QVERIFY(EventBus::instance().last("vehicle.simulate").value("state").toString().isEmpty());
+
+        server.call("settings.set", {{"key", "debug.enabled"}, {"value", true}});
+        QVERIFY(EventBus::instance().last("debug.state").value("enabled").toBool());
+        QStringList keys = server.call("settings.keys").toMap().keys();
+        QStringList values = server.call("settings.list").toMap().value("values").toMap().keys();
+        keys.sort();
+        values.sort();
+        QCOMPARE(keys, values);
+        QVERIFY(keys.contains("debug.videoCodec"));
+
+        server.call("settings.set", {{"key", "debug.simulate"}, {"value", "park"}});
+        QCOMPARE(EventBus::instance().last("vehicle.simulate").value("state").toString(), QString("park"));
+        QCOMPARE(server.call("settings.get", {{"key", "debug.simulate"}}).toMap().value("value").toString(), QString("park"));
+        server.call("settings.set", {{"key", "debug.logLevel"}, {"value", "debug"}});
+        QCOMPARE(server.call("settings.get", {{"key", "debug.logLevel"}}).toMap().value("value").toString(), QString("debug"));
+        server.call("settings.set", {{"key", "debug.logLevel"}, {"value", "info"}});
+        server.call("settings.set", {{"key", "debug.videoOverlay"}, {"value", true}});
+        QVERIFY(EventBus::instance().last("debug.state").value("videoOverlay").toBool());
+        QVERIFY(server.call("settings.set", {{"key", "debug.videoDecoder"}, {"value", "software"}}).toMap()
+                    .value("pending").toStringList().contains("reconnect"));
+        // saved: the decoder and the mode itself; the simulated state and the overlay are not
+        QCOMPARE(Configuration().getVideoDecoder(), std::string("software"));
+        QVERIFY(Configuration().getDebugEnabled());
+
+        // switched off: nothing of it stays active
+        server.call("settings.set", {{"key", "debug.enabled"}, {"value", false}});
+        QVERIFY(EventBus::instance().last("vehicle.simulate").value("state").toString().isEmpty());
+        QVERIFY(!EventBus::instance().last("debug.state").value("videoOverlay").toBool());
+        QVERIFY(!server.call("settings.keys").toMap().contains("debug.videoDecoder"));
+    }
+
     void settingsMethods()
     {
         TestHome home;
@@ -254,6 +298,51 @@ private slots:
 
         client.send({{"type", "dance"}});
         QVERIFY(client.next().value("error").toString().contains("unknown message type"));
+    }
+
+    // plugin processes log in with their token, their values count as the plugin's (#123)
+    void pluginTokenSetsTheSource()
+    {
+        ApiServer server;
+        server.setPluginResolver([](const QString& token) { return token == "plugin-token" ? QString("org.test") : QString(); });
+        server.registerMethod("test.echo", [](const QVariantMap& params) -> QVariant { return params; });
+        server.registerMethod("test.publish", [](const QVariantMap& params) -> QVariant {
+            EventBus::instance().publish(params.value("topic").toString(), {{"value", 1}},
+                                         params.value(ApiServer::cSource).toString());
+            return QVariantMap();
+        });
+        const quint16 port = freePort();
+        QVERIFY(server.listen(QHostAddress::LocalHost, port));
+
+        Client plugin(port);
+        QVERIFY(plugin.connected());
+        plugin.send({{"type", "auth"}, {"pluginToken", "plugin-token"}});
+        const QVariantMap auth = plugin.next();
+        QVERIFY(auth.value("authenticated").toBool());
+        QCOMPARE(auth.value("plugin").toString(), QString("org.test"));
+        QCOMPARE(plugin.call("test.echo").value(ApiServer::cSource).toString(), QString("plugin:org.test"));
+        // a client cannot claim a source
+        QCOMPARE(plugin.call("test.echo", {{ApiServer::cSource, "plugin:other"}}).value(ApiServer::cSource).toString(),
+                 QString("plugin:org.test"));
+
+        Client client(port);
+        QVERIFY(client.connected());
+        QVERIFY(client.call("test.echo").value(ApiServer::cSource).toString().startsWith("client:"));
+
+        // values of a closed connection are not current any more
+        plugin.call("test.publish", {{"topic", "vehicle.testPlugin"}});
+        client.call("test.publish", {{"topic", "vehicle.testClient"}});
+        QCOMPARE(EventBus::instance().source("vehicle.testPlugin"), QString("plugin:org.test"));
+        plugin.socket().close();
+        QTRY_VERIFY(!EventBus::instance().last("vehicle.testPlugin").value("available", true).toBool());
+        QVERIFY(EventBus::instance().last("vehicle.testClient").value("available", true).toBool());
+        client.socket().close();
+        QTRY_VERIFY(!EventBus::instance().last("vehicle.testClient").value("available", true).toBool());
+
+        Client wrong(port);
+        QVERIFY(wrong.connected());
+        wrong.send({{"type", "auth"}, {"pluginToken", "guess"}});
+        QVERIFY(wrong.closedWith(QWebSocketProtocol::CloseCodePolicyViolated));
     }
 
     void subscriptions()

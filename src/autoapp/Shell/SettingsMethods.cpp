@@ -1,18 +1,19 @@
 /*
-*  This file is part of openauto project.
+*  This file is part of OpenHU.
+*  Copyright (C) 2026 Leon Strauß
 *
-*  openauto is free software: you can redistribute it and/or modify
+*  OpenHU is free software: you can redistribute it and/or modify
 *  it under the terms of the GNU General Public License as published by
 *  the Free Software Foundation; either version 3 of the License, or
 *  (at your option) any later version.
-
-*  openauto is distributed in the hope that it will be useful,
+*
+*  OpenHU is distributed in the hope that it will be useful,
 *  but WITHOUT ANY WARRANTY; without even the implied warranty of
 *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 *  GNU General Public License for more details.
 *
 *  You should have received a copy of the GNU General Public License
-*  along with openauto. If not, see <http://www.gnu.org/licenses/>.
+*  along with OpenHU. If not, see <https://www.gnu.org/licenses/>.
 */
 
 #include <f1x/openauto/autoapp/Shell/SettingsMethods.hpp>
@@ -91,8 +92,17 @@ QVariant convert(const QString& key, const QVariantMap& schema, const QVariant& 
 
 void registerSettingsMethods(api::ApiServer& server, SettingsController& settings)
 {
-    server.registerMethod("settings.keys", [](const QVariantMap&) -> QVariant {
-        return SettingsController::keys();
+    // the debug keys only while the debug mode is on (#120)
+    server.registerMethod("settings.keys", [&settings](const QVariantMap&) -> QVariant {
+        QVariantMap keys = SettingsController::keys();
+        if(!settings.debugEnabled())
+        {
+            for(auto it = keys.begin(); it != keys.end();)
+            {
+                it = it.value().toMap().value("debug").toBool() ? keys.erase(it) : std::next(it);
+            }
+        }
+        return keys;
     });
     // secrets only for clients on this device
     server.registerMethod("settings.list", [&settings](const QVariantMap& params) -> QVariant {

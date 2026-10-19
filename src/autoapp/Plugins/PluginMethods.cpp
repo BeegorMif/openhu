@@ -1,18 +1,19 @@
 /*
-*  This file is part of openauto project.
+*  This file is part of OpenHU.
+*  Copyright (C) 2026 Leon Strauß
 *
-*  openauto is free software: you can redistribute it and/or modify
+*  OpenHU is free software: you can redistribute it and/or modify
 *  it under the terms of the GNU General Public License as published by
 *  the Free Software Foundation; either version 3 of the License, or
 *  (at your option) any later version.
-
-*  openauto is distributed in the hope that it will be useful,
+*
+*  OpenHU is distributed in the hope that it will be useful,
 *  but WITHOUT ANY WARRANTY; without even the implied warranty of
 *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 *  GNU General Public License for more details.
 *
 *  You should have received a copy of the GNU General Public License
-*  along with openauto. If not, see <http://www.gnu.org/licenses/>.
+*  along with OpenHU. If not, see <https://www.gnu.org/licenses/>.
 */
 
 #include <f1x/openauto/autoapp/Plugins/PluginMethods.hpp>
@@ -66,11 +67,17 @@ void registerPluginMethods(api::ApiServer& server, PluginManager& manager, Plugi
     });
     server.registerMethod("plugin.enable", [&manager](const QVariantMap& params) -> QVariant {
         const QString id = requireString(params, "id");
+        checkError(manager.changeBlocked(id));
         check(manager.setEnabled(id, true), "unknown plugin: " + id);
         return manager.plugin(id);
     });
     server.registerMethod("plugin.disable", [&manager](const QVariantMap& params) -> QVariant {
         const QString id = requireString(params, "id");
+        checkError(manager.changeBlocked(id));
+        // the plugins that require it stop too: only on purpose (#104)
+        const QStringList dependents = manager.dependents(id);
+        check(dependents.isEmpty() || params.value("force").toBool(),
+              "required by " + dependents.join(", ") + " (force: true disables them too)");
         check(manager.setEnabled(id, false), "unknown plugin: " + id);
         return manager.plugin(id);
     });
@@ -105,15 +112,19 @@ void registerPluginMethods(api::ApiServer& server, PluginManager& manager, Plugi
         store.refresh();
         return QVariantMap{{"queued", true}};
     });
-    server.registerMethod("store.install", [&store](const QVariantMap& params) -> QVariant {
-        store.install(requireString(params, "id"));
+    server.registerMethod("store.install", [&store, &manager](const QVariantMap& params) -> QVariant {
+        const QString id = requireString(params, "id");
+        checkError(manager.changeBlocked(id));
+        store.install(id);
         return QVariantMap{{"queued", true}};
     });
-    server.registerMethod("store.update", [&store](const QVariantMap& params) -> QVariant {
-        // without id: all updates
+    server.registerMethod("store.update", [&store, &manager](const QVariantMap& params) -> QVariant {
+        // without id: all updates (those of locked plugins report the error in store.state)
         if(params.contains("id"))
         {
-            store.install(requireString(params, "id"));
+            const QString id = requireString(params, "id");
+            checkError(manager.changeBlocked(id));
+            store.install(id);
         }
         else
         {
@@ -121,8 +132,13 @@ void registerPluginMethods(api::ApiServer& server, PluginManager& manager, Plugi
         }
         return QVariantMap{{"queued", true}};
     });
-    server.registerMethod("store.remove", [&store](const QVariantMap& params) -> QVariant {
-        store.remove(requireString(params, "id"));
+    server.registerMethod("store.remove", [&store, &manager](const QVariantMap& params) -> QVariant {
+        const QString id = requireString(params, "id");
+        checkError(manager.changeBlocked(id));
+        const QStringList dependents = manager.dependents(id);
+        check(dependents.isEmpty() || params.value("force").toBool(),
+              "required by " + dependents.join(", ") + " (force: true removes it anyway, they stop)");
+        store.remove(id);
         return QVariantMap{{"queued", true}};
     });
     server.registerMethod("store.sources.list", [&store](const QVariantMap&) -> QVariant {

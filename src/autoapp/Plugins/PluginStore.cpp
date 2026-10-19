@@ -1,18 +1,19 @@
 /*
-*  This file is part of openauto project.
+*  This file is part of OpenHU.
+*  Copyright (C) 2026 Leon Strauß
 *
-*  openauto is free software: you can redistribute it and/or modify
+*  OpenHU is free software: you can redistribute it and/or modify
 *  it under the terms of the GNU General Public License as published by
 *  the Free Software Foundation; either version 3 of the License, or
 *  (at your option) any later version.
-
-*  openauto is distributed in the hope that it will be useful,
+*
+*  OpenHU is distributed in the hope that it will be useful,
 *  but WITHOUT ANY WARRANTY; without even the implied warranty of
 *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 *  GNU General Public License for more details.
 *
 *  You should have received a copy of the GNU General Public License
-*  along with openauto. If not, see <http://www.gnu.org/licenses/>.
+*  along with OpenHU. If not, see <https://www.gnu.org/licenses/>.
 */
 
 #include <QCryptographicHash>
@@ -273,9 +274,67 @@ void PluginStore::refresh()
     });
 }
 
+bool PluginStore::installOrder(const QString& id, QStringList& order, QString& error, QStringList& visiting) const
+{
+    if(visiting.contains(id) || order.contains(id))
+    {
+        return true;  // a cycle or already planned
+    }
+    visiting.append(id);
+    const QVariantMap package = this->findPackage(id);
+    const QVariantMap requirements = PluginManager::requiresOf(package);
+    for(auto it = requirements.cbegin(); it != requirements.cend(); ++it)
+    {
+        const QString minimum = it.value().toString();
+        const QString installed = manager_.plugin(it.key()).value("version").toString();
+        if(manager_.contains(it.key()) && (minimum.isEmpty() || compareVersions(installed, minimum) >= 0))
+        {
+            continue;
+        }
+        const QVariantMap offered = this->findPackage(it.key());
+        if(offered.isEmpty() || (!minimum.isEmpty() && compareVersions(offered.value("version").toString(), minimum) < 0))
+        {
+            error = qtTrId("store.requirement_not_offered").arg(id, (it.key() + " " + minimum).trimmed());
+            return false;
+        }
+        if(!this->installOrder(it.key(), order, error, visiting))
+        {
+            return false;
+        }
+    }
+    order.append(id);
+    return true;
+}
+
 void PluginStore::install(const QString& id)
 {
+    // what it requires first (#104); nothing of it when a requirement is not offered
+    QStringList order;
+    QStringList visiting;
+    QString error;
+    if(!this->installOrder(id, order, error, visiting))
+    {
+        this->enqueue(QString(), [this, error](std::function<void()> done) {
+            this->setStatus(error, true);
+            done();
+        });
+        return;
+    }
+    for(const auto& name: order)
+    {
+        this->installOne(name);
+    }
+}
+
+void PluginStore::installOne(const QString& id)
+{
     this->enqueue(qtTrId("store.installing").arg(id), [this, id](std::function<void()> done) {
+        if(!manager_.changeBlocked(id).isEmpty())
+        {
+            this->setStatus(qtTrId("store.disconnect_phone").arg(id), true);
+            done();
+            return;
+        }
         this->installPackage(id, std::move(done));
     });
 }
@@ -298,6 +357,12 @@ void PluginStore::remove(const QString& id)
         if(!validId(id) || !QDir(PluginManager::pluginsDir() + "/" + id).exists())
         {
             this->setStatus(qtTrId("store.plugin_not_installed").arg(id), true);
+            done();
+            return;
+        }
+        if(!manager_.changeBlocked(id).isEmpty())
+        {
+            this->setStatus(qtTrId("store.disconnect_phone").arg(id), true);
             done();
             return;
         }

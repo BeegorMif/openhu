@@ -1,19 +1,20 @@
 /*
-*  This file is part of openauto project.
+*  This file is part of OpenHU, based on the openauto project.
 *  Copyright (C) 2018 f1x.studio (Michal Szwaj)
+*  Copyright (C) 2026 Leon Strauß
 *
-*  openauto is free software: you can redistribute it and/or modify
+*  OpenHU is free software: you can redistribute it and/or modify
 *  it under the terms of the GNU General Public License as published by
 *  the Free Software Foundation; either version 3 of the License, or
 *  (at your option) any later version.
-
-*  openauto is distributed in the hope that it will be useful,
+*
+*  OpenHU is distributed in the hope that it will be useful,
 *  but WITHOUT ANY WARRANTY; without even the implied warranty of
 *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 *  GNU General Public License for more details.
 *
 *  You should have received a copy of the GNU General Public License
-*  along with openauto. If not, see <http://www.gnu.org/licenses/>.
+*  along with OpenHU. If not, see <https://www.gnu.org/licenses/>.
 */
 
 #include <QObject>
@@ -40,6 +41,8 @@
 #include <f1x/openauto/autoapp/Service/MediaPlaybackStatus/MediaPlaybackStatusService.hpp>
 #include <f1x/openauto/autoapp/Service/PhoneStatus/PhoneStatusService.hpp>
 #include <f1x/openauto/autoapp/Service/Radio/RadioService.hpp>
+#include <f1x/openauto/autoapp/Plugins/AndroidAutoProviders.hpp>
+#include <f1x/openauto/autoapp/Service/CarControl/CarControlService.hpp>
 #include <f1x/openauto/autoapp/Core/EventBus.hpp>
 #include <f1x/openauto/autoapp/Projection/FfmpegVideoOutput.hpp>
 #include <f1x/openauto/autoapp/Projection/QtAudioOutput.hpp>
@@ -58,18 +61,8 @@ namespace f1x::openauto::autoapp::service {
   }
 
   bool ServiceFactory::radioPluginActive() {
-    // radio.state stays on the bus after the plugin stopped: the plugin has to be enabled too
-    if (core::EventBus::instance().last("radio.state").isEmpty()) {
-      return false;
-    }
-    const QVariantList plugins = core::EventBus::instance().last("plugins.state").value("plugins").toList();
-    for (const QVariant &plugin: plugins) {
-      const QVariantMap map = plugin.toMap();
-      if (map.value("id").toString() == "org.openhu.radio") {
-        return map.value("enabled").toBool();
-      }
-    }
-    return false;
+    // an enabled plugin declares the radio service in its manifest (#123)
+    return plugins::androidAutoDeclared(core::EventBus::instance().last("plugins.state"), "services", "radio");
   }
 
   ServiceList ServiceFactory::create(aasdk::messenger::IMessenger::Pointer messenger) {
@@ -86,9 +79,19 @@ namespace f1x::openauto::autoapp::service {
     serviceList.emplace_back(std::make_shared<phonestatus::PhoneStatusService>(ioService_, messenger));
     if (configuration_->radioServiceEnabled() && radioPluginActive())
     {
-        // The radio plugin as a media source in Android Auto (openhu#75). Announced only for connections while
-        // the plugin runs: the services cannot change during a connection.
+        // The radio plugin as a media source in Android Auto (openhu#75). The services cannot change during a
+        // connection: the plugin cannot be enabled or disabled while one runs.
         serviceList.emplace_back(std::make_shared<radio::RadioService>(ioService_, messenger));
+    }
+    if (carcontrol::CarControlService::available())
+    {
+        // Car controls from a plugin (openhu#121), shown in the phone's climate rail. The rail exists only in the
+        // phone's "hero" layout, which Android Auto uses only for video above 720p.
+        if (shell::AaBridge::instance().videoSize().height() <= 720) {
+          OPENAUTO_LOG(warning) << "[ServiceFactory] car controls: the phone shows them only with a video resolution "
+                                   "above 720p (Settings -> Android Auto -> Resolution)";
+        }
+        serviceList.emplace_back(std::make_shared<carcontrol::CarControlService>(ioService_, messenger));
     }
     if (configuration_->getWirelessProjectionEnabled()
         || configuration_->getBluetoothAdapterType() == configuration::BluetoothAdapterType::LOCAL)

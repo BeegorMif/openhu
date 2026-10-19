@@ -17,7 +17,8 @@ It can bring a QML page, an overlay and a background process in any language tha
   "ui": {"page": "qml/Main.qml", "overlay": "qml/Overlay.qml", "icon": "icon.svg", "dock": true},
   "process": {"exec": "bin/radio.py", "args": [], "restart": "on-failure"},
   "permissions": ["audio", "usb"],
-  "shared": ["openhu.py"]
+  "shared": ["openhu.py"],
+  "androidAuto": {"services": ["radio"]}
 }
 ```
 
@@ -36,10 +37,14 @@ It can bring a QML page, an overlay and a background process in any language tha
 | `permissions` | shown in the store before installing (informational) |
 | `shared` | files from the repository's `common/` copied to `lib/` when the archive is built |
 | `packages` | Debian packages the plugin needs on the head unit, e.g. libraries of its native programs (informational, copied to the index) |
+| `androidAuto` | what the plugin provides to Android Auto, see [Android Auto](#android-auto) |
+| `requires` | other plugins it needs: `{"org.openhu.can": "1.0.0"}` (id and minimum version, `""` for any) or a list of ids. Installed first by the store (refused when no source offers them), enabled along with it, started before it; without them it does not start and the store shows why. Disabling or removing a required plugin asks first and stops what requires it |
+| `recommends` | plugins it works with (list of ids), shown in the store ("Works with …") |
 
 Processes get `OPENHU_API_URL`, `OPENHU_PLUGIN_ID`, `OPENHU_PLUGIN_DIR`, `OPENHU_LANGUAGE` (language of the shell at
-the start, see [Translations](#translations)) and `OPENHU_DATA_DIR` (persistent data,
-`~/.openhu/plugin-data/<id>`, kept on updates). Output goes to `~/.openhu/logs/<id>.log`.
+the start, see [Translations](#translations)), `OPENHU_DATA_DIR` (persistent data,
+`~/.openhu/plugin-data/<id>`, kept on updates) and `OPENHU_PLUGIN_TOKEN` (new for every start: the process logs in
+with it, see [Android Auto](#android-auto); `openhu.py` does that). Output goes to `~/.openhu/logs/<id>.log`.
 Enabled/disabled and dock state are kept in `~/.openhu/plugins.json`.
 
 Plugin processes connect over `127.0.0.1` and need no API token ([api.md](api.md#login-token)), as long as they send
@@ -48,6 +53,31 @@ device, passwords included. A plugin that offers a service to the network itself
 remote control) must not pass requests from there on to the API without its own login, otherwise it opens the API
 to the network without the token. `openhu.py` takes a token (`OpenHU(token=...)` or `OPENHU_API_TOKEN`) for running
 a plugin process on another computer against a head unit while developing.
+
+## Android Auto
+
+Only plugins that declare it in `androidAuto` feed Android Auto (#123):
+
+```json
+"androidAuto": {"sensors": ["speed", "parkingBrake", "gear"], "services": ["carControl"]}
+```
+
+| Key | |
+|---|---|
+| `sensors` | vehicle data the plugin publishes for Android Auto, named like the topics without `vehicle.`: `speed`, `parkingBrake`, `gear`, `fuel`, `odometer`, `engine`, `climate`, `compass`, `drivingStatus`, `info` ([api.md](api.md#vehicle-data-android-auto-sensors)) |
+| `services` | Android Auto services the plugin backs: `radio` (`radio.state` / `radio.command`), `carControl` (`vehicle.controls`, [api.md](api.md#car-controls-android-auto-climate-rail)) |
+
+- While the plugin is enabled, OpenHU announces exactly these sensors and services when the phone connects, whether
+  values are there yet or not (the phone takes them when they arrive). Unknown names are ignored (logged).
+- Vehicle data a plugin publishes without declaring it stays on the bus (shell, logger, other plugins) but does not
+  go to Android Auto. A plugin that only decodes data (e.g. the CAN plugin) has no `androidAuto` section.
+- The process has to log in with `OPENHU_PLUGIN_TOKEN` (`{"type":"auth","pluginToken":"..."}`, done by `openhu.py`),
+  otherwise its values count as those of an ordinary API client. When the process ends (or its connection closes),
+  OpenHU sets its `vehicle.*` topics to `{"available": false}`.
+- The services and sensors are fixed for a connection, so while the phone is connected such a plugin cannot be
+  enabled, disabled, updated or removed (store and API answer `android auto connected`). A new one can be installed;
+  it is installed disabled. Restarts and crashes of its process are fine, its values are unavailable meanwhile.
+- The store shows the section before installing ("Provides to Android Auto: ...").
 
 ## QML
 

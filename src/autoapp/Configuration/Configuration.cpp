@@ -1,19 +1,20 @@
 /*
-*  This file is part of openauto project.
+*  This file is part of OpenHU, based on the openauto project.
 *  Copyright (C) 2018 f1x.studio (Michal Szwaj)
+*  Copyright (C) 2026 Leon Strauß
 *
-*  openauto is free software: you can redistribute it and/or modify
+*  OpenHU is free software: you can redistribute it and/or modify
 *  it under the terms of the GNU General Public License as published by
 *  the Free Software Foundation; either version 3 of the License, or
 *  (at your option) any later version.
-
-*  openauto is distributed in the hope that it will be useful,
+*
+*  OpenHU is distributed in the hope that it will be useful,
 *  but WITHOUT ANY WARRANTY; without even the implied warranty of
 *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 *  GNU General Public License for more details.
 *
 *  You should have received a copy of the GNU General Public License
-*  along with openauto. If not, see <http://www.gnu.org/licenses/>.
+*  along with OpenHU. If not, see <https://www.gnu.org/licenses/>.
 */
 
 #include <algorithm>
@@ -44,6 +45,8 @@ const std::string cVideoDecoderKey = "Video.Decoder";
 const std::string cApiPortKey = "Api.Port";
 const std::string cApiListenKey = "Api.Listen";
 const std::string cApiAllowHotspotKey = "Api.AllowHotspot";
+const std::string cDebugEnabledKey = "Debug.Enabled";
+const std::string cVideoCodecKey = "Video.Codec";
 const std::string cApiTokenKey = "Api.Token";
 const std::string cApiAllowedOriginsKey = "Api.AllowedOrigins";
 const std::string cVideoFPSKey = "Video.FPS";
@@ -111,6 +114,8 @@ void Configuration::load()
         apiPort_ = ini.get<uint16_t>(cApiPortKey, apiPort_);
         apiListenAddress_ = ini.get<std::string>(cApiListenKey, apiListenAddress_);
         apiAllowHotspot_ = ini.get<bool>(cApiAllowHotspotKey, apiAllowHotspot_);
+        debugEnabled_ = ini.get<bool>(cDebugEnabledKey, debugEnabled_);
+        videoCodec_ = ini.get<std::string>(cVideoCodecKey, videoCodec_);
         apiToken_ = ini.get<std::string>(cApiTokenKey, apiToken_);
         apiAllowedOrigins_ = ini.get<std::string>(cApiAllowedOriginsKey, apiAllowedOrigins_);
 
@@ -172,6 +177,8 @@ void Configuration::reset()
     apiPort_ = 5520;
     apiListenAddress_ = "127.0.0.1";
     apiAllowHotspot_ = false;
+    debugEnabled_ = false;
+    videoCodec_ = "auto";
     apiToken_ = "";
     apiAllowedOrigins_ = "*";
     videoFPS_ = aap_protobuf::service::media::sink::message::VideoFrameRateType::VIDEO_FPS_30;
@@ -207,6 +214,8 @@ void Configuration::save()
     ini.put<uint16_t>(cApiPortKey, apiPort_);
     ini.put<std::string>(cApiListenKey, apiListenAddress_);
     ini.put<bool>(cApiAllowHotspotKey, apiAllowHotspot_);
+    ini.put<bool>(cDebugEnabledKey, debugEnabled_);
+    ini.put<std::string>(cVideoCodecKey, videoCodec_);
     ini.put<std::string>(cApiTokenKey, apiToken_);
     ini.put<std::string>(cApiAllowedOriginsKey, apiAllowedOrigins_);
     ini.put<uint32_t>(cVideoFPSKey, static_cast<uint32_t>(videoFPS_));
@@ -362,6 +371,26 @@ std::string Configuration::getApiListenAddress() const
 void Configuration::setApiListenAddress(const std::string& value)
 {
     apiListenAddress_ = value;
+}
+
+bool Configuration::getDebugEnabled() const
+{
+    return debugEnabled_;
+}
+
+void Configuration::setDebugEnabled(bool value)
+{
+    debugEnabled_ = value;
+}
+
+std::string Configuration::getVideoCodec() const
+{
+    return videoCodec_;
+}
+
+void Configuration::setVideoCodec(const std::string& value)
+{
+    videoCodec_ = value;
 }
 
 bool Configuration::getApiAllowHotspot() const

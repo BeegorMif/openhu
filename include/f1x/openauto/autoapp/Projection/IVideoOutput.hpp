@@ -1,19 +1,20 @@
 /*
-*  This file is part of openauto project.
+*  This file is part of OpenHU, based on the openauto project.
 *  Copyright (C) 2018 f1x.studio (Michal Szwaj)
+*  Copyright (C) 2026 Leon Strauß
 *
-*  openauto is free software: you can redistribute it and/or modify
+*  OpenHU is free software: you can redistribute it and/or modify
 *  it under the terms of the GNU General Public License as published by
 *  the Free Software Foundation; either version 3 of the License, or
 *  (at your option) any later version.
-
-*  openauto is distributed in the hope that it will be useful,
+*
+*  OpenHU is distributed in the hope that it will be useful,
 *  but WITHOUT ANY WARRANTY; without even the implied warranty of
 *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 *  GNU General Public License for more details.
 *
 *  You should have received a copy of the GNU General Public License
-*  along with openauto. If not, see <http://www.gnu.org/licenses/>.
+*  along with OpenHU. If not, see <https://www.gnu.org/licenses/>.
 */
 
 #pragma once
@@ -25,6 +26,7 @@
 #include <aasdk/Messenger/Timestamp.hpp>
 #include <aap_protobuf/service/media/sink/message/VideoFrameRateType.pb.h>
 #include <aap_protobuf/service/media/sink/message/VideoCodecResolutionType.pb.h>
+#include <aap_protobuf/service/media/shared/message/MediaCodecType.pb.h>
 
 namespace f1x
 {
@@ -60,6 +62,12 @@ public:
     // that returns false here has no queue worth waiting for: the service acknowledges every message at once.
     using ConsumedHandler = std::function<void(int count)>;
     virtual bool setConsumedHandler(ConsumedHandler) { return false; }
+
+    // H.265 (#116): offered to the phone when true (one config with video_codec_type H265 switches the whole channel,
+    // a phone without an H.265 encoder shows an error and stays on H.264); the phone's choice comes in the setup
+    // message, before init()
+    virtual bool offerH265() const { return false; }
+    virtual void setCodec(aap_protobuf::service::media::shared::message::MediaCodecType) {}
 
     virtual aap_protobuf::service::media::sink::message::VideoFrameRateType getVideoFPS() const = 0;
     virtual aap_protobuf::service::media::sink::message::VideoCodecResolutionType getVideoResolution() const = 0;

@@ -1,21 +1,23 @@
 /*
-*  This file is part of openauto project.
+*  This file is part of OpenHU.
+*  Copyright (C) 2026 Leon Strauß
 *
-*  openauto is free software: you can redistribute it and/or modify
+*  OpenHU is free software: you can redistribute it and/or modify
 *  it under the terms of the GNU General Public License as published by
 *  the Free Software Foundation; either version 3 of the License, or
 *  (at your option) any later version.
-
-*  openauto is distributed in the hope that it will be useful,
+*
+*  OpenHU is distributed in the hope that it will be useful,
 *  but WITHOUT ANY WARRANTY; without even the implied warranty of
 *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 *  GNU General Public License for more details.
 *
 *  You should have received a copy of the GNU General Public License
-*  along with openauto. If not, see <http://www.gnu.org/licenses/>.
+*  along with OpenHU. If not, see <https://www.gnu.org/licenses/>.
 */
 
 #include <algorithm>
+#include <cmath>
 #include <chrono>
 #include <cstdlib>
 #include <cstring>
@@ -23,6 +25,7 @@
 #include <QThread>
 #include <QVideoFrameFormat>
 #include <boost/log/keywords/severity.hpp>
+#include <f1x/openauto/autoapp/Core/EventBus.hpp>
 #include <f1x/openauto/autoapp/Projection/FfmpegVideoOutput.hpp>
 #include <f1x/openauto/autoapp/Shell/AaBridge.hpp>
 #include <f1x/openauto/Common/Log.hpp>
@@ -73,15 +76,21 @@ int64_t nowMs()
         std::chrono::steady_clock::now().time_since_epoch()).count();
 }
 
+// NAL unit type of the byte after a start code: H.264 bits 0-4, H.265 bits 1-6
+int nalType(uint8_t header, bool hevc)
+{
+    return hevc ? (header >> 1) & 0x3f : header & 0x1f;
+}
+
 // True if the access unit contains a NAL unit of a type in [first, last]
-bool containsNal(const QByteArray& data, int first, int last)
+bool containsNal(const QByteArray& data, int first, int last, bool hevc)
 {
     const auto* bytes = reinterpret_cast<const uint8_t*>(data.constData());
     for(qsizetype i = 0; i + 3 < data.size(); ++i)
     {
         if(bytes[i] == 0 && bytes[i + 1] == 0 && bytes[i + 2] == 1)
         {
-            const int type = bytes[i + 3] & 0x1f;
+            const int type = nalType(bytes[i + 3], hevc);
             if(type >= first && type <= last)
             {
                 return true;
@@ -92,16 +101,17 @@ bool containsNal(const QByteArray& data, int first, int last)
     return false;
 }
 
-// True if the access unit contains a coded picture (NAL types 1-5), false for SPS/PPS/SEI only.
-bool containsPicture(const QByteArray& data)
+// True if the access unit contains a coded picture (H.264 NAL types 1-5, H.265 0-31), false for parameter sets and
+// SEI only.
+bool containsPicture(const QByteArray& data, bool hevc)
 {
-    return containsNal(data, 1, 5);
+    return hevc ? containsNal(data, 0, 31, true) : containsNal(data, 1, 5, false);
 }
 
-// IDR picture: decodable without earlier frames
-bool containsKeyframe(const QByteArray& data)
+// Decodable without earlier frames: H.264 IDR (5), H.265 IRAP (BLA, IDR, CRA: 16-21)
+bool containsKeyframe(const QByteArray& data, bool hevc)
 {
-    return containsNal(data, 5, 5);
+    return hevc ? containsNal(data, 16, 21, true) : containsNal(data, 5, 5, false);
 }
 
 // OPENHU_LOG=debug (or lower): the diagnostics after a stream start are logged
@@ -111,8 +121,8 @@ bool debugLogEnabled()
         boost::log::keywords::severity = boost::log::trivial::debug));
 }
 
-// NAL unit types in the access unit, e.g. "7,8" for SPS/PPS or "5" for an IDR picture
-std::string nalTypes(const QByteArray& data)
+// NAL unit types in the access unit, e.g. "7,8" for SPS/PPS or "5" for an IDR picture (H.265: "32,33,34", "19")
+std::string nalTypes(const QByteArray& data, bool hevc)
 {
     std::string types;
     const auto* bytes = reinterpret_cast<const uint8_t*>(data.constData());
@@ -121,7 +131,7 @@ std::string nalTypes(const QByteArray& data)
     {
         if(bytes[i] == 0 && bytes[i + 1] == 0 && bytes[i + 2] == 1)
         {
-            types += (types.empty() ? "" : ",") + std::to_string(bytes[i + 3] & 0x1f);
+            types += (types.empty() ? "" : ",") + std::to_string(nalType(bytes[i + 3], hevc));
             ++count;
             i += 2;
         }
@@ -276,7 +286,7 @@ int FfmpegVideoOutput::enqueue(const aasdk::common::DataConstBuffer& buffer)
         queuedBytes_ = 0;
         for(auto& queued: queue_)
         {
-            if(!containsPicture(queued.data))
+            if(!containsPicture(queued.data, hevc_))
             {
                 queuedBytes_ += queued.data.size();
                 kept.push_back(std::move(queued));
@@ -292,10 +302,10 @@ int FfmpegVideoOutput::enqueue(const aasdk::common::DataConstBuffer& buffer)
                               << " queued messages, waiting for the next IDR frame"
                               << (consumedHandler_ ? " (the phone did not wait for the acks)" : "");
     }
-    if(waitForKeyframe_ && containsPicture(data))
+    if(waitForKeyframe_ && containsPicture(data, hevc_))
     {
         // P-frames after a drop refer to dropped frames: corrupted picture until the next IDR
-        if(!containsKeyframe(data))
+        if(!containsKeyframe(data, hevc_))
         {
             ++droppedMessages_;
             ++counters_.droppedMessages;
@@ -408,22 +418,43 @@ std::string FfmpegVideoOutput::decoderName() const
     return decoderName_;
 }
 
+std::string FfmpegVideoOutput::softwareDecoder() const
+{
+    return hevc_ ? "hevc" : "h264";
+}
+
 std::vector<std::string> FfmpegVideoOutput::decoderCandidates() const
 {
+    const std::string software = this->softwareDecoder();
     const std::string configured = configuration_->getVideoDecoder();
-    if(configured == "software")
+    if(configured == "software" || configured == software)
     {
-        return {"h264"};
+        return {software};
     }
-    if(configured.empty() || configured == "auto")
+    // [Video] Decoder names a decoder of the other codec: the automatic choice for this one
+    const bool otherCodec = configured.rfind(hevc_ ? "h264" : "hevc", 0) == 0;
+    if(configured.empty() || configured == "auto" || otherCodec)
     {
 #if defined(__aarch64__) || defined(__arm__)
-        return {"h264_v4l2m2m", "h264"};
+        return {software + "_v4l2m2m", software};
 #else
-        return {"h264"};
+        return {software};
 #endif
     }
-    return configured == "h264" ? std::vector<std::string>{"h264"} : std::vector<std::string>{configured, "h264"};
+    return {configured, software};
+}
+
+void FfmpegVideoOutput::setCodec(aap_protobuf::service::media::shared::message::MediaCodecType codec)
+{
+    // the phone announces it in the setup message (H.265 when OpenHU offered it, #116)
+    hevc_ = codec == aap_protobuf::service::media::shared::message::MEDIA_CODEC_VIDEO_H265;
+    OPENAUTO_LOG(info) << "[FfmpegVideoOutput] codec " << (hevc_ ? "H.265" : "H.264");
+}
+
+bool FfmpegVideoOutput::offerH265() const
+{
+    // auto stays H.264 until the Raspberry Pi 5 (hardware HEVC, no hardware H.264) is measured (#10)
+    return configuration_->getVideoCodec() == "h265";
 }
 
 bool FfmpegVideoOutput::openDecoder(const std::string& name)
@@ -448,7 +479,7 @@ bool FfmpegVideoOutput::openDecoder(const std::string& name)
         return false;
     }
 
-    hardware_ = name != "h264";
+    hardware_ = name != this->softwareDecoder();
     packetsWithoutFrame_ = 0;
     {
         std::lock_guard<std::mutex> lock(mutex_);
@@ -476,8 +507,9 @@ void FfmpegVideoOutput::decodeLoop()
     }
     if(codec_ == nullptr)
     {
-        OPENAUTO_LOG(error) << "[FfmpegVideoOutput] no H.264 decoder, Android Auto shows no picture";
-        this->failed(qtTrId("video.no_h_264_decoder"));
+        OPENAUTO_LOG(error) << "[FfmpegVideoOutput] no " << (hevc_ ? "H.265" : "H.264")
+                            << " decoder, Android Auto shows no picture";
+        this->failed(hevc_ ? qtTrId("video.no_h_265_decoder") : qtTrId("video.no_h_264_decoder"));
         return;
     }
 
@@ -530,7 +562,7 @@ void FfmpegVideoOutput::decodeLoop()
         this->consumed(1);
         this->logMessageAfterStart(data);
 
-        if(!containsPicture(data) && config.size() + data.size() <= cMaxConfigBytes)
+        if(!containsPicture(data, hevc_) && config.size() + data.size() <= cMaxConfigBytes)
         {
             config.append(data);
             continue;
@@ -564,10 +596,10 @@ void FfmpegVideoOutput::decodeLoop()
         {
             OPENAUTO_LOG(warning) << "[FfmpegVideoOutput] " << this->decoderName() << " shows no picture, switching to software";
             this->closeDecoder();
-            if(!this->openDecoder("h264"))
+            if(!this->openDecoder(this->softwareDecoder()))
             {
                 OPENAUTO_LOG(error) << "[FfmpegVideoOutput] no software decoder either, Android Auto shows no picture";
-                this->failed(qtTrId("video.no_h_264_decoder"));
+                this->failed(hevc_ ? qtTrId("video.no_h_265_decoder") : qtTrId("video.no_h_264_decoder"));
                 break;
             }
             for(auto& old: history)
@@ -580,6 +612,7 @@ void FfmpegVideoOutput::decodeLoop()
         }
 
         this->logStats(false);
+        this->publishOverlayStats();
     }
 
     this->logStats(true);
@@ -617,7 +650,9 @@ void FfmpegVideoOutput::decode(AVPacket* packet)
         gotFrame = true;
     }
     packetsWithoutFrame_ = gotFrame ? 0 : packetsWithoutFrame_ + 1;
-    stats_.decodeMs += std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - started).count();
+    const double decodeMs = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - started).count();
+    stats_.decodeMs += decodeMs;
+    overlay_.decodeMs += decodeMs;
 }
 
 bool FfmpegVideoOutput::receiveFrames()
@@ -627,6 +662,9 @@ bool FfmpegVideoOutput::receiveFrames()
     {
         gotFrame = true;
         ++stats_.frames;
+        ++overlay_.frames;
+        overlay_.width = frame_->width;
+        overlay_.height = frame_->height;
         {
             std::lock_guard<std::mutex> lock(mutex_);
             ++counters_.decodedFrames;
@@ -647,14 +685,14 @@ void FfmpegVideoOutput::logMessageAfterStart(const QByteArray& data)
         return;
     }
     ++streamStart_.messages;
-    const bool keyframe = containsKeyframe(data);
+    const bool keyframe = containsKeyframe(data, hevc_);
     streamStart_.idrSeen = streamStart_.idrSeen || keyframe;
     const int64_t elapsed = nowMs() - streamStart_.startedMs;
     if(elapsed < cDiagnosticMs)
     {
         OPENAUTO_LOG(debug) << "[FfmpegVideoOutput] +" << elapsed << " ms after the stream "
                             << (streamStart_.restart ? "restart" : "start") << ": message " << streamStart_.messages
-                            << ", " << data.size() << " bytes, NAL types " << nalTypes(data);
+                            << ", " << data.size() << " bytes, NAL types " << nalTypes(data, hevc_);
     }
 }
 
@@ -860,6 +898,32 @@ void FfmpegVideoOutput::present(QVideoFrame frame)
             shell::AaBridge::instance().setPictureWaiting(this, false);
         }
     }, Qt::QueuedConnection);
+}
+
+void FfmpegVideoOutput::publishOverlayStats()
+{
+    const int64_t now = nowMs();
+    if(now - overlaySince_ < 1000)
+    {
+        return;
+    }
+    const int64_t elapsed = now - overlaySince_;
+    const OverlayStats stats = overlay_;
+    overlay_ = OverlayStats{0, 0, stats.width, stats.height};
+    overlaySince_ = now;
+    if(!core::EventBus::instance().last("debug.state").value("videoOverlay").toBool())
+    {
+        return;
+    }
+    core::EventBus::instance().publish("video.stats", {
+        {"fps", std::round(stats.frames * 10000.0 / std::max<int64_t>(elapsed, 1)) / 10},
+        {"decodeMs", stats.frames > 0 ? std::round(stats.decodeMs / stats.frames * 10) / 10 : 0.0},
+        {"decoder", QString::fromStdString(this->decoderName())},
+        {"hardware", hardware_},
+        {"codec", hevc_ ? QStringLiteral("h265") : QStringLiteral("h264")},
+        {"width", stats.width},
+        {"height", stats.height},
+    });
 }
 
 void FfmpegVideoOutput::logStats(bool force)

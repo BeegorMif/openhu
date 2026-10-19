@@ -12,6 +12,8 @@ Rectangle {
 
     BusTopic { id: projection; topic: "projection.state" }
     BusTopic { id: phone; topic: "phone.status" }
+    // a debug setting that changes what Android Auto is told (#120)
+    BusTopic { id: simulate; topic: "vehicle.simulate" }
 
     readonly property bool connected: projection.data.connected === true
     readonly property bool inCall: !!phone.data.callState && phone.data.callState !== "idle" && phone.data.callState !== "inactive"
@@ -75,6 +77,22 @@ Rectangle {
         anchors.verticalCenter: parent.verticalCenter
         spacing: Theme.spacing / 2
 
+        Rectangle {
+            anchors.verticalCenter: parent.verticalCenter
+            visible: !!simulate.data.state
+            width: debugText.implicitWidth + Theme.spacing
+            height: debugText.implicitHeight + Theme.spacing / 3
+            radius: height / 2
+            color: Theme.warning
+            Text {
+                id: debugText
+                anchors.centerIn: parent
+                text: qsTrId("statusbar.debug_simulated").arg(simulate.data.state || "")
+                color: Theme.background
+                font.pixelSize: Theme.fontSmall
+                font.bold: true
+            }
+        }
         Text {
             anchors.verticalCenter: parent.verticalCenter
             visible: bar.inCall

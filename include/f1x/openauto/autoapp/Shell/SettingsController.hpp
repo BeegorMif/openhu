@@ -1,18 +1,19 @@
 /*
-*  This file is part of openauto project.
+*  This file is part of OpenHU.
+*  Copyright (C) 2026 Leon Strauß
 *
-*  openauto is free software: you can redistribute it and/or modify
+*  OpenHU is free software: you can redistribute it and/or modify
 *  it under the terms of the GNU General Public License as published by
 *  the Free Software Foundation; either version 3 of the License, or
 *  (at your option) any later version.
-
-*  openauto is distributed in the hope that it will be useful,
+*
+*  OpenHU is distributed in the hope that it will be useful,
 *  but WITHOUT ANY WARRANTY; without even the implied warranty of
 *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 *  GNU General Public License for more details.
 *
 *  You should have received a copy of the GNU General Public License
-*  along with openauto. If not, see <http://www.gnu.org/licenses/>.
+*  along with OpenHU. If not, see <https://www.gnu.org/licenses/>.
 */
 
 #pragma once
@@ -47,8 +48,10 @@ public:
 
     QVariantMap values() const;
     // Per key of values(): type (bool, int, string, choice), choices, min/max, maxLength, applies (now, reconnect,
-    // restart), secret (passwords, not readable from the network), readOnly. For the API (settings.keys).
+    // restart), secret (passwords, not readable from the network), readOnly, debug (only while the debug mode is
+    // on, values() has them only then, #120). For the API (settings.keys).
     static QVariantMap keys();
+    bool debugEnabled() const;
     QStringList pending() const;
     QVariantMap info() const;
 
@@ -66,6 +69,8 @@ public:
     void applyCursor() const;
     // "system.nightMode" {mode: auto/day/night}: Android Auto's night mode (SensorService)
     void publishNightMode() const;
+    // "debug.state" {enabled, videoOverlay}
+    void publishDebugState() const;
 
 signals:
     void changed();
@@ -88,6 +93,8 @@ private:
     configuration::IConfiguration::Pointer configuration_;
     QStringList arguments_;
     QStringList pending_;
+    // debug.videoOverlay: not saved
+    bool videoOverlay_ = false;
 };
 
 }

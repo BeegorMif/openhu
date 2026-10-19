@@ -45,6 +45,32 @@ Rectangle {
         enabled: aaBridge.videoActive
     }
 
+    // debug video overlay (Settings → Debug, #120): what the decoder does
+    BusTopic { id: debugState; topic: "debug.state" }
+    BusTopic { id: videoStats; topic: "video.stats" }
+    Rectangle {
+        visible: debugState.data.videoOverlay === true && aaBridge.videoActive
+        // bottom center: Android Auto has its clock and buttons in the corners
+        anchors.horizontalCenter: parent.horizontalCenter
+        anchors.bottom: parent.bottom
+        anchors.margins: Theme.spacing / 2
+        width: statsText.implicitWidth + Theme.spacing
+        height: statsText.implicitHeight + Theme.spacing / 2
+        color: Qt.rgba(0, 0, 0, 0.6)
+        radius: Theme.spacing / 3
+        Text {
+            id: statsText
+            anchors.centerIn: parent
+            // untranslated: technical values
+            text: (videoStats.data.codec || "?") + " " + (videoStats.data.width || 0) + "x" + (videoStats.data.height || 0)
+                  + " · " + (videoStats.data.fps || 0) + " fps · " + (videoStats.data.decodeMs || 0) + " ms\n"
+                  + (videoStats.data.decoder || "?") + (videoStats.data.hardware ? "" : " (software)")
+            color: "white"
+            font.pixelSize: Theme.fontSmall
+            font.family: "monospace"
+        }
+    }
+
     Column {
         anchors.centerIn: parent
         spacing: Theme.spacing

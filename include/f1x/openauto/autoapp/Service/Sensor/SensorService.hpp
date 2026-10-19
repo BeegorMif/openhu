@@ -1,19 +1,20 @@
 /*
-*  This file is part of openauto project.
+*  This file is part of OpenHU, based on the openauto project.
 *  Copyright (C) 2018 f1x.studio (Michal Szwaj)
+*  Copyright (C) 2026 Leon Strauß
 *
-*  openauto is free software: you can redistribute it and/or modify
+*  OpenHU is free software: you can redistribute it and/or modify
 *  it under the terms of the GNU General Public License as published by
 *  the Free Software Foundation; either version 3 of the License, or
 *  (at your option) any later version.
-
-*  openauto is distributed in the hope that it will be useful,
+*
+*  OpenHU is distributed in the hope that it will be useful,
 *  but WITHOUT ANY WARRANTY; without even the implied warranty of
 *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 *  GNU General Public License for more details.
 *
 *  You should have received a copy of the GNU General Public License
-*  along with openauto. If not, see <http://www.gnu.org/licenses/>.
+*  along with OpenHU. If not, see <https://www.gnu.org/licenses/>.
 */
 
 #pragma once
@@ -65,6 +66,10 @@ namespace f1x::openauto::autoapp::service::sensor {
 
     void onChannelError(const aasdk::error::Error &e) override;
 
+    // A topic as Android Auto may see it: empty if its value comes from a plugin that does not declare the sensor
+    // in its manifest (#123)
+    static QVariantMap androidAutoTopic(const QString &topic);
+
   private:
     using std::enable_shared_from_this<SensorService>::shared_from_this;
 
@@ -77,6 +82,7 @@ namespace f1x::openauto::autoapp::service::sensor {
 
     // vehicle data from plugins and the API (#115)
     static const VehicleSensor *findVehicleSensor(aap_protobuf::service::sensorsource::message::SensorType type);
+
 
     void onVehicleTopic(const QString &topic);
 
