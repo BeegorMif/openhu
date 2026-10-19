@@ -231,7 +231,7 @@ Item {
                             text: {
                                 // first, the rest of the line is cut off
                                 if (modelData.installed && page.locked(modelData.id))
-                                    return qsTrId("store.disconnect_phone").arg(modelData.name || modelData.id)
+                                    return qsTrId("store.disconnect_phone").arg(PluginText.name(modelData))
                                 var missing = modelData.installed && page.pluginInfo(modelData.id).enabled
                                               ? page.pluginInfo(modelData.id).missing : []
                                 if (missing && missing.length)
