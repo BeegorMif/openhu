@@ -109,7 +109,13 @@ if [ "$WITH_AASDK" = true ]; then
     mkdir -p "${AASDK_DEBS}"
     if [ -z "$AASDK_PATH" ] && [ -z "$AASDK_BRANCH" ]; then
         echo "Downloading the AASDK release..."
-        echo "AASDK $(bash "${SOURCE_DIR}/scripts/fetch-aasdk.sh" "${AASDK_DEBS}")"
+        if ! AASDK_VERSION=$(bash "${SOURCE_DIR}/scripts/fetch-aasdk.sh" "${AASDK_DEBS}"); then
+            echo "ERROR: Could not obtain compatible AASDK packages." >&2
+            echo "If the compatible AASDK source is checked out next to OpenHU, build it with:" >&2
+            echo "  $0 ${BUILD_TYPE} --aasdk-path ../aasdk-ref --package --output-dir ${OUTPUT_DIR}" >&2
+            exit 1
+        fi
+        echo "AASDK ${AASDK_VERSION}"
     else
         if [ -z "$AASDK_PATH" ]; then
             echo "Cloning AASDK ${AASDK_BRANCH} branch..."
@@ -126,9 +132,14 @@ if [ "$WITH_AASDK" = true ]; then
         cd "${SOURCE_DIR}"
     fi
     echo "Installing the AASDK packages..."
+    AASDK_PACKAGE_FILES=("${AASDK_DEBS}"/libaasdk*.deb)
+    if [ ! -e "${AASDK_PACKAGE_FILES[0]}" ]; then
+        echo "ERROR: No libaasdk .deb packages were created or downloaded in ${AASDK_DEBS}." >&2
+        exit 1
+    fi
     APT_GET="apt-get"
     [ "$(id -u)" -ne 0 ] && APT_GET="sudo apt-get"
-    ${APT_GET} install -y "${AASDK_DEBS}"/libaasdk*.deb
+    ${APT_GET} install -y "${AASDK_PACKAGE_FILES[@]}"
     echo "AASDK packages installed."
 fi
 
