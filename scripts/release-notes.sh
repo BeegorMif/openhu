@@ -26,7 +26,7 @@ echo "OpenHU $VERSION for Debian 13 \"trixie\", amd64 and arm64."
 echo
 echo "- **OpenHU** $VERSION"
 if [ -n "$aasdk" ]; then
-  echo "- built against **libaasdk** [$aasdk](https://github.com/average-web-dev/aasdk/releases/tag/openhu-v$aasdk)" \
+  echo "- built against **libaasdk** [$aasdk](https://github.com/BeegorMif/aasdk/releases/tag/openhu-v$aasdk)" \
        "(the package depends on libaasdk ${aasdk%.*}.x)"
 fi
 echo

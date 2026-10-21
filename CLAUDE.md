@@ -12,12 +12,12 @@ OpenHU is the head unit shell: C++17/Qt6 (QML), with Android Auto through aasdk.
 
 ## The OpenHU project
 
-The OpenHU, OS and plugin repositories are under github.com/BeegorMif, usually checked out next to each other. The currently compatible AASDK fork is still under github.com/average-web-dev:
+The OpenHU, OS, plugin and AASDK repositories are under github.com/BeegorMif, usually checked out next to each other. The compatible AASDK branch is `openhu`:
 
 | Repo | What | Default branch |
 |---|---|---|
 | `openhu` | the head unit shell (C++/Qt6/QML), Android Auto via aasdk, plugin host, EventBus API | `main` |
-| `aasdk` | fork of opencardev/aasdk, the Android Auto protocol library OpenHU builds against | `openhu` (external compatible fork) |
+| `aasdk` | fork of opencardev/aasdk, the Android Auto protocol library OpenHU builds against | `openhu` |
 | `openhu-os` | the OS image (Debian trixie, mkosi, cage kiosk, read-only root, A/B updates), VM scripts | `main` |
 | `openhu-plugins` | plugins (radio, camera, CAN, steering wheel) and the plugin store index | `main` |
 

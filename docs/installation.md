@@ -31,7 +31,7 @@ host's Bluetooth/NetworkManager. Expected layout:
 ```
 workspace/
 ├── openhu/          this repository (any folder name)
-├── aasdk-ref/       aasdk, branch openhu of https://github.com/average-web-dev/aasdk
+├── aasdk-ref/       aasdk, branch openhu of https://github.com/BeegorMif/aasdk
 └── openhu-plugins/  optional, store source "file /opt/openhu-plugins" for local plugin development
 ```
 
@@ -61,7 +61,7 @@ blocks D-Bus otherwise) need it. Settings are stored in `docker/config/openhu.in
 ### Build and install
 
 OpenHU needs the `libaasdk` packages of its current compatible AASDK fork, released at
-[average-web-dev/aasdk](https://github.com/average-web-dev/aasdk/releases) (tags `openhu-v<version>`). The `.deb`
+[BeegorMif/aasdk](https://github.com/BeegorMif/aasdk/releases) (tags `openhu-v<version>`). The `.deb`
 depends on `libaasdk (>= 2.1), libaasdk (<< 2.2)` (`OPENHU_AASDK_VERSION` in `CMakeLists.txt`): any release with the
 same major and minor version works (a new minor version of aasdk may change the ABI). `--with-aasdk` downloads and installs the newest one; `--aasdk-path ../aasdk-ref` packages
 a local source tree instead. Until the APT repository exists, `apt` cannot fetch aasdk by itself, so install the

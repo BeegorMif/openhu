@@ -119,7 +119,7 @@ if [ "$WITH_AASDK" = true ]; then
     else
         if [ -z "$AASDK_PATH" ]; then
             echo "Cloning AASDK ${AASDK_BRANCH} branch..."
-            git clone --depth 1 --branch "${AASDK_BRANCH}" https://github.com/average-web-dev/aasdk.git "${AASDK_DEBS}/src"
+            git clone --depth 1 --branch "${AASDK_BRANCH}" https://github.com/BeegorMif/aasdk.git "${AASDK_DEBS}/src"
             AASDK_PATH="${AASDK_DEBS}/src"
         fi
         echo "Packaging AASDK from ${AASDK_PATH}..."

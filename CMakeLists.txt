@@ -95,7 +95,7 @@ else ()
     set(PROTOBUF_INCLUDE_DIR ${Protobuf_INCLUDE_DIR})
 endif ()
 
-# aasdk from the OpenHU fork (https://github.com/average-web-dev/aasdk, branch openhu).
+# aasdk from the OpenHU fork (https://github.com/BeegorMif/aasdk, branch openhu).
 # Required version: any release with this major and minor version. A new minor version of aasdk may
 # change the ABI (e.g. the size of classes OpenHU creates), so OpenHU is built against each one.
 # find_package checks it here, the Depends of the .deb are derived from it below.

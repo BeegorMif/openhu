@@ -77,7 +77,7 @@ Development and testing run in a container that shows OpenHU in a window on your
 
 ```bash
 git clone https://github.com/BeegorMif/openhu.git
-git clone -b openhu https://github.com/average-web-dev/aasdk.git aasdk-ref   # next to it
+git clone -b openhu https://github.com/BeegorMif/aasdk.git aasdk-ref   # next to it
 cd openhu
 docker/dev.sh run     # first run builds the image, aasdk and OpenHU (takes a while)
 ```
@@ -117,7 +117,7 @@ or a Debian/Ubuntu system, and what wireless Android Auto and the car radio need
 | `src/autoapp/Api/`, `Core/`, `Input/`, `Plugins/` | API server, event bus, actions, plugin manager and store |
 | `docker/` | development container |
 
-aasdk comes from the fork [average-web-dev/aasdk](https://github.com/average-web-dev/aasdk) (branch `openhu`):
+aasdk comes from your fork [BeegorMif/aasdk](https://github.com/BeegorMif/aasdk) (branch `openhu`):
 upstream opencardev/aasdk plus navigation state and phone status messages and faster USB device detection.
 
 ## Credits and license

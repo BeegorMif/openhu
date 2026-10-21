@@ -134,7 +134,7 @@ WORKDIR /config
 
 # Complete build for CI and releases
 FROM deps AS aasdk-build
-ARG AASDK_REPO=https://github.com/average-web-dev/aasdk.git
+ARG AASDK_REPO=https://github.com/BeegorMif/aasdk.git
 ARG AASDK_BRANCH=openhu
 RUN --mount=type=bind,from=aasdk,target=/aasdk-src,rw \
     --mount=type=cache,target=/ccache \

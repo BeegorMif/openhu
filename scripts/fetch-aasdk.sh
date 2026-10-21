@@ -12,7 +12,7 @@ set -euo pipefail
 
 dest="${1:?usage: $0 <dir> [arch]}"
 arch="${2:-$(dpkg --print-architecture)}"
-repo="${AASDK_REPO:-average-web-dev/aasdk}"
+repo="${AASDK_REPO:-BeegorMif/aasdk}"
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 want="$(sed -nE 's/^set\(OPENHU_AASDK_VERSION ([0-9]+\.[0-9]+)\)/\1/p' "$root/CMakeLists.txt")"
