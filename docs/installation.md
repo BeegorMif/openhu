@@ -60,7 +60,7 @@ blocks D-Bus otherwise) need it. Settings are stored in `docker/config/openhu.in
 
 ### Build and install
 
-OpenHU needs the `libaasdk` packages of the OpenHU fork, released at
+OpenHU needs the `libaasdk` packages of its current compatible AASDK fork, released at
 [average-web-dev/aasdk](https://github.com/average-web-dev/aasdk/releases) (tags `openhu-v<version>`). The `.deb`
 depends on `libaasdk (>= 2.1), libaasdk (<< 2.2)` (`OPENHU_AASDK_VERSION` in `CMakeLists.txt`): any release with the
 same major and minor version works (a new minor version of aasdk may change the ABI). `--with-aasdk` downloads and installs the newest one; `--aasdk-path ../aasdk-ref` packages
@@ -76,7 +76,7 @@ sudo apt install build-essential cmake ninja-build pkg-config git ca-certificate
     qml6-module-qtquick-virtualkeyboard qt6-virtualkeyboard-plugin \
     dpkg-dev fakeroot file
 
-git clone https://github.com/average-web-dev/openhu.git
+git clone https://github.com/BeegorMif/openhu.git
 cd openhu
 ./build.sh release --with-aasdk --package --output-dir ./packages   # installs libaasdk(-dev) with sudo
 sudo apt install ./packages/libaasdk_*.deb ./packages/openhu_*.deb

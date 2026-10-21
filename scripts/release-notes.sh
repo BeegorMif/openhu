@@ -10,7 +10,7 @@ set -euo pipefail
 
 VERSION="${1:?usage: $0 VERSION PACKAGE_DIR [PREVIOUS_TAG]}"
 DIR="${2:?usage: $0 VERSION PACKAGE_DIR [PREVIOUS_TAG]}"
-REPO=average-web-dev/openhu
+REPO=BeegorMif/openhu
 
 PREVIOUS="${3:-$(gh release list -R "$REPO" --exclude-drafts --limit 50 --json tagName -q '.[].tagName' |
                  grep -vx "v$VERSION" | head -1 || true)}"

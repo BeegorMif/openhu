@@ -192,7 +192,7 @@ Rectangle {
 `~/.openhu/sources.list`, one source per line, the first one wins on duplicate ids:
 
 ```
-github average-web-dev/openhu-plugins main
+github BeegorMif/openhu-plugins main
 github someone/my-plugins main
 url    https://example.org/openhu-repo/
 file   /media/usb/openhu-repo

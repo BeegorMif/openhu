@@ -2,7 +2,7 @@ import QtQuick
 import QtQuick.Controls
 import OpenHU 1.0
 
-// Settings → Network: the Ethernet port (OpenHU OS, average-web-dev/openhu-os#15) and the API; USB tethering and
+// Settings → Network: the Ethernet port (OpenHU OS, BeegorMif/openhu-os#15) and the API; USB tethering and
 // mobile data come here too.
 SettingsSection {
     id: page

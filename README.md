@@ -5,7 +5,7 @@
 **Open head unit for Raspberry Pi and Linux: Android Auto in a modern touch shell,
 wireless, Bluetooth car radio, plugins and an API for everything around it.**
 
-[![CI](https://github.com/average-web-dev/openhu/actions/workflows/ci.yml/badge.svg)](https://github.com/average-web-dev/openhu/actions/workflows/ci.yml)
+[![CI](https://github.com/BeegorMif/openhu/actions/workflows/ci.yml/badge.svg)](https://github.com/BeegorMif/openhu/actions/workflows/ci.yml)
 [![License: GPL v3](https://img.shields.io/badge/license-GPLv3-blue.svg)](LICENSE)
 ![Qt 6.8](https://img.shields.io/badge/Qt-6.8%20QML-41cd52?logo=qt)
 ![Platforms](https://img.shields.io/badge/platform-x86__64%20%7C%20arm64-lightgrey)
@@ -57,7 +57,7 @@ wireless, Bluetooth car radio, plugins and an API for everything around it.**
   [docs/api.md](docs/api.md)
 - **Plugins**: QML pages, overlays and background processes in any language, installed from GitHub repositories
   configured like apt sources – [docs/plugins.md](docs/plugins.md). Official plugins
-  ([openhu-plugins](https://github.com/average-web-dev/openhu-plugins)): CAN bus, steering wheel keys,
+  ([openhu-plugins](https://github.com/BeegorMif/openhu-plugins)): CAN bus, steering wheel keys,
   reverse camera, FM/AM radio.
 
 <table>
@@ -76,7 +76,7 @@ wireless, Bluetooth car radio, plugins and an API for everything around it.**
 Development and testing run in a container that shows OpenHU in a window on your desktop:
 
 ```bash
-git clone https://github.com/average-web-dev/openhu.git
+git clone https://github.com/BeegorMif/openhu.git
 git clone -b openhu https://github.com/average-web-dev/aasdk.git aasdk-ref   # next to it
 cd openhu
 docker/dev.sh run     # first run builds the image, aasdk and OpenHU (takes a while)

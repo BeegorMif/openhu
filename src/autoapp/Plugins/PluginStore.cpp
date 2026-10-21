@@ -45,14 +45,14 @@ namespace plugins
 namespace
 {
 
-const QString cOfficialRepository = QStringLiteral("average-web-dev/openhu-plugins");
+const QString cOfficialRepository = QStringLiteral("BeegorMif/openhu-plugins");
 
 const char* cDefaultSources =
     "# OpenHU plugin sources, one per line. The first source wins if several offer the same plugin.\n"
     "#   github <user>/<repo> [branch]\n"
     "#   url    https://host/path/\n"
     "#   file   /path/to/repository\n"
-    "github average-web-dev/openhu-plugins main\n";
+    "github BeegorMif/openhu-plugins main\n";
 
 QString sourcesPath()
 {
@@ -497,6 +497,7 @@ void PluginStore::loadSources()
     }
 
     sources_.clear();
+    bool migratedOfficialSource = false;
     QFile file(sourcesPath());
     if(file.open(QIODevice::ReadOnly))
     {
@@ -507,9 +508,20 @@ void PluginStore::loadSources()
             const QStringList parts = line.split(QRegularExpression("\\s+"), Qt::SkipEmptyParts);
             if(parts.size() >= 2)
             {
-                sources_.append({parts[0], parts[1], parts.value(2)});
+                QString location = parts[1];
+                // Existing installations may have persisted the former built-in source. Move it with the fork.
+                if(parts[0] == "github" && location == "average-web-dev/openhu-plugins")
+                {
+                    location = cOfficialRepository;
+                    migratedOfficialSource = true;
+                }
+                sources_.append({parts[0], location, parts.value(2)});
             }
         }
+    }
+    if(migratedOfficialSource)
+    {
+        this->saveSources();
     }
 
     indexes_.clear();

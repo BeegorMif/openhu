@@ -14,9 +14,9 @@ internal namespaces `f1x::openauto` and the sources in `src/autoapp/` stay, so u
 
 | Repo (local) | Branch | Content |
 |---|---|---|
-| `openauto/` (GitHub `average-web-dev/openhu`) | `main` (current), `upstream-main` (old fork state) | OpenHU |
+| `openauto/` (GitHub `BeegorMif/openhu`) | `main` (current), `upstream-main` (old fork state) | OpenHU |
 | `aasdk-ref/` (GitHub fork `average-web-dev/aasdk`, upstream `opencardev/aasdk` as remote `upstream`) | `openhu` | aasdk + navigation state/position, PhoneStatus |
-| `openhu-plugins/` (GitHub `average-web-dev/openhu-plugins`) | `main` | official plugins + store index |
+| `openhu-plugins/` (GitHub `BeegorMif/openhu-plugins`) | `main` | official plugins + store index |
 
 All three repos are pushed (OpenHU up to phase 6 + docs, aasdk with the USB filter). aasdk has its own
 SemVer version (`project(aasdk VERSION ...)`); the workflow `openhu.yml` in the aasdk fork builds `libaasdk`/`libaasdk-dev`

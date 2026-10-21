@@ -226,7 +226,7 @@ private slots:
 
         QCOMPARE(store.sources().size(), 1);
         const QVariantMap source = store.sources().first().toMap();
-        QCOMPARE(source.value("line").toString(), QString("github average-web-dev/openhu-plugins main"));
+        QCOMPARE(source.value("line").toString(), QString("github BeegorMif/openhu-plugins main"));
         QVERIFY(source.value("official").toBool());
     }
 
