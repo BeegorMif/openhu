@@ -14,6 +14,8 @@ Window {
     // "home" | "aa" | "settings" | "plugin:<id>"
     property string page: "home"
     property string settingsCategory: "general"
+    // Display control plugin publishes this kept topic so extra dim applies on every page.
+    BusTopic { id: extraDim; topic: "ui.extraDim" }
 
     // The page on screen. While the phone restarts its video stream (after the reverse camera or "Exit") the
     // Android Auto page would show its last picture and then the phone's black frames and fade-in: the page shown
@@ -314,5 +316,15 @@ Window {
         anchors.horizontalCenter: parent.horizontalCenter
         anchors.bottom: parent.bottom
         anchors.bottomMargin: Theme.spacing * 2 + root.keyboardHeight
+    }
+
+    // A visual-only black layer: it dims plugin pages, the dock, status bar and dialogs without
+    // intercepting touch input. Kept at the end so it covers every shell surface.
+    Rectangle {
+        anchors.fill: parent
+        z: 1000
+        visible: extraDim.data.enabled === true
+        color: "#80000000"
+        enabled: false
     }
 }
