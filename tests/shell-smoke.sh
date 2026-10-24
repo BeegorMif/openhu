@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Starts the installed OpenHU headless (offscreen, software rendering) in a temporary HOME, shows every
 # shell page once through the API (python3-websockets), stops it with SIGTERM and fails on QML
-# errors/warnings or a failed shutdown.
+# errors/warnings, a failed shutdown or missing systemd notifications (READY=1, watchdog pings).
 #
 #   tests/shell-smoke.sh [openhu] [seconds before the pages]
 set -uo pipefail
@@ -10,14 +10,31 @@ openhu="${1:-openhu}"
 seconds="${2:-8}"
 
 work="$(mktemp -d)"
-trap 'rm -rf "$work"' EXIT
+listener=""
+trap '[ -n "$listener" ] && kill "$listener" 2>/dev/null; rm -rf "$work"' EXIT
 log="$work/openhu.log"
 
 cd "$work"
 # no plugin sources: the store page would download the official index otherwise
 mkdir -p "$work/.openhu"
 echo "# shell smoke test: no sources" > "$work/.openhu/sources.list"
-HOME="$work" QT_QPA_PLATFORM=offscreen QT_QUICK_BACKEND=software "$openhu" > "$log" 2>&1 &
+
+# systemd's side of the notify socket (Type=notify, WatchdogSec=2 s on OpenHU OS: 10 s, #129), one line per message
+python3 - "$work/notify" > "$work/notify.log" <<'PY' &
+import socket, sys
+s = socket.socket(socket.AF_UNIX, socket.SOCK_DGRAM)
+s.bind(sys.argv[1])
+while True:
+    print(s.recv(512).decode().replace("\n", " "), flush=True)
+PY
+listener=$!
+for _ in $(seq 1 25); do
+  [ -S "$work/notify" ] && break
+  sleep 0.2
+done
+
+HOME="$work" QT_QPA_PLATFORM=offscreen QT_QUICK_BACKEND=software NOTIFY_SOCKET="$work/notify" WATCHDOG_USEC=2000000 \
+  "$openhu" > "$log" 2>&1 &
 pid=$!
 
 sleep "$seconds"
@@ -85,5 +102,16 @@ if ! grep -q "\[AutoApp\] Display" "$log"; then
   echo "The shell window was not shown"
   status=1
 fi
-[ "$status" -eq 0 ] && echo "Shell started and stopped cleanly"
+# READY=1 once the shell is up, then a watchdog ping every second from the GUI thread (about 25 s of pages)
+if ! head -n 1 "$work/notify.log" | grep -qx "READY=1 WATCHDOG_USEC=2000000"; then
+  echo "OpenHU did not report READY=1 to systemd first:"
+  cat "$work/notify.log"
+  status=1
+fi
+pings="$(grep -cx "WATCHDOG=1" "$work/notify.log")"
+if [ "$pings" -lt 10 ]; then
+  echo "Only $pings watchdog pings"
+  status=1
+fi
+[ "$status" -eq 0 ] && echo "Shell started and stopped cleanly ($pings watchdog pings)"
 exit "$status"
