@@ -72,6 +72,14 @@ Rectangle {
                 font.pixelSize: Theme.fontSmall
                 elide: Text.ElideRight
             }
+            Text {
+                Layout.fillWidth: true
+                visible: text !== ""
+                text: destination.data.eta ? destination.data.address : ""
+                color: Theme.textDim
+                font.pixelSize: Theme.fontSmall
+                elide: Text.ElideRight
+            }
         }
     }
 
