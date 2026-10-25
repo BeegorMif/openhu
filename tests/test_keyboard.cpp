@@ -88,7 +88,7 @@ private slots:
     {
         QTest::addColumn<QString>("language");
         QTest::addColumn<QString>("locale");
-        QTest::newRow("English") << "en" << "en_US";
+        QTest::newRow("English") << "en" << "en_GB";
         QTest::newRow("German") << "de" << "de_DE";
     }
 
