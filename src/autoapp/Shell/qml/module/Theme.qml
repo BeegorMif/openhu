@@ -26,5 +26,6 @@ QtObject {
     readonly property int fontSmall: Math.round(15 * scale)
     readonly property int fontNormal: Math.round(19 * scale)
     readonly property int fontLarge: Math.round(28 * scale)
+    readonly property int fontExtraLarge: Math.round(45 * scale)
     readonly property int fontHuge: Math.round(96 * scale)
 }
