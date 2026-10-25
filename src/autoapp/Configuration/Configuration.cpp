@@ -167,7 +167,7 @@ void Configuration::load()
 
 void Configuration::reset()
 {
-    handednessOfTrafficType_ = HandednessOfTrafficType::LEFT_HAND_DRIVE;
+    handednessOfTrafficType_ = HandednessOfTrafficType::RIGHT_HAND_DRIVE;
     showCursor_ = false;
     nameSuffix_ = "";
     language_ = "";
