@@ -36,7 +36,9 @@ namespace core
 // WatchdogSec= (#129): READY=1 once the shell is up, then WATCHDOG=1 every half of $WATCHDOG_USEC from a timer in the
 // GUI thread, so a blocked GUI thread (deadlock, endless loop) misses it and systemd restarts the session. Without
 // $NOTIFY_SOCKET (container, a plain service) nothing is sent; without $WATCHDOG_USEC only READY=1.
-// $WATCHDOG_PID is not checked: under cage it is cage's pid, OpenHU is cage's child (the unit has NotifyAccess=all).
+// $WATCHDOG_PID is not checked: under cage it is cage's pid, OpenHU is cage's child. On OpenHU OS $NOTIFY_SOCKET is
+// a relay in openhu-session.service (notify-relay): PAM puts cage and OpenHU into the logind session scope, from
+// where systemd would not take OpenHU's messages for the service.
 class ServiceNotifier: public QObject
 {
     Q_OBJECT
