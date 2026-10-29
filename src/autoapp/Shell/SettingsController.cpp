@@ -146,6 +146,7 @@ QVariantMap SettingsController::keys()
     return {
         {"general.driverSide", choice({"left", "right"}, cReconnect)},
         {"general.showCursor", flag("now")},
+        {"general.hideStatusBar", flag("now")},
         {"general.onScreenKeyboard", flag("now")},
         {"general.language", choice(languages, "now")},
         {"general.nameSuffix", text(cReconnect, 24)},
@@ -207,6 +208,7 @@ QVariantMap SettingsController::values() const
         {"general.driverSide", configuration_->getHandednessOfTrafficType()
                                    == configuration::HandednessOfTrafficType::RIGHT_HAND_DRIVE ? "right" : "left"},
         {"general.showCursor", configuration_->showCursor()},
+        {"general.hideStatusBar", configuration_->hideStatusBar()},
         {"general.onScreenKeyboard", configuration_->onScreenKeyboard()},
         {"general.language", Translations::resolve(QString::fromStdString(configuration_->getLanguage()))},
         {"general.nameSuffix", QString::fromStdString(configuration_->getNameSuffix())},
@@ -347,6 +349,10 @@ QString SettingsController::set(const QString& key, const QVariant& value)
     {
         configuration_->showCursor(value.toBool());
         this->applyCursor();
+    }
+    else if(key == "general.hideStatusBar")
+    {
+        configuration_->setHideStatusBar(value.toBool());
     }
     else if(key == "general.onScreenKeyboard")
     {

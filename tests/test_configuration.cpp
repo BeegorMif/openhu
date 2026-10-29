@@ -55,6 +55,7 @@ private slots:
             config.setApiAllowedOrigins("http://a.example");
             config.setNameSuffix("Golf");
             config.showCursor(true);
+            config.setHideStatusBar(true);
             config.setOnScreenKeyboard(false);
             config.setLanguage("en");
             config.setNightMode("night");
@@ -79,6 +80,7 @@ private slots:
         QCOMPARE(config.getApiAllowedOrigins(), std::string("http://a.example"));
         QCOMPARE(config.getNameSuffix(), std::string("Golf"));
         QVERIFY(config.showCursor());
+        QVERIFY(config.hideStatusBar());
         QVERIFY(!config.onScreenKeyboard());
         QCOMPARE(config.getLanguage(), std::string("en"));
         QCOMPARE(config.getNightMode(), std::string("night"));

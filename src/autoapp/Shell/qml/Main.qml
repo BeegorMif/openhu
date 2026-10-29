@@ -24,6 +24,8 @@ Window {
     property bool pictureWaitOver: false
     readonly property string shownPage: page === "aa" && aaBridge.pictureWaiting && !pictureWaitOver
                                         ? previousPage : page
+    property bool hideStatusBar: false
+
 
     // fromApi: ui.navigate (e.g. a plugin leaving its page), otherwise chosen by the user
     function navigate(name, fromApi) {
@@ -55,6 +57,7 @@ Window {
     Component.onCompleted: {
         shell.setCurrentPage(page)
         updatePluginPages()
+        root.hideStatusBar = settings.values["general.hideStatusBar"] === true
     }
 
     // Plugin pages and overlays, one row per plugin. Only the rows of plugins whose page changed are touched:
@@ -134,7 +137,13 @@ Window {
             toast.show(qsTrId("shell.usb_update_found").arg(version), 8000, "settings/system")
         }
     }
+    Connections {
+        target: settings
 
+        function onValuesChanged() {
+            root.hideStatusBar = settings.values["general.hideStatusBar"] === true
+        }
+    }
     // Height of the on-screen keyboard while it is shown: the page area gets smaller, so the pages can scroll the
     // focused field into view (revealFocus)
     // Keyboard.qml is loaded by file name, so the shell starts without the module; qmllint only sees a QObject
@@ -187,7 +196,8 @@ Window {
 
             StatusBar {
                 Layout.fillWidth: true
-                Layout.preferredHeight: Theme.statusHeight
+                Layout.preferredHeight: root.hideStatusBar ? 0 : Theme.statusHeight
+                visible: !root.hideStatusBar
                 onVolumeClicked: volumePanel.show()
             }
 

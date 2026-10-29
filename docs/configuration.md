@@ -47,6 +47,7 @@ Where the keys are in the settings:
 | `Language` | empty | language of the shell and the on-screen keyboard: `de`, `en`. Empty: from the system locale if there is a translation for it, otherwise English (also without a locale, e.g. `C.UTF-8`). See [translations.md](translations.md) |
 | `HandednessOfTrafficType` | `0` | driver side: `0` left-hand drive, `1` right-hand drive (Android Auto puts its controls on the driver's side) |
 | `ShowCursor` | `false` | mouse cursor (for mouse instead of touchscreen) |
+| `HideStatusBar` | `false` | hide status bar |
 | `NightMode` | `auto` | night mode of Android Auto: `auto` (from plugins or the API, `daynight.set`), `day`, `night` |
 | `NameSuffix` | empty | the phone shows "OpenHU *suffix*". The vehicle id is derived from it, so differently named head units are separate cars on the phone (own settings), the same name stays the same car |
 

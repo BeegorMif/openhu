@@ -43,6 +43,8 @@ public:
     HandednessOfTrafficType getHandednessOfTrafficType() const override;
     void showCursor(bool value) override;
     bool showCursor() const override;
+    void setHideStatusBar(bool value) override;
+    bool hideStatusBar() const override;
     void setOnScreenKeyboard(bool value) override;
     bool onScreenKeyboard() const override;
     std::string getNightMode() const override;
@@ -112,6 +114,7 @@ public:
 private:
     HandednessOfTrafficType handednessOfTrafficType_;
     bool showCursor_;
+    bool hideStatusBar_;
     bool onScreenKeyboard_;
     std::string nameSuffix_;
     std::string language_;

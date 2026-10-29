@@ -26,6 +26,11 @@ SettingsSection {
         key: "general.showCursor"
     }
     SettingSwitch {
+        title: qsTrId("settings.general.hide_status_bar")
+        description: qsTrId("settings.general.hide_status_bar_description")
+        key: "general.hideStatusBar"
+    }
+    SettingSwitch {
         visible: onScreenKeyboardAvailable
         title: qsTrId("settings.general.onscreen_keyboard")
         description: qsTrId("settings.general.appears_text_fields_switch")

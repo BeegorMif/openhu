@@ -37,6 +37,7 @@ const std::string cLegacyConfigFileName = "openauto.ini";
 // Key names are the ones of OpenAuto, so existing configurations keep working.
 const std::string cHandednessKey = "General.HandednessOfTrafficType";
 const std::string cShowCursorKey = "General.ShowCursor";
+const std::string cHideStatusBarKey = "General.hideStatusBar";
 const std::string cNameSuffixKey = "General.NameSuffix";
 const std::string cLanguageKey = "General.Language";
 const std::string cNightModeKey = "General.NightMode";
@@ -108,6 +109,7 @@ void Configuration::load()
         handednessOfTrafficType_ = static_cast<HandednessOfTrafficType>(
             ini.get<uint32_t>(cHandednessKey, static_cast<uint32_t>(handednessOfTrafficType_)));
         showCursor_ = ini.get<bool>(cShowCursorKey, showCursor_);
+        hideStatusBar_ = ini.get<bool>(cHideStatusBarKey, hideStatusBar_);
         nameSuffix_ = ini.get<std::string>(cNameSuffixKey, nameSuffix_);
         language_ = ini.get<std::string>(cLanguageKey, language_);
         nightMode_ = ini.get<std::string>(cNightModeKey, nightMode_);
@@ -168,7 +170,8 @@ void Configuration::load()
 void Configuration::reset()
 {
     handednessOfTrafficType_ = HandednessOfTrafficType::RIGHT_HAND_DRIVE;
-    showCursor_ = false;
+    showCursor_ = true;
+    hideStatusBar_ = false;
     nameSuffix_ = "";
     language_ = "";
     nightMode_ = "auto";
@@ -206,6 +209,7 @@ void Configuration::save()
     boost::property_tree::ptree ini;
     ini.put<uint32_t>(cHandednessKey, static_cast<uint32_t>(handednessOfTrafficType_));
     ini.put<bool>(cShowCursorKey, showCursor_);
+    ini.put<bool>(cHideStatusBarKey, hideStatusBar_);
     ini.put<std::string>(cNameSuffixKey, nameSuffix_);
     ini.put<std::string>(cLanguageKey, language_);
     ini.put<std::string>(cNightModeKey, nightMode_);
@@ -279,6 +283,16 @@ void Configuration::showCursor(bool value)
 bool Configuration::showCursor() const
 {
     return showCursor_;
+}
+
+void Configuration::setHideStatusBar(bool value)
+{
+    hideStatusBar_ = value;
+}
+
+bool Configuration::hideStatusBar() const
+{
+    return hideStatusBar_;
 }
 
 void Configuration::setOnScreenKeyboard(bool value)

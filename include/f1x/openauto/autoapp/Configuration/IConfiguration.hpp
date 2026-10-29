@@ -83,6 +83,8 @@ public:
     virtual HandednessOfTrafficType getHandednessOfTrafficType() const = 0;
     virtual void showCursor(bool value) = 0;
     virtual bool showCursor() const = 0;
+    virtual void setHideStatusBar(bool value) = 0;
+    virtual bool hideStatusBar() const = 0;
     // on-screen keyboard for text fields (touchscreen only head units); off with a real keyboard
     virtual void setOnScreenKeyboard(bool value) = 0;
     virtual bool onScreenKeyboard() const = 0;
