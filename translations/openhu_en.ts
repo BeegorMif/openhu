@@ -226,12 +226,12 @@
     <message id="settings.general.hide_status_bar">
         <source></source>
         <oldsource>Hide status bar</oldsource>
-        <translation type="unfinished">Hide status bar</translation>
+        <translation>Hide status bar</translation>
     </message>
     <message id="settings.general.hide_status_bar_description">
         <source></source>
         <oldsource>Hide the status bar at the top of the screen</oldsource>
-        <translation type="unfinished">Hide the status bar at the top of the screen</translation>
+        <translation>Hide the status bar at the top of the screen</translation>
     </message>
     <message id="settings.general.using_mouse_instead_touchscreen">
         <source></source>
