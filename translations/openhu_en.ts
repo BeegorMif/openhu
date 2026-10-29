@@ -224,12 +224,14 @@
         <translation>Show mouse cursor</translation>
     </message>
     <message id="settings.general.hide_status_bar">
-        <source>Hide status bar</source>
-        <translation>Hide status bar</translation>
+        <source></source>
+        <oldsource>Hide status bar</oldsource>
+        <translation type="unfinished">Hide status bar</translation>
     </message>
     <message id="settings.general.hide_status_bar_description">
-        <source>Hide the status bar at the top of the screen</source>
-        <translation>Hide the status bar at the top of the screen</translation>
+        <source></source>
+        <oldsource>Hide the status bar at the top of the screen</oldsource>
+        <translation type="unfinished">Hide the status bar at the top of the screen</translation>
     </message>
     <message id="settings.general.using_mouse_instead_touchscreen">
         <source></source>

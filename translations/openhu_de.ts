@@ -224,12 +224,14 @@
         <translation>Mauszeiger anzeigen</translation>
     </message>
     <message id="settings.general.hide_status_bar">
-        <source>Statusleiste ausblenden</source>
-        <translation>Statusleiste ausblenden</translation>
+        <source></source>
+        <oldsource>Statusleiste ausblenden</oldsource>
+        <translation type="unfinished">Statusleiste ausblenden</translation>
     </message>
     <message id="settings.general.hide_status_bar_description">
-        <source>Die Statusleiste oben auf dem Bildschirm ausblenden</source>
-        <translation>Die Statusleiste oben auf dem Bildschirm ausblenden</translation>
+        <source></source>
+        <oldsource>Die Statusleiste oben auf dem Bildschirm ausblenden</oldsource>
+        <translation type="unfinished">Die Statusleiste oben auf dem Bildschirm ausblenden</translation>
     </message>
     <message id="settings.general.using_mouse_instead_touchscreen">
         <source></source>
