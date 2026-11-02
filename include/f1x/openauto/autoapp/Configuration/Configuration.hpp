@@ -80,6 +80,8 @@ public:
     void setScreenDPI(size_t value) override;
     void setVideoMargins(QRect value) override;
     QRect getVideoMargins() const override;
+    bool getVideoFullscreen() const override;
+    void setVideoFullscreen(bool value) override;
     bool getTouchscreenEnabled() const override;
     void setTouchscreenEnabled(bool value) override;
 
@@ -129,6 +131,7 @@ private:
     aap_protobuf::service::media::sink::message::VideoCodecResolutionType videoResolution_;
     size_t screenDPI_;
     QRect videoMargins_;
+    bool videoFullscreen_;
     bool enableTouchscreen_;
     BluetoothAdapterType bluetoothAdapterType_;
     std::string bluetoothAdapterAddress_;

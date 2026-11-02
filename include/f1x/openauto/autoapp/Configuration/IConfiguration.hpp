@@ -136,6 +136,9 @@ public:
     // 0x0 = margins computed by the shell
     virtual void setVideoMargins(QRect value) = 0;
     virtual QRect getVideoMargins() const = 0;
+    // true: the Android Auto page covers the whole window, without the dock and the status bar (#146)
+    virtual bool getVideoFullscreen() const = 0;
+    virtual void setVideoFullscreen(bool value) = 0;
     virtual bool getTouchscreenEnabled() const = 0;
     virtual void setTouchscreenEnabled(bool value) = 0;
 

@@ -54,6 +54,7 @@ const std::string cVideoResolutionKey = "Video.Resolution";
 const std::string cVideoScreenDPIKey = "Video.ScreenDPI";
 const std::string cVideoMarginWidthKey = "Video.MarginWidth";
 const std::string cVideoMarginHeightKey = "Video.MarginHeight";
+const std::string cVideoFullscreenKey = "Video.Fullscreen";
 const std::string cTouchscreenKey = "Input.EnableTouchscreen";
 const std::string cOnScreenKeyboardKey = "Input.OnScreenKeyboard";
 const std::string cBluetoothAdapterTypeKey = "Bluetooth.AdapterType";
@@ -127,6 +128,7 @@ void Configuration::load()
         videoDecoder_ = ini.get<std::string>(cVideoDecoderKey, videoDecoder_);
         screenDPI_ = ini.get<size_t>(cVideoScreenDPIKey, screenDPI_);
         videoMargins_ = QRect(0, 0, ini.get<int32_t>(cVideoMarginWidthKey, 0), ini.get<int32_t>(cVideoMarginHeightKey, 0));
+        videoFullscreen_ = ini.get<bool>(cVideoFullscreenKey, videoFullscreen_);
         enableTouchscreen_ = ini.get<bool>(cTouchscreenKey, enableTouchscreen_);
         onScreenKeyboard_ = ini.get<bool>(cOnScreenKeyboardKey, onScreenKeyboard_);
 
@@ -185,6 +187,7 @@ void Configuration::reset()
     videoResolution_ = aap_protobuf::service::media::sink::message::VideoCodecResolutionType::VIDEO_800x480;
     screenDPI_ = 140;
     videoMargins_ = QRect(0, 0, 0, 0);
+    videoFullscreen_ = false;
     enableTouchscreen_ = true;
     onScreenKeyboard_ = true;
     bluetoothAdapterType_ = BluetoothAdapterType::NONE;
@@ -223,6 +226,7 @@ void Configuration::save()
     ini.put<size_t>(cVideoScreenDPIKey, screenDPI_);
     ini.put<int32_t>(cVideoMarginWidthKey, videoMargins_.width());
     ini.put<int32_t>(cVideoMarginHeightKey, videoMargins_.height());
+    ini.put<bool>(cVideoFullscreenKey, videoFullscreen_);
     ini.put<bool>(cTouchscreenKey, enableTouchscreen_);
     ini.put<bool>(cOnScreenKeyboardKey, onScreenKeyboard_);
     ini.put<uint32_t>(cBluetoothAdapterTypeKey, static_cast<uint32_t>(bluetoothAdapterType_));
@@ -461,6 +465,16 @@ void Configuration::setVideoMargins(QRect value)
 QRect Configuration::getVideoMargins() const
 {
     return videoMargins_;
+}
+
+bool Configuration::getVideoFullscreen() const
+{
+    return videoFullscreen_;
+}
+
+void Configuration::setVideoFullscreen(bool value)
+{
+    videoFullscreen_ = value;
 }
 
 bool Configuration::getTouchscreenEnabled() const
