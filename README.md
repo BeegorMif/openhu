@@ -122,9 +122,16 @@ upstream opencardev/aasdk plus navigation state and phone status messages and fa
 
 ## Credits and license
 
-OpenHU is a fork of [OpenAuto](https://github.com/opencardev/openauto) by f1x.studio (Michal Szwaj) and the
-OpenCarDev team (original README: [docs/upstream-openauto-README.md](docs/upstream-openauto-README.md)) and uses
-[aasdk](https://github.com/opencardev/aasdk). Thanks to them – none of this would exist without their work.
+OpenHU is developed by **Leon Strauß** ([average-web-dev](https://github.com/average-web-dev)) together with
+everyone who contributed to this repository ([contributors](https://github.com/average-web-dev/openhu/graphs/contributors)).
+
+OpenHU started as a fork of [OpenAuto](https://github.com/opencardev/openauto) by f1x.studio (Michal Szwaj) and the
+OpenCarDev team (original README: [docs/upstream-openauto-README.md](docs/upstream-openauto-README.md)) and has been
+largely reworked since. It uses [aasdk](https://github.com/opencardev/aasdk). Thanks to them – none of this would
+exist without their work.
+
+If you fork or redistribute OpenHU, please keep this section and add your own credits next to it, so everyone who
+built it stays mentioned. The copyright notices in the source files stay as they are, as the GPL asks.
 
 **GPL-3.0**, see [LICENSE](LICENSE).
 
