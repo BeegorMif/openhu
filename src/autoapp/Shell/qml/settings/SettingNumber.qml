@@ -6,6 +6,8 @@ import OpenHU 1.0
 SettingRow {
     id: number
     property string key
+    // where the value lives: the shell's settings, or a plugin's config store (PluginSettings.qml)
+    property var backend: settings
     property int from: 0
     property int to: 1000
     property int stepSize: 1
@@ -16,12 +18,12 @@ SettingRow {
         stepSize: number.stepSize
         editable: true
         inputMethodHints: Qt.ImhDigitsOnly
-        value: settings.values[number.key] || 0
+        value: number.backend.values[number.key] || 0
         onValueModified: {
-            const error = settings.set(number.key, value)
+            const error = number.backend.set(number.key, value)
             if (error) {
                 shell.toast(error, 4000)
-                value = Qt.binding(() => settings.values[number.key] || 0)
+                value = Qt.binding(() => number.backend.values[number.key] || 0)
             }
         }
         // plain numbers (no thousands separator for ports)

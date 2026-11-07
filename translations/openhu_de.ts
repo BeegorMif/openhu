@@ -2011,5 +2011,33 @@
         <source></source>
         <translation>Android Auto nutzt den ganzen Bildschirm, ohne Dock und Statusleiste. Ein Wisch vom linken Rand zeigt das Dock.</translation>
     </message>
+    <message id="settings.plugin.restarts_plugin">
+        <source></source>
+        <translation>Eine Änderung startet das Plugin neu.</translation>
+    </message>
+    <message id="settings.plugin.back">
+        <source></source>
+        <translation>Zurück</translation>
+    </message>
+    <message id="settings.plugin.reset">
+        <source></source>
+        <translation>Zurücksetzen</translation>
+    </message>
+    <message id="settings.plugin.reset_confirm">
+        <source></source>
+        <translation>Nochmal tippen zum Zurücksetzen</translation>
+    </message>
+    <message id="settings.plugin.not_installed">
+        <source></source>
+        <translation>Dieses Plugin ist nicht installiert.</translation>
+    </message>
+    <message id="settings.plugin.disabled_hint">
+        <source></source>
+        <translation>Das Plugin ist deaktiviert: Die Einstellungen gelten, sobald es aktiviert ist.</translation>
+    </message>
+    <message id="store.settings">
+        <source></source>
+        <translation>Einstellungen</translation>
+    </message>
 </context>
 </TS>

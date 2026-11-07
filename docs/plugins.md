@@ -18,7 +18,8 @@ It can bring a QML page, an overlay and a background process in any language tha
   "process": {"exec": "bin/radio.py", "args": [], "restart": "on-failure"},
   "permissions": ["audio", "usb"],
   "shared": ["openhu.py"],
-  "androidAuto": {"services": ["radio"]}
+  "androidAuto": {"services": ["radio"]},
+  "settings": [{"key": "rds", "type": "switch", "default": true, "title": "RDS"}]
 }
 ```
 
@@ -32,7 +33,7 @@ It can bring a QML page, an overlay and a background process in any language tha
 | `ui.dock` | page as dock entry (users can change it, `plugin.setDock`) |
 | `ui.overlay` | QML above the whole shell, shown with `ui.overlay.show` / `ui.overlay.hide` |
 | `ui.icon` | SVG/PNG for the dock |
-| `process.exec` | started with the plugin dir as working directory; `.py`/`.sh` without executable bit run with python3/bash |
+| `process.exec` | started with the plugin dir as working directory; `.py`/`.sh`/`.ts`/`.js` without executable bit run with python3/bash/bun (bun is not part of OpenHU OS: a TypeScript plugin needs it installed, see [TypeScript](#typescript-bun)) |
 | `process.restart` | `on-failure` (default), `always`, `never`; crash loops back off up to 60 s |
 | `permissions` | shown in the store before installing (informational) |
 | `shared` | files from the repository's `common/` copied to `lib/` when the archive is built |
@@ -40,10 +41,12 @@ It can bring a QML page, an overlay and a background process in any language tha
 | `androidAuto` | what the plugin provides to Android Auto, see [Android Auto](#android-auto) |
 | `requires` | other plugins it needs: `{"org.openhu.can": "1.0.0"}` (id and minimum version, `""` for any) or a list of ids. Installed first by the store (refused when no source offers them), enabled along with it, started before it; without them it does not start and the store shows why. Disabling or removing a required plugin asks first and stops what requires it |
 | `recommends` | plugins it works with (list of ids), shown in the store ("Works with …") |
+| `settings` | settings the user changes in Settings → Apps & Store → Installed, see [Settings](#settings) |
 
 Processes get `OPENHU_API_URL`, `OPENHU_PLUGIN_ID`, `OPENHU_PLUGIN_DIR`, `OPENHU_LANGUAGE` (language of the shell at
 the start, see [Translations](#translations)), `OPENHU_DATA_DIR` (persistent data,
-`~/.openhu/plugin-data/<id>`, kept on updates) and `OPENHU_PLUGIN_TOKEN` (new for every start: the process logs in
+`~/.openhu/plugin-data/<id>`, kept on updates and on removal; its `config.json` is the plugin's
+[config store](#config-store), owned by OpenHU) and `OPENHU_PLUGIN_TOKEN` (new for every start: the process logs in
 with it, see [Android Auto](#android-auto); `openhu.py` does that). Output goes to `~/.openhu/logs/<id>.log`.
 Enabled/disabled and dock state are kept in `~/.openhu/plugins.json`.
 
@@ -53,6 +56,79 @@ device, passwords included. A plugin that offers a service to the network itself
 remote control) must not pass requests from there on to the API without its own login, otherwise it opens the API
 to the network without the token. `openhu.py` takes a token (`OpenHU(token=...)` or `OPENHU_API_TOKEN`) for running
 a plugin process on another computer against a head unit while developing.
+
+## Config store
+
+Every plugin has a config store in OpenHU (#152): one JSON object, kept in `~/.openhu/plugin-data/<id>/config.json`.
+OpenHU reads it when it loads the plugin, keeps it in memory and writes it (atomically) on every change; the plugin
+reads and changes it through the API (`openhu.py`/`openhu.ts`: `api.config`), never by writing the file itself.
+
+- **Declared keys** are the plugin's [settings](#settings): typed, checked against the manifest, with a default,
+  shown in Settings → Apps.
+- **Free keys** are everything else (stations, presets, the plugin's state): any JSON value, the plugin checks them.
+- The values (declared keys with their default where nothing valid is stored) are the topic `plugin.config.<id>`
+  `{values, changed}`, published when the plugin is loaded and on every change, also while the plugin is disabled.
+  `changed` lists the keys of the last change.
+- Methods ([api.md](api.md#methods)): `plugin.config.get`, `plugin.config.set` (one key or several at once, all or
+  none), `plugin.config.remove` (a free key is deleted, a declared one goes back to its default),
+  `plugin.config.reset` (all settings back to their defaults, free keys stay). Any API client may use them, like
+  `settings.set`.
+- At most 1 MB per plugin. A file that is not a JSON object is kept as `config.json.broken` and the store starts
+  empty. A file changed by someone else (by hand, a plugin that still writes it) is read again before the next change
+  and published, not overwritten.
+- The file is the one `load_config`/`save_config` of `openhu.py` used before, so existing configs carry over.
+
+```python
+api = OpenHU()
+api.config["ppm"]                           # at the start: config.json + the manifest's defaults, no connection needed
+api.config.get("stations", [])
+await api.config.set("frequency", 101.3)    # through OpenHU (checked for declared keys); before the connection: sent once connected
+await api.config.update({"band": "fm", "frequency": 99.5})
+await api.config.remove("oldKey")
+api.on_config(lambda values, changed: ...)  # changes from Settings → Apps or other clients
+```
+
+In QML: `BusTopic { id: config; topic: "plugin.config.org.example.radio" }` → `config.data.values`, changes with
+`api.request("plugin.config.set", {id: "org.example.radio", key: "rds", value: false})`.
+
+## Settings
+
+A plugin declares its settings in the manifest; OpenHU shows them in Settings → Apps & Store → Installed → Settings
+(also `ui.navigate` `settings/apps/<id>`), with the shell's own setting rows, also while the plugin is disabled. The
+values are declared keys of its [config store](#config-store).
+
+```json
+"settings": [
+  {"type": "section", "key": "tuner", "title": "Tuner"},
+  {"key": "gain", "type": "choice", "default": "auto", "options": ["auto", "0", "20", "49.6"], "title": "Tuner gain"},
+  {"key": "ppm", "type": "number", "default": 0, "min": -100, "max": 100, "title": "Frequency correction (ppm)"},
+  {"key": "biasTee", "type": "switch", "default": false, "applies": "restart", "title": "Bias-T",
+   "description": "Powers an active antenna through the stick"},
+  {"key": "name", "type": "text", "default": "", "maxLength": 20, "placeholder": "Golf", "title": "Name"}
+]
+```
+
+| Type | Shown as | Value | Keys |
+|---|---|---|---|
+| `switch` | switch | bool | – |
+| `choice` | buttons (up to 4 options), drop-down (more) | text from `options` (numbers are taken as text: `49.6` → `"49.6"`) | `options` |
+| `number` | number field | whole number | `min`, `max` (required), `step` (default 1, counted from `min`) |
+| `text` | text field | text | `maxLength` (default 256, at most 4096), `placeholder` |
+| `section` | heading | – | – |
+
+- Every entry: `key` (letters, digits, `_`, unique), `type`, `default` (required except for sections, in the type of
+  the value and valid itself), `title` and `description` (English, see below), `applies`: `now` (default: the process
+  follows the topic) or `restart` (OpenHU restarts the process after a change).
+- Values are checked and converted like `settings.set`: `"on"`/`"off"`, `"5"`; a wrong value is refused with the
+  reason. A stored value that does not fit any more (an update narrowed a range) counts as the default until it is set
+  again. A value equal to the default stays stored once the user picked it.
+- Invalid entries are left out and logged (`settings[3] gain: default: must be one of: …, left out`); the rest of the
+  plugin works. `tools/openhu-repo-index` (openhu-plugins) refuses them.
+- Texts: the shell asks the plugin's translation for `<id>.settings.<key>` (title), `<id>.settings.<key>.description`
+  and `<id>.settings.<key>.<option>` (label of a choice option) and falls back to `title`, `description` and the option
+  itself. Like `.name`, add them to the `.ts` files by hand ([Translations](#translations)).
+- Settings that need lists only the process knows (devices, profiles) or live state stay on the plugin's page; they
+  can still be free keys of the store.
 
 ## Android Auto
 
@@ -185,6 +261,23 @@ Rectangle {
         Button { text: "Reset"; onClicked: api.emitEvent("speed.command", {cmd: "reset"}) }
     }
 }
+```
+
+## TypeScript (bun)
+
+`common/openhu.ts` of openhu-plugins is the same client as `openhu.py` for [bun](https://bun.sh): API, events,
+`Texts`, `config`. A plugin names it in `shared` and starts `bin/<name>.ts` (run with bun when it has no executable
+bit). bun is not part of OpenHU OS: such a plugin runs where bun is installed (a development machine, an own image).
+
+```ts
+import { OpenHU } from "../lib/openhu.ts";
+
+const api = new OpenHU();
+api.on("vehicle.speed", async (topic, data) => {
+  await api.publish("speed.state", { kmh: data.kmh ?? 0 });
+});
+api.onConfig((values, changed) => console.log("settings", changed));
+await api.run();
 ```
 
 ## Repositories (store sources)

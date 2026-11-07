@@ -93,6 +93,63 @@ void registerPluginMethods(api::ApiServer& server, PluginManager& manager, Plugi
         return manager.plugin(id);
     });
 
+    // Config store (openhu#152, docs/plugins.md#config-store); also for disabled plugins
+    const auto knownPlugin = [&manager](const QVariantMap& params) {
+        const QString id = requireString(params, "id");
+        check(manager.config().contains(id), "unknown plugin: " + id);
+        return id;
+    };
+    server.registerMethod("plugin.config.get", [&manager, knownPlugin](const QVariantMap& params) -> QVariant {
+        const QString id = knownPlugin(params);
+        const QVariantMap values = manager.config().values(id);
+        if(params.contains("key"))
+        {
+            const QString key = requireString(params, "key");
+            check(values.contains(key), "unknown key: " + key);
+            return QVariantMap{{"id", id}, {"key", key}, {"value", values.value(key)}};
+        }
+        return QVariantMap{{"id", id}, {"values", values}};
+    });
+    server.registerMethod("plugin.config.set", [&manager, knownPlugin](const QVariantMap& params) -> QVariant {
+        const QString id = knownPlugin(params);
+        QVariantMap changes;
+        if(params.contains("values"))
+        {
+            check(params.value("values").typeId() == QMetaType::QVariantMap, "values must be an object");
+            changes = params.value("values").toMap();
+        }
+        else
+        {
+            check(params.contains("value"), "missing parameter: value");
+            changes.insert(requireString(params, "key"), params.value("value"));
+        }
+        checkError(manager.setConfig(id, changes));
+        const QVariantMap values = manager.config().values(id);
+        if(!params.contains("values"))
+        {
+            const QString key = params.value("key").toString();
+            return QVariantMap{{"id", id}, {"key", key}, {"value", values.value(key)}};
+        }
+        QVariantMap result;
+        for(const auto& key: changes.keys())
+        {
+            result.insert(key, values.value(key));
+        }
+        return QVariantMap{{"id", id}, {"values", result}};
+    });
+    server.registerMethod("plugin.config.remove", [&manager, knownPlugin](const QVariantMap& params) -> QVariant {
+        const QString id = knownPlugin(params);
+        const QStringList keys = params.contains("keys") ? params.value("keys").toStringList()
+                                                         : QStringList{requireString(params, "key")};
+        checkError(manager.removeConfig(id, keys));
+        return QVariantMap{{"id", id}, {"values", manager.config().values(id)}};
+    });
+    server.registerMethod("plugin.config.reset", [&manager, knownPlugin](const QVariantMap& params) -> QVariant {
+        const QString id = knownPlugin(params);
+        checkError(manager.resetConfig(id));
+        return QVariantMap{{"id", id}, {"values", manager.config().values(id)}};
+    });
+
     server.registerMethod("ui.overlay.show", [&manager](const QVariantMap& params) -> QVariant {
         const QString id = requireString(params, "id");
         check(manager.setOverlayVisible(id, true), "plugin without overlay or disabled: " + id);
