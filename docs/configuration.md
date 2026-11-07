@@ -87,6 +87,23 @@ Where the keys are in the settings:
 | Key | Default | |
 |---|---|---|
 | `DuckLevel` | `20` | loudness of local sources (radio and other processes' audio streams) in % while Android Auto plays a navigation prompt, like Android's ducking (20 % loudness = -14 dB). The Assistant (transient audio focus) mutes them. The original volumes come back afterwards, on disconnect and when OpenHU ends; after a crash, a stream that starts below its remembered volume gets it back (`~/.openhu/audio-duck.json`). Needs `pactl` 16 or newer (`-f json`) |
+| `SourceLevels` | – | level of each audio source in dB as JSON, e.g. `{"aa.media":-3,"org.openhu.radio.dab":-6}` (Settings → Audio → Source levels, API `audio.level.set`). Only attenuation, −20 to 0 dB; sources at 0 dB are not stored. Every source plays into its own PipeWire sink (`openhu.<source id>`) with a level and an EQ, see [Audio sources](#audio-sources) |
+
+#### Audio sources
+
+Every source of sound has its own PipeWire filter-chain sink, so that switching sources keeps the loudness (#154):
+
+| Source | Sink |
+|---|---|
+| Android Auto media, navigation, calls, system sounds | `openhu.aa.media`, `openhu.aa.guidance`, `openhu.aa.call`, `openhu.aa.system` |
+| plugin sources (`audio.sources` in the manifest, [plugins.md](plugins.md#audio)) | `openhu.<plugin id>.<source id>`, or `openhu.<plugin id>` for a plugin with the `audio` permission and no list |
+
+Each chain is a flat 10-band EQ (for the EQ plugin, openhu-plugins#43), the source level and a gain for ducking;
+its output follows the default sink (the Bluetooth car radio moves it, `[CarAudio]`). OpenHU creates the sinks itself
+with `pipewire -c <config>` (one process for its own sources and one per plugin, configs in
+`$XDG_RUNTIME_DIR/openhu-audio/`) and ends them with it. Sinks that exist already under these names (shipped by the
+OS) are used as they are. Needs PipeWire (`pipewire-bin`); without it everything plays on the default output, without
+levels.
 
 ### [Radio]
 

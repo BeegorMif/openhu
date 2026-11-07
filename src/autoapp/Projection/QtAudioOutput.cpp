@@ -41,8 +41,10 @@ constexpr qint64 cMaxQueuedUs = 60000;
 constexpr int64_t cStallMs = 100;
 }
 
-QtAudioOutput::QtAudioOutput(uint32_t channelCount, uint32_t sampleSize, uint32_t sampleRate, std::string name)
+QtAudioOutput::QtAudioOutput(uint32_t channelCount, uint32_t sampleSize, uint32_t sampleRate, std::string name,
+                             QString sink)
     : audioBuffer_(nullptr)
+    , sink_(std::move(sink))
     , playbackStarted_(false)
     , name_(std::move(name))
 {
@@ -70,9 +72,36 @@ void QtAudioOutput::createAudioOutput()
     std::lock_guard<std::mutex> lock(outputMutex_);
     // QAudioSink is opened on a device, not on "the default". With PipeWire 1.4 its stream followed a new default
     // all the same, but a new stream is opened on the default of that moment (onStartPlayback) so that it does not
-    // depend on that (Bluetooth car radio, #112; OutputRouter moves the playing ones).
-    device_ = QMediaDevices::defaultAudioOutput();
+    // depend on that (Bluetooth car radio, #112; OutputRouter moves the playing ones). With an audio source's sink
+    // (#154) the stream opens there; the sink's chain goes to the output. A sink that is not there yet (its process
+    // starts) is looked up again at the next stream start.
+    device_ = this->currentDevice();
     audioOutput_ = std::make_unique<QAudioSink>(device_, audioFormat_);
+}
+
+QAudioDevice QtAudioOutput::deviceFor(const QString& sink, const QList<QAudioDevice>& outputs,
+                                      const QAudioDevice& defaultOutput)
+{
+    if(!sink.isEmpty())
+    {
+        for(const QAudioDevice& device: outputs)
+        {
+            if(QString::fromUtf8(device.id()) == sink)
+            {
+                return device;
+            }
+        }
+    }
+    return defaultOutput;
+}
+
+QAudioDevice QtAudioOutput::currentDevice() const
+{
+    if(sink_.isEmpty())
+    {
+        return QMediaDevices::defaultAudioOutput();
+    }
+    return deviceFor(sink_, QMediaDevices::audioOutputs(), QMediaDevices::defaultAudioOutput());
 }
 
 bool QtAudioOutput::open()
@@ -210,10 +239,10 @@ uint32_t QtAudioOutput::getSampleRate() const
 
 QIODevice* QtAudioOutput::startSink()
 {
-    const QAudioDevice device = QMediaDevices::defaultAudioOutput();
+    const QAudioDevice device = this->currentDevice();
     if(!device.isNull() && device.id() != device_.id())
     {
-        OPENAUTO_LOG(info) << "[QtAudioOutput] " << name_ << ": default output now " << device.id().toStdString();
+        OPENAUTO_LOG(info) << "[QtAudioOutput] " << name_ << ": output now " << device.id().toStdString();
         device_ = device;
         audioOutput_ = std::make_unique<QAudioSink>(device_, audioFormat_);
     }

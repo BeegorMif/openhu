@@ -117,6 +117,7 @@ QList<SinkInput> parseSinkInputs(const QByteArray& sinkInputsJson, const QByteAr
         }
         input.appName = properties.value("application.name").toString();
         input.mediaName = properties.value("media.name").toString();
+        input.nodeName = properties.value("node.name").toString();
         const QJsonValue owner = object.value("owner_module");
         input.module = !owner.isNull() && !owner.isUndefined() && owner.toString() != QLatin1String("n/a");
         inputs.append(input);

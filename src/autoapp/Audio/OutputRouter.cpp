@@ -204,8 +204,17 @@ bool isA2dpSink(const std::optional<BluetoothCard>& card, const QString& sink)
     return true;
 }
 
+bool isSourceChainOutput(const SinkInput& input)
+{
+    return input.nodeName.startsWith(QLatin1String("openhu.")) && input.nodeName.endsWith(QLatin1String(".output"));
+}
+
 bool followsOutput(const SinkInput& input)
 {
+    if(isSourceChainOutput(input))
+    {
+        return true;
+    }
     if(input.module)
     {
         return false;
@@ -400,16 +409,28 @@ QList<quint32> OutputRouter::streamsToMove(const QList<SinkInput>& inputs, const
         }
     }
     const auto toIndex = indexOf(sinks, to);
+    // the audio sources' sinks (#154): what plays into them stays, their chains' outputs move
+    QSet<quint32> sourceSinks;
+    for(const Sink& sink: sinks)
+    {
+        if(sink.name.startsWith(QLatin1String("openhu.")))
+        {
+            sourceSinks.insert(sink.index);
+        }
+    }
     QList<quint32> result;
     for(const SinkInput& input: inputs)
     {
-        if(!followsOutput(input) || (streamFilter_ && !streamFilter_(input)) || (toIndex && input.sink == *toIndex))
+        if(!followsOutput(input) || (streamFilter_ && !streamFilter_(input)) || (toIndex && input.sink == *toIndex)
+           || sourceSinks.contains(input.sink))
         {
             continue;
         }
-        // OpenHU's own streams (Android Auto) always go to the output, wherever they play (the audio server may have
-        // made the Bluetooth sink the default before OpenHU looked, then the output before is not known)
-        const bool own = input.pid != 0 && input.pid == ownPid_ && (input.binary.isEmpty() || input.binary == ownBinary_);
+        // OpenHU's own streams (Android Auto, or the chains of the audio sources) always go to the output, wherever
+        // they play (the audio server may have made the Bluetooth sink the default before OpenHU looked, then the
+        // output before is not known)
+        const bool own = isSourceChainOutput(input)
+                         || (input.pid != 0 && input.pid == ownPid_ && (input.binary.isEmpty() || input.binary == ownBinary_));
         if(own || fromIndices.contains(input.sink) || also.contains(input.index))
         {
             result.append(input.index);

@@ -108,6 +108,8 @@ public:
     void setRadioServiceEnabled(bool value) override;
     int duckLevel() const override;
     void setDuckLevel(int value) override;
+    QHash<QString, int> sourceLevels() const override;
+    void setSourceLevels(const QHash<QString, int>& levels) override;
 
     QString getParamFromFile(QString fileName, QString searchString) const override;
 
@@ -144,6 +146,7 @@ private:
     bool audioChannelEnabledTelephony_;
     bool radioServiceEnabled_;
     int duckLevel_;
+    QHash<QString, int> sourceLevels_;
 };
 
 }

@@ -255,6 +255,41 @@ private slots:
                                            "move-sink-input 12 " + cSpeakers, "move-sink-input 13 " + cSpeakers}));
     }
 
+    // With the audio sources' chains (#154): Android Auto plays into its source sink and stays there, the chain's
+    // output (a stream of the "pipewire -c" process) moves to the radio and back
+    void sourceChainsMoveNotWhatPlaysIntoThem()
+    {
+        this->write("sinks", sinks(true) + "90\topenhu.aa.media\tPipeWire\tfloat32le 2ch 48000Hz\tRUNNING\n");
+        const QString inputs = QStringLiteral(R"([
+{"index":11,"owner_module":null,"client":"5","sink":90,"channel_map":"front-left,front-right",
+ "volume":{"front-left":{"value":65536},"front-right":{"value":65536}},
+ "properties":{"application.name":"openhu","media.name":"QtmPulseStream-1000-1","application.process.id":"1000",
+  "application.process.binary":"openhu"}},
+{"index":17,"owner_module":null,"client":"40","sink":%1,"channel_map":"front-left,front-right",
+ "volume":{"front-left":{"value":65536},"front-right":{"value":65536}},
+ "properties":{"media.name":"OpenHU aa.media","node.name":"openhu.aa.media.output","application.process.id":"5000",
+  "application.process.binary":"pipewire"}}
+])");
+        this->write("sink-inputs.json", inputs.arg(55));
+        const QList<SinkInput> parsed = parseSinkInputs(inputs.arg(55).toUtf8());
+        QVERIFY(isSourceChainOutput(parsed[1]));
+        QVERIFY(followsOutput(parsed[1]));
+        QVERIFY(!isSourceChainOutput(parsed[0]));
+
+        auto router = this->router();
+        QSignalSpy routed(router.get(), &OutputRouter::routed);
+        router->route(cAddress);
+        QTRY_COMPARE(routed.size(), 1);
+        QCOMPARE(this->sortedLog(), sorted(QStringList{"set-default-sink " + cRadio, "move-sink-input 17 " + cRadio}));
+
+        this->clearLog();
+        this->write("sink-inputs.json", inputs.arg(80));
+        QSignalSpy restored(router.get(), &OutputRouter::restored);
+        router->restore();
+        QTRY_COMPARE(restored.size(), 1);
+        QCOMPARE(this->sortedLog(), sorted(QStringList{"set-default-sink " + cSpeakers, "move-sink-input 17 " + cSpeakers}));
+    }
+
     void streamsThatFollowTheDefaultAreLeftAlone()
     {
         // the pacat moved with the default by itself already

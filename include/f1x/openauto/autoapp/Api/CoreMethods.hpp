@@ -19,6 +19,7 @@
 #pragma once
 
 #include <f1x/openauto/autoapp/Api/ApiServer.hpp>
+#include <f1x/openauto/autoapp/Audio/AudioGraph.hpp>
 #include <f1x/openauto/autoapp/Audio/VolumeController.hpp>
 #include <f1x/openauto/autoapp/Shell/ShellController.hpp>
 #include <f1x/openauto/autoapp/Input/ActionDispatcher.hpp>
@@ -35,6 +36,8 @@ namespace api
 // system.*, bus.*, volume.*, ui.*, daynight.*, input.* (see docs/api.md)
 void registerCoreMethods(ApiServer& server, audio::VolumeController& volume, shell::ShellController& shell,
                          input::ActionDispatcher& actions);
+// audio.sources, audio.level.set: the levels of the audio sources (#154)
+void registerAudioMethods(ApiServer& server, audio::AudioGraph& graph);
 
 }
 }

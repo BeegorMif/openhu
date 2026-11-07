@@ -1,9 +1,11 @@
 # Installation
 
-> [!NOTE]
-> OpenHU is developed and tested in a container on x86_64 (Debian 13 "trixie" image). Running it directly on a
-> Raspberry Pi is the goal, but **not tested yet**, and there are no ready-made arm64 packages (planned). The
-> steps below for bare metal follow from how the container works; please report what does not fit.
+> [!IMPORTANT]
+> **Supported:** OpenHU OS ([average-web-dev/openhu-os](https://github.com/average-web-dev/openhu-os), the image
+> for the head unit, which installs and updates OpenHU itself) and the development container below.
+> Installing the OpenHU `.deb` on another system (Debian, Ubuntu, Raspberry Pi OS) is **not supported**: the
+> package is built for OpenHU OS. To run OpenHU on another computer, use the container. The
+> [bare metal](#bare-metal-raspberry-pi-debian-ubuntu) notes below are kept for reference only.
 
 - [Requirements](#requirements)
 - [Development in a container](#development-in-a-container) – the tested way
@@ -18,7 +20,7 @@
 | Computer | Raspberry Pi 4/5 (arm64) or an x86_64 PC |
 | OS | Debian 13 "trixie" or Raspberry Pi OS based on it (Qt 6.8); Debian 12 / bookworm is not supported (Qt 6.4) |
 | Display | X11 or Wayland, touch recommended (without a desktop: see below) |
-| Audio | PulseAudio or PipeWire with `pipewire-pulse` (volume control uses `pactl`) |
+| Audio | PipeWire with `pipewire-pulse` (volume control uses `pactl`, the audio sources' sinks `pipewire -c`, see [configuration.md](configuration.md#audio-sources)) |
 | Phone | Android with Android Auto; wireless needs Android 11+ and 5 GHz WiFi in most phones |
 | Wireless AA | Bluetooth adapter (BlueZ), WiFi card with access point mode managed by NetworkManager |
 | Car radio | Bluetooth radio with A2DP (and ideally AVRCP for buttons/title) |
@@ -57,6 +59,9 @@ blocks D-Bus otherwise) need it. Settings are stored in `docker/config/openhu.in
 `docker/data/`.
 
 ## Bare metal (Raspberry Pi, Debian, Ubuntu)
+
+> [!WARNING]
+> Not supported, for reference only: use OpenHU OS on the head unit and the container everywhere else.
 
 ### Build and install
 

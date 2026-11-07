@@ -50,6 +50,7 @@
 #include <f1x/openauto/autoapp/Api/ApiServer.hpp>
 #include <f1x/openauto/autoapp/Api/ClientFilter.hpp>
 #include <f1x/openauto/autoapp/Api/CoreMethods.hpp>
+#include <f1x/openauto/autoapp/Audio/AudioGraph.hpp>
 #include <f1x/openauto/autoapp/Audio/DuckingController.hpp>
 #include <f1x/openauto/autoapp/Audio/VolumeController.hpp>
 #include <f1x/openauto/autoapp/Core/ChildProcesses.hpp>
@@ -248,7 +249,31 @@ int main(int argc, char* argv[])
     autoapp::plugins::PluginStore pluginStore(pluginManager);
     autoapp::plugins::registerPluginMethods(apiServer, pluginManager, pluginStore);
     autoapp::plugins::QmlApi qmlApi(apiServer);
+
+    // Every source of sound plays into its own PipeWire sink with its own level (#154): Android Auto's outputs and
+    // the sources the plugins declare. Plugin processes get their sinks in the environment.
+    autoapp::audio::AudioGraph audioGraph(configuration->sourceLevels(),
+                                          [configuration](const QHash<QString, int>& levels) {
+                                              configuration->setSourceLevels(levels);
+                                              configuration->save();
+                                          });
+    autoapp::api::registerAudioMethods(apiServer, audioGraph);
+    pluginManager.setEnvironmentProvider([](const QString& id, const QVariantMap& manifest) {
+        return autoapp::audio::sinkEnvironment(autoapp::audio::pluginSources(id, manifest));
+    });
+    const auto updateAudioSources = [&pluginManager, &audioGraph]() {
+        QHash<QString, QList<autoapp::audio::AudioSource>> sources;
+        const auto manifests = pluginManager.activeManifests();
+        for(auto it = manifests.cbegin(); it != manifests.cend(); ++it)
+        {
+            sources.insert(it.key(), autoapp::audio::pluginSources(it.key(), it.value()));
+        }
+        audioGraph.setPluginSources(sources);
+    };
+    QObject::connect(&pluginManager, &autoapp::plugins::PluginManager::pluginsChanged, &audioGraph, updateAudioSources);
+    audioGraph.start();
     pluginManager.load();
+    updateAudioSources();
 
     // Wireless Android Auto: Bluetooth (BlueZ) + WiFi hotspot (NetworkManager)
     autoapp::bt::BluetoothManager bluetoothManager(configuration);
@@ -297,6 +322,7 @@ int main(int argc, char* argv[])
     engine.rootContext()->setContextProperty("shell", &shellController);
     engine.rootContext()->setContextProperty("settings", &settingsController);
     engine.rootContext()->setContextProperty("volume", &volumeController);
+    engine.rootContext()->setContextProperty("audioSources", &audioGraph);
     engine.rootContext()->setContextProperty("actions", &actionDispatcher);
     engine.rootContext()->setContextProperty("plugins", &pluginManager);
     engine.rootContext()->setContextProperty("store", &pluginStore);
@@ -317,6 +343,7 @@ int main(int argc, char* argv[])
         carAudio.stop();
         wirelessController.stop();
         pluginManager.stopAll();
+        audioGraph.stop();
         volumeController.stop();
         configuration->save();
         std::fflush(nullptr);
@@ -357,6 +384,7 @@ int main(int argc, char* argv[])
         carAudio.stop();
         wirelessController.stop();
         pluginManager.stopAll();
+        audioGraph.stop();
         volumeController.stop();
     });
 

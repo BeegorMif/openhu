@@ -43,6 +43,7 @@ struct SinkInput
     QString binary;        // application.process.binary
     QString appName;       // application.name
     QString mediaName;     // media.name
+    QString nodeName;      // node.name (PipeWire)
     bool module = false;   // created by a module of the audio server (loopback, filter), not an application
 
     // key that survives the stream (a new stream of the same application after a restart)

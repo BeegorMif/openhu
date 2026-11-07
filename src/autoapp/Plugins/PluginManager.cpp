@@ -650,6 +650,13 @@ void PluginManager::startProcess(Plugin& plugin)
     // at the start; a switch later comes as the topic ui.language
     environment.insert("OPENHU_LANGUAGE", core::EventBus::instance().last("ui.language").value("language").toString());
     environment.insert("PYTHONUNBUFFERED", "1");
+    if(environmentProvider_)
+    {
+        for(const auto& entry: environmentProvider_(plugin.id, plugin.manifest))
+        {
+            environment.insert(entry.first, entry.second);
+        }
+    }
 
     plugin.process = std::make_unique<QProcess>();
     plugin.process->setProcessEnvironment(environment);
@@ -755,6 +762,24 @@ void PluginManager::onProcessFinished(const QString& id, int exitCode, QProcess:
                           : std::min(cMaxRestartDelayMs, std::max(1000, plugin.restartDelay * 2));
     OPENAUTO_LOG(info) << "[PluginManager] restarting " << id.toStdString() << " in " << plugin.restartDelay << " ms";
     plugin.restartTimer.start(plugin.restartDelay);
+}
+
+QHash<QString, QVariantMap> PluginManager::activeManifests() const
+{
+    QHash<QString, QVariantMap> result;
+    for(const auto& entry: plugins_)
+    {
+        if(entry.second->enabled && entry.second->compatible)
+        {
+            result.insert(entry.first, entry.second->manifest);
+        }
+    }
+    return result;
+}
+
+void PluginManager::setEnvironmentProvider(EnvironmentProvider provider)
+{
+    environmentProvider_ = std::move(provider);
 }
 
 QVariantMap PluginManager::toVariant(const Plugin& plugin) const

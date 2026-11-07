@@ -96,6 +96,27 @@ private slots:
         QCOMPARE(config.getVehicleId().size(), size_t(16));
     }
 
+    // [Audio] SourceLevels (#154): JSON, attenuation only, 0 dB not stored
+    void sourceLevels()
+    {
+        TestHome home;
+        {
+            Configuration config;
+            QVERIFY(config.sourceLevels().isEmpty());
+            config.setSourceLevels({{"aa.media", -6}, {"org.openhu.radio.fm", -12}});
+            config.save();
+        }
+        Configuration config;
+        QCOMPARE(config.sourceLevels().value("aa.media"), -6);
+        QCOMPARE(config.sourceLevels().value("org.openhu.radio.fm"), -12);
+
+        writeFile(home.path("openhu.ini"),
+                  "[Audio]\nSourceLevels={\"aa.media\":5,\"aa.call\":-40,\"aa.system\":0,\"broken\":\"x\"}\n");
+        Configuration edited;
+        const QHash<QString, int> expected{{"aa.call", -20}};
+        QCOMPARE(edited.sourceLevels(), expected);
+    }
+
     void resetRestoresDefaults()
     {
         TestHome home;

@@ -70,6 +70,7 @@ networks you trust.
 | `radio.slide` | of the radio plugin: `band`, `station` (DAB service id), `image` (data URL, empty if none) – the DAB+ slideshow picture (MOT SLS) of the station that plays, from the broadcast; album art of the current station in Android Auto |
 | `phone.status` | `callState` (`idle`, `incoming`, `in_call`, `on_hold`, …), `calls` (`[{state, duration, number, name, numberType, thumbnail}]`), `signal` |
 | `audio.volume` | `volume` (0–100), `muted` |
+| `audio.sources` | `sources` (list of `{id, name, textId, sink, plugin, pluginName, level, canPause, present}`: the audio sources with their sinks, `level` in dB, `present`: the sink exists), `min`, `max` (level range in dB, −20 and 0). See `audio.level.set` and [configuration.md](configuration.md#audio-sources) |
 | `audio.duck` | `active`, `level` (loudness of local sources in %, 0 = muted, 100 = unchanged), `reason` (`transient`: audio focus GAIN_TRANSIENT, expected for the Assistant, muted; `may_duck`: GAIN_TRANSIENT_MAY_DUCK, expected for navigation prompts; `guidance`: another or no focus request; both lowered to Settings → Audio, `Audio.DuckLevel`; empty while inactive). While Android Auto plays on its guidance channel, OpenHU lowers the streams of other processes (e.g. the radio plugin's `pacat`) itself with `pactl`, with short fades, and restores them afterwards; plugins need not do anything, the topic is for UI hints |
 | `system.daynight` | `night` (bool) – switches Android Auto to night mode while Settings → Android Auto → Night mode is "Automatic" |
 | `system.nightMode` | `mode` (`auto`, `day`, `night`) – that setting (`General.NightMode`) |
@@ -211,6 +212,8 @@ is on, and always need the token.
 | `settings.list` | – | `{values, pending}` – all settings (keys as in the settings page: `aa.fps`, `wireless.hotspot`, …); passwords and the API token (`secret`) only for clients on the device |
 | `settings.get` | `key` | `{key, value}`; unknown key → error |
 | `settings.set` | `key`, `value` | `{key, value, applies, pending}` – the same checks as the settings page, saved to `openhu.ini` right away; the value may be text (`"60"`, `"on"`, `"false"`) and is converted to the key's type; a wrong value → error with the reason |
+| `audio.sources` | – | `{sources, min, max}` like the topic `audio.sources` |
+| `audio.level.set` | `source` (id, e.g. `aa.media`, `org.openhu.radio.fm`), `level` (dB, −20 to 0, clamped) | `{source, level}`; stored in `Audio.SourceLevels`, applied at once |
 | `volume.get` | – | `{volume, muted}` |
 | `volume.set` | `value` (0–100) | `{volume, muted}` |
 | `volume.change` | `delta` (e.g. `5`, `-5`) | `{volume, muted}` |

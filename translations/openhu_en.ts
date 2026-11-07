@@ -359,6 +359,34 @@
         <source></source>
         <translation>Mute</translation>
     </message>
+    <message id="settings.audio.source_levels">
+        <source></source>
+        <translation>Source levels</translation>
+    </message>
+    <message id="settings.audio.source_levels_description">
+        <source></source>
+        <translation>Lower the louder sources until all of them sound equally loud when you switch. Levels only go down, so nothing distorts.</translation>
+    </message>
+    <message id="settings.audio.source_not_ready">
+        <source></source>
+        <translation>not ready</translation>
+    </message>
+    <message id="settings.audio.source.aa_media">
+        <source></source>
+        <translation>Android Auto: media</translation>
+    </message>
+    <message id="settings.audio.source.aa_guidance">
+        <source></source>
+        <translation>Android Auto: navigation</translation>
+    </message>
+    <message id="settings.audio.source.aa_call">
+        <source></source>
+        <translation>Android Auto: calls</translation>
+    </message>
+    <message id="settings.audio.source.aa_system">
+        <source></source>
+        <translation>Android Auto: system sounds</translation>
+    </message>
     <message id="settings.audio.car_radio_bluetooth">
         <source></source>
         <translation>Car radio (Bluetooth)</translation>
