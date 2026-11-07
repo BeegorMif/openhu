@@ -86,6 +86,7 @@ networks you trust.
 | `vehicle.control.set`, `vehicle.control.result`, `vehicle.control.action` | events between OpenHU and that plugin, see [Car controls](#car-controls-android-auto-climate-rail) |
 | `vehicle.simulate` | `state` (`park`, `drive`, `reverse`, empty = off) – a driving state for tests, through the API or Settings → Debug (`debug.simulate`, debug mode; the status bar then shows it) (`openhu-cli api bus.publish '{"topic": "vehicle.simulate", "data": {"state": "park"}}'`), kept until OpenHU ends: Android Auto gets its gear, parking brake, speed (0, 50 or 5 km/h) and driving status (parked: unrestricted, otherwise every restriction) instead of the vehicle data from plugins. Parking brake and speed are announced only when a state is set at the connect: set it, then reconnect the phone; afterwards it can be switched during the session |
 | `plugins.state` | `plugins` – installed plugins (like `plugin.list`), on every change (load, enable, disable, dock) |
+| `plugin.config.<id>` | `values`, `changed` (keys) – the [config store](plugins.md#config-store) of a plugin: when it is loaded and on every change (also from outside, also while it is disabled); declared settings with their default where nothing valid is stored |
 | `store.state` | `busy`, `status`, `error` – progress of store operations |
 | `wireless.state` | `enabled`, `wifiAvailable` (a WiFi card is there), `wifiInterface`, `bluetoothAvailable` (a Bluetooth adapter is there; wireless Android Auto needs both and starts by itself when one is plugged in later), `running`, `hotspot` (`off`, `starting`, `on`, `error`), `hotspotMode` (`always`, `demand`), `hotspotError`, `hotspotRoom` (the hotspot leaves the card to WiFi networks: `search`, `client`, empty), `searchUntil` (ms since 1970), `wifiOff`, `interface`, `channel`, `ssid`, `bluetooth` (`off`, `on`, `error`), `bluetoothError`, `phase` (`idle`, `waiting`, `hotspot`, `handshake`, `joining`, `connected`, `error`), `phaseText`, `device` |
 | `wifi.state` | `available` (a WiFi card is there), `ready` (the cards are known), `enabled`, `devices` (WiFi cards), `client` (`ssid`, `ip`, `device`, `uuid`) while OpenHU is in a known WiFi network, `internet`, `networks` (saved ones, `uuid`, `ssid`, `priority`, `secured`, `hidden`, `active`, `joined` = connected at least once; highest priority first), `found` (after `wifi.scan`: `ssid`, `signal`, `security`, `secured`, `known`), `scanning`, `busy`, `message`, `hotspotDevice` (the card runs OpenHU's hotspot) |
@@ -214,16 +215,20 @@ is on, and always need the token.
 | `volume.set` | `value` (0–100) | `{volume, muted}` |
 | `volume.change` | `delta` (e.g. `5`, `-5`) | `{volume, muted}` |
 | `volume.mute` | `muted` (optional, toggles without) | `{volume, muted}` |
-| `ui.navigate` | `page` (`home`, `aa`, `settings`, `settings/<category>`, `store` = `settings/apps`, `plugin:<id>`); categories: `general`, `aa`, `audio`, `wifi`, `bluetooth`, `network`, `keys`, `apps`, `system`, `info` (one that is not there, e.g. without its adapter, shows General) | `{}` |
+| `ui.navigate` | `page` (`home`, `aa`, `settings`, `settings/<category>`, `store` = `settings/apps`, `settings/apps/<plugin id>` = the settings of a plugin, `plugin:<id>`); categories: `general`, `aa`, `audio`, `wifi`, `bluetooth`, `network`, `keys`, `apps`, `system`, `info` (one that is not there, e.g. without its adapter, shows General) | `{}` |
 | `ui.toast` | `text`, `duration` (ms, default 3000) | `{}` |
 | `daynight.set` | `night` (bool) | `{}` |
 | `projection.reconnect` | – | `{reset:[...]}` – USB reset of the phone, Android Auto reconnects |
 | `input.action` | `action`, `phase` (`click` default, `press`, `release`) | `{handled}` |
 | `input.actions` | – | built-in actions with description |
 | `input.keymap` | – | active keyboard mapping |
-| `plugin.list` | – | installed plugins (`id`, `name`, `version`, `enabled`, `running`, `dock`, `page`, `overlay`, `androidAuto`, `requires`, `recommends`, `missing`: [{`id`, `version`, `reason`: `notInstalled`/`tooOld`/`disabled`/`incompatible`}], …) |
+| `plugin.list` | – | installed plugins (`id`, `name`, `version`, `enabled`, `running`, `dock`, `page`, `overlay`, `androidAuto`, `requires`, `recommends`, `missing`: [{`id`, `version`, `reason`: `notInstalled`/`tooOld`/`disabled`/`incompatible`}], `settings` (the checked `settings` of the manifest, only when it has some), …) |
 | `plugin.enable` / `plugin.disable` | `id`, `force` (disable) | plugin; enabling also enables what it `requires`; disabling one that enabled plugins require is refused (`required by …`) unless `force: true`, which disables them too. Error `android auto connected` for a plugin with `androidAuto` (or one such a plugin requires) while the phone is connected |
 | `plugin.restart` | `id` | plugin – restarts its process |
+| `plugin.config.get` | `id`, `key` (optional) | `{id, values}`, or `{id, key, value}`; an unknown key → error ([config store](plugins.md#config-store)) |
+| `plugin.config.set` | `id` and `key`, `value` – or `values` (object, several keys, all or none) | `{id, key, value}` or `{id, values}` – declared settings are checked and converted like `settings.set` (a wrong value → error with the reason), free keys take any JSON value; at most 1 MB per plugin; also for disabled plugins. A changed setting with `"applies": "restart"` restarts the process |
+| `plugin.config.remove` | `id` and `key` or `keys` | `{id, values}` – a free key is deleted, a declared one goes back to its default |
+| `plugin.config.reset` | `id` | `{id, values}` – all settings back to their defaults, free keys stay |
 | `plugin.setDock` | `id`, `dock` (bool) | plugin – page as dock entry |
 | `ui.overlay.show` / `ui.overlay.hide` | `id` | `{}` – plugin overlay above everything, including Android Auto (the phone is told, see above) |
 | `store.list` | – | packages of all sources with `installed`, `installedVersion`, `updateAvailable`, `source`, `official` |

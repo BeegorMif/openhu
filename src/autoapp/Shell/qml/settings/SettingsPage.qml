@@ -25,8 +25,18 @@ Item {
     ], system.available ? [{ id: "system", label: qsTrId("settings.page.system"), file: "SystemSettings.qml" }] : [],
              [{ id: "info", label: qsTrId("settings.page.info"), file: "InfoSettings.qml" }],
              settings.values["debug.enabled"] ? [{ id: "debug", label: qsTrId("settings.page.debug"), file: "DebugSettings.qml" }] : [])
+    // "apps/<plugin id>": the settings of a plugin inside Apps (openhu#152)
+    readonly property string categoryId: category.split("/")[0]
+    readonly property string subPage: category.slice(categoryId.length + 1)
+    // only the Apps page takes a sub page (settingsFor: the plugin whose settings it shows)
+    function passSubPage() {
+        const item = categoryPage.item
+        if (item && "settingsFor" in item)
+            item.settingsFor = subPage
+    }
+    onSubPageChanged: passSubPage()
     // a category that is not there (no adapter, not on OpenHU OS): General
-    readonly property var shown: categories.find(entry => entry.id === category) || categories[0]
+    readonly property var shown: categories.find(entry => entry.id === categoryId) || categories[0]
 
     // A new Android Auto connection applies the pending changes
     Connections {
@@ -129,9 +139,11 @@ Item {
             }
 
             Loader {
+                id: categoryPage
                 Layout.fillWidth: true
                 Layout.fillHeight: true
                 source: page.shown.file
+                onLoaded: page.passSubPage()
             }
         }
     }

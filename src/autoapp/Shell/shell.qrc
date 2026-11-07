@@ -36,6 +36,7 @@
         <file>qml/settings/SettingDropdown.qml</file>
         <file>qml/settings/SettingNumber.qml</file>
         <file>qml/settings/SettingText.qml</file>
+        <file>qml/settings/PluginSettings.qml</file>
         <file>qml/settings/SectionTitle.qml</file>
         <file>qml/settings/KeymapSettings.qml</file>
         <file>qml/settings/ConfirmButton.qml</file>

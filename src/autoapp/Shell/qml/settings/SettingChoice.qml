@@ -6,6 +6,8 @@ import OpenHU 1.0
 SettingRow {
     id: choice
     property string key
+    // where the value lives: the shell's settings, or a plugin's config store (PluginSettings.qml)
+    property var backend: settings
     property var options: []
 
     Row {
@@ -15,9 +17,9 @@ SettingRow {
             Button {
                 text: modelData.label
                 checkable: true
-                checked: settings.values[choice.key] === modelData.value
+                checked: choice.backend.values[choice.key] === modelData.value
                 highlighted: checked
-                onClicked: settings.set(choice.key, modelData.value)
+                onClicked: choice.backend.set(choice.key, modelData.value)
             }
         }
     }

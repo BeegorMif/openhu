@@ -46,6 +46,7 @@ openhu_test(test_pluginqml)
 openhu_test(test_androidauto)
 openhu_test(test_carcontrol)
 openhu_test(test_plugindeps)
+openhu_test(test_pluginconfig)
 # loads Keyboard.qml from the sources (shell.qrc is part of the program, not of openhu_core)
 target_compile_definitions(test_keyboard PRIVATE OPENHU_SHELL_QML_DIR="${CMAKE_SOURCE_DIR}/src/autoapp/Shell/qml")
 # a plugin translation

@@ -68,7 +68,8 @@ jobs:
 
       # Package name/architecture, then install in a clean Debian: every library of openhu must resolve,
       # and the shell starts headless and shows all pages without QML warnings (tests/shell-smoke.sh), plugin
-      # pages survive changes of other plugins (tests/shell-plugin-pages.sh)
+      # pages survive changes of other plugins (tests/shell-plugin-pages.sh), plugin settings are shown and stored
+      # (tests/shell-plugin-settings.sh)
       - name: Smoke test
         run: |
           deb=$(ls packages/openhu_*_${{ matrix.arch }}.deb)
@@ -82,7 +83,8 @@ jobs:
             ldd /usr/libexec/openhu/openhu
             if ldd /usr/libexec/openhu/openhu | grep "not found"; then exit 1; fi
             /tests/shell-smoke.sh /usr/bin/openhu
-            /tests/shell-plugin-pages.sh /usr/bin/openhu'
+            /tests/shell-plugin-pages.sh /usr/bin/openhu
+            /tests/shell-plugin-settings.sh /usr/bin/openhu'
 
       # openhu and the libaasdk packages it was built against
       - uses: actions/upload-artifact@v4
