@@ -16,14 +16,18 @@ Rectangle {
         value: page.visible && aaBridge.videoActive
     }
 
+    // The area the next session is made for: this page, or the whole window in fullscreen (Main.qml, #146), also
+    // while this page is still in the shell's page area
+    property size viewportSize: Qt.size(width, height)
+
     // Report the available size once the layout settled (margins are announced on the next connection).
     Timer {
         id: viewportTimer
         interval: 300
-        onTriggered: if (page.width > 0 && page.height > 0) aaBridge.setViewportSize(page.width, page.height)
+        onTriggered: if (page.viewportSize.width > 0 && page.viewportSize.height > 0)
+                         aaBridge.setViewportSize(page.viewportSize.width, page.viewportSize.height)
     }
-    onWidthChanged: viewportTimer.restart()
-    onHeightChanged: viewportTimer.restart()
+    onViewportSizeChanged: viewportTimer.restart()
 
     // The decoder (FfmpegVideoOutput) sends its frames to this sink
     VideoOutput {

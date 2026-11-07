@@ -72,6 +72,11 @@ SettingsSection {
         to: 600
         stepSize: 2
     }
+    SettingSwitch {
+        title: qsTrId("settings.aa.fullscreen")
+        description: qsTrId("settings.aa.fullscreen_description")
+        key: "aa.fullscreen"
+    }
     // only Android Auto has a night mode; with a "Display" category it moves there (#9)
     SettingChoice {
         title: qsTrId("settings.aa.night_mode")

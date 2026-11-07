@@ -59,6 +59,7 @@ Where the keys are in the settings:
 | `FPS` | `2` | `1` = 60 fps, `2` = 30 fps |
 | `ScreenDPI` | `140` | larger = bigger text and icons in Android Auto |
 | `MarginWidth`, `MarginHeight` | `0` | `0`/`0` = computed so the projection fills the area undistorted |
+| `Fullscreen` | `false` | Android Auto covers the whole window while it shows a picture, without the dock and the status bar (the other pages keep them). A swipe from the left edge shows the dock for 5 s; Android Auto's exit button and the `ui.home` / `ui.back` actions go back to the shell. Applies at the next connection: resolution and margins follow the whole window (#146) |
 | `Decoder` | `auto` | debug setting: H.264 decoder (FFmpeg): `auto` = hardware decoder where available (`h264_v4l2m2m` on ARM), else software; `software`; or the name of an FFmpeg decoder. The log shows which one runs and its speed every 10 s |
 | `Codec` | `auto` | debug setting: the video codec offered to the phone: `h264`, `h265` (the phone switches the whole stream to H.265 if it has an encoder for it, otherwise it shows an error and stays on H.264; decoded with `hevc`, on ARM first `hevc_v4l2m2m`), `auto` (H.264 for now; the choice per device follows with the Raspberry Pi 5 measurements, #10) |
 

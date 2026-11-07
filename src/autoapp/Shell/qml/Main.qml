@@ -45,6 +45,19 @@ Window {
     }
     onShownPageChanged: if (shownPage !== "aa") previousPage = shownPage
 
+    // Fullscreen Android Auto (Settings → Android Auto, #146): the Android Auto page covers the whole window, the
+    // other pages keep the dock and the status bar. The layout follows the setting only while no session runs: the
+    // projection area decides resolution and margins, and a running session keeps the ones its video was made for.
+    readonly property bool fullscreenSetting: settings.values["aa.fullscreen"] === true
+    property bool fullscreenLayout: false
+    function updateFullscreenLayout() {
+        if (!aaBridge.videoActive)
+            fullscreenLayout = fullscreenSetting
+    }
+    onFullscreenSettingChanged: updateFullscreenLayout()
+    // Android Auto shown without dock and status bar: only with a picture, the waiting page keeps the dock
+    readonly property bool statusBarHidden: fullscreenLayout && shownPage === "aa" && aaBridge.videoActive
+
     Timer {
         interval: 2000
         running: root.page === "aa" && aaBridge.pictureWaiting && !root.pictureWaitOver
@@ -53,6 +66,7 @@ Window {
     Component.onCompleted: {
         shell.setCurrentPage(page)
         updatePluginPages()
+        updateFullscreenLayout()
     }
 
     // Plugin pages and overlays, one row per plugin. Only the rows of plugins whose page changed are touched:
@@ -103,6 +117,7 @@ Window {
         target: aaBridge
         function onVideoActiveChanged() {
             root.page = shell.pageOnVideo(root.page, aaBridge.videoActive)
+            root.updateFullscreenLayout()
         }
     }
 
@@ -123,6 +138,19 @@ Window {
         target: shell
         function onNavigateRequested(page) { root.navigate(page, true) }
         function onToastRequested(text, durationMs) { toast.show(text, durationMs) }
+    }
+
+    // What only the status bar shows (Android Auto has its own clock, signal and battery): a toast while it is hidden
+    readonly property bool carAudioConnected: carAudio.state.connected === true
+    onCarAudioConnectedChanged: {
+        if (statusBarHidden)
+            toast.show(carAudioConnected ? qsTrId("shell.car_audio_connected") : qsTrId("shell.car_audio_disconnected"))
+    }
+    BusTopic { id: simulation; topic: "vehicle.simulate" }
+    readonly property string simulatedState: simulation.data.state || ""
+    onSimulatedStateChanged: {
+        if (statusBarHidden && simulatedState !== "")
+            toast.show(qsTrId("statusbar.debug_simulated").arg(simulatedState))
     }
 
     // A USB stick with a newer OpenHU OS: tap opens Settings -> System with the Install button
@@ -191,6 +219,7 @@ Window {
 
             // the pages: smaller while the on-screen keyboard is shown (dock and status bar stay)
             Item {
+                id: pageArea
                 Layout.fillWidth: true
                 Layout.fillHeight: true
                 Layout.bottomMargin: root.keyboardHeight
@@ -201,9 +230,12 @@ Window {
                     onOpenAndroidAuto: root.navigate("aa")
                 }
 
+                // in fullscreen above the whole shell (fullscreenArea). One instance: the video sink stays the same.
                 AaPage {
+                    parent: root.fullscreenLayout && aaBridge.videoActive ? fullscreenArea : pageArea
                     anchors.fill: parent
                     visible: root.shownPage === "aa"
+                    viewportSize: root.fullscreenLayout ? Qt.size(root.width, root.height) : Qt.size(width, height)
                 }
 
                 Loader {
@@ -244,6 +276,67 @@ Window {
                     }
                 }
             }
+        }
+    }
+
+    // Fullscreen Android Auto: above dock and status bar, below the overlays that follow
+    Item {
+        id: fullscreenArea
+        anchors.fill: parent
+        visible: root.statusBarHidden
+
+        // Back to the shell without the phone: a swipe from the dock's edge shows the dock above Android Auto for a
+        // few seconds. Touches that start in this strip do not go to the phone. (Also: Android Auto's exit button,
+        // the ui.home / ui.back keys.)
+        MouseArea {
+            id: edgeSwipe
+            z: 1
+            anchors.left: parent.left
+            anchors.top: parent.top
+            anchors.bottom: parent.bottom
+            width: Theme.spacing
+            property real startX: 0
+            onPressed: mouse => startX = mouse.x
+            onPositionChanged: mouse => {
+                if (mouse.x - startX > Theme.dockWidth / 4)
+                    dockOverlay.show()
+            }
+        }
+        // a tap next to the shown dock closes it (and does not go to the phone)
+        MouseArea {
+            z: 2
+            anchors.fill: parent
+            enabled: dockOverlay.shown
+            onPressed: dockOverlay.shown = false
+        }
+        Dock {
+            id: dockOverlay
+            z: 3
+            property bool shown: false
+            function show() {
+                shown = true
+                dockHideTimer.restart()
+            }
+            anchors.top: parent.top
+            anchors.bottom: parent.bottom
+            width: Theme.dockWidth
+            x: shown ? 0 : -width
+            visible: x > -width
+            Behavior on x { NumberAnimation { duration: 150 } }
+            currentPage: root.page
+            onPageSelected: name => {
+                shown = false
+                root.navigate(name)
+            }
+            Timer {
+                id: dockHideTimer
+                interval: 5000
+                onTriggered: dockOverlay.shown = false
+            }
+        }
+        Connections {
+            target: root
+            function onStatusBarHiddenChanged() { dockOverlay.shown = false }
         }
     }
 

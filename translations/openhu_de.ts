@@ -1925,7 +1925,7 @@
     </message>
     <message id="settings.debug.video_decoder_description">
         <source></source>
-        <translation>Automatisch: Hardware, wenn vorhanden (Raspberry Pi), sonst Software. Gilt ab der nächsten Verbindung.</translation>
+        <translation>Automatisch: Hardware, wenn vorhanden (Raspberry Pi), sonst Software.</translation>
     </message>
     <message id="settings.debug.auto">
         <source></source>
@@ -1941,7 +1941,7 @@
     </message>
     <message id="settings.debug.video_codec_description">
         <source></source>
-        <translation>Was OpenHU dem Handy anbietet. Gilt ab der nächsten Verbindung.</translation>
+        <translation>Was OpenHU dem Handy anbietet.</translation>
     </message>
     <message id="settings.info.debug_mode">
         <source></source>
@@ -1994,6 +1994,22 @@
     <message id="store.requirement_not_offered">
         <source></source>
         <translation>%1 braucht %2, das keine Quelle anbietet</translation>
+    </message>
+    <message id="shell.car_audio_connected">
+        <source></source>
+        <translation>Autoradio verbunden</translation>
+    </message>
+    <message id="shell.car_audio_disconnected">
+        <source></source>
+        <translation>Autoradio getrennt</translation>
+    </message>
+    <message id="settings.aa.fullscreen">
+        <source></source>
+        <translation>Vollbild</translation>
+    </message>
+    <message id="settings.aa.fullscreen_description">
+        <source></source>
+        <translation>Android Auto nutzt den ganzen Bildschirm, ohne Dock und Statusleiste. Ein Wisch vom linken Rand zeigt das Dock.</translation>
     </message>
 </context>
 </TS>

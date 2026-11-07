@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Starts the installed OpenHU headless (offscreen, software rendering) in a temporary HOME, shows every
-# shell page once through the API (python3-websockets), stops it with SIGTERM and fails on QML
-# errors/warnings, a failed shutdown or missing systemd notifications (READY=1, watchdog pings).
+# shell page once through the API (python3-websockets), switches fullscreen Android Auto on, stops it with
+# SIGTERM and fails on QML errors/warnings, a failed shutdown, missing systemd notifications (READY=1,
+# watchdog pings) or a projection area that does not grow to the whole window in fullscreen.
 #
 #   tests/shell-smoke.sh [openhu] [seconds before the pages]
 set -uo pipefail
@@ -64,6 +65,17 @@ with connect("ws://127.0.0.1:5520") as ws:
     ws.send(json.dumps({"type": "request", "id": 99, "method": "ui.toast", "params": {"text": "smoke test"}}))
     ws.recv(timeout=5)
     time.sleep(1)
+    # fullscreen Android Auto (#146): without a session the next one is made for the whole window
+    ws.send(json.dumps({"type": "request", "id": 100, "method": "settings.set",
+                        "params": {"key": "aa.fullscreen", "value": True}}))
+    reply = json.loads(ws.recv(timeout=5))
+    if "error" in reply:
+        raise SystemExit(f"settings.set aa.fullscreen: {reply['error']}")
+    for i, page in enumerate(["aa", "home"], 101):
+        ws.send(json.dumps({"type": "request", "id": i, "method": "ui.navigate", "params": {"page": page}}))
+        ws.recv(timeout=5)
+        print(f"fullscreen page {page}", flush=True)
+        time.sleep(1.5)
 PY
 
 # A second OpenHU must end right away (instance lock), without touching USB, the API port or the display
@@ -113,5 +125,13 @@ if [ "$pings" -lt 10 ]; then
   echo "Only $pings watchdog pings"
   status=1
 fi
-[ "$status" -eq 0 ] && echo "Shell started and stopped cleanly ($pings watchdog pings)"
+# the projection area: the shell's page area first, the whole window after aa.fullscreen (both larger)
+viewports="$(grep -oE '\[AaBridge\] viewport [0-9]+x[0-9]+' "$log" | grep -oE '[0-9]+x[0-9]+$')"
+first="$(head -n 1 <<< "$viewports")"
+last="$(tail -n 1 <<< "$viewports")"
+if [ -z "$first" ] || [ "${last%x*}" -le "${first%x*}" ] || [ "${last#*x}" -le "${first#*x}" ]; then
+  echo "Fullscreen did not give Android Auto the whole window (viewports: $(tr '\n' ' ' <<< "$viewports"))"
+  status=1
+fi
+[ "$status" -eq 0 ] && echo "Shell started and stopped cleanly ($pings watchdog pings, viewport $first, fullscreen $last)"
 exit "$status"

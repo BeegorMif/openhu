@@ -36,6 +36,7 @@ private slots:
         QCOMPARE(config.getWirelessSettings().band, std::string("5"));
         QCOMPARE(config.getCarAudioSettings().pin, std::string("0000"));
         QCOMPARE(config.getVideoDecoder(), std::string("auto"));
+        QVERIFY(!config.getVideoFullscreen());
         QVERIFY(config.onScreenKeyboard());
         QCOMPARE(config.getLanguage(), std::string());  // follows the system locale
         QCOMPARE(config.getNightMode(), std::string("auto"));
@@ -60,6 +61,7 @@ private slots:
             config.setNightMode("night");
             config.setVideoMargins(QRect(0, 0, 40, 20));
             config.setVideoDecoder("h264_v4l2m2m");
+            config.setVideoFullscreen(true);
             auto wireless = config.getWirelessSettings();
             wireless.ssid = "Car";
             wireless.channel = 44;
@@ -84,6 +86,7 @@ private slots:
         QCOMPARE(config.getNightMode(), std::string("night"));
         QCOMPARE(config.getVideoMargins(), QRect(0, 0, 40, 20));
         QCOMPARE(config.getVideoDecoder(), std::string("h264_v4l2m2m"));
+        QVERIFY(config.getVideoFullscreen());
         QCOMPARE(config.getWirelessSettings().ssid, std::string("Car"));
         QCOMPARE(config.getWirelessSettings().channel, 44);
         QVERIFY(config.getCarAudioSettings().enabled);
