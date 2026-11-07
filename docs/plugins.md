@@ -88,6 +88,10 @@ await api.config.remove("oldKey")
 api.on_config(lambda values, changed: ...)  # changes from Settings → Apps or other clients
 ```
 
+Plugins that keep a dict from `load_config(DEFAULTS)` can stay with it: `load_config` reads through the store,
+`save_config(config)` sends what changed since the last load or save, and `follow_config(api, config, on_change)`
+writes changes from the settings into the dict and calls `on_change(changed keys)`.
+
 In QML: `BusTopic { id: config; topic: "plugin.config.org.example.radio" }` → `config.data.values`, changes with
 `api.request("plugin.config.set", {id: "org.example.radio", key: "rds", value: false})`.
 
