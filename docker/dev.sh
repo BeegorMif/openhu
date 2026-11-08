@@ -173,6 +173,9 @@ cmd_run() {
     [ "$OPENHU_CAPTURE" = media ] && extra+=(-e AASDK_CAPTURE_MEDIA=1)
     echo "Protocol capture: $DOCKER_DIR/data/$capture"
   fi
+  # Android Auto through its head unit server (developer settings) instead of USB: OPENHU_AA_SERVER=127.0.0.1:5277
+  # after `adb forward tcp:5277 tcp:5277`; the phone keeps USB debugging (openhu#158)
+  [ -n "${OPENHU_AA_SERVER:-}" ] && extra+=(-e "OPENHU_AA_SERVER=$OPENHU_AA_SERVER")
   # Protocol version aasdk asks the phone for (aasdk AASDK_VERSION, e.g. 5.1)
   [ -n "${AASDK_VERSION:-}" ] && extra+=(-e "AASDK_VERSION=$AASDK_VERSION")
 

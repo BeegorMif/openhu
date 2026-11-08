@@ -37,7 +37,7 @@ namespace f1x::openauto::autoapp {
         androidAutoEntityFactory_(androidAutoEntityFactory), usbHub_(std::move(usbHub)),
         connectedAccessoriesEnumerator_(std::move(connectedAccessoriesEnumerator)),
         acceptor_(ioService, boost::asio::ip::tcp::endpoint(boost::asio::ip::tcp::v4(), wirelessPort)), isStopped_(false),
-        usbRetryTimer_(ioService), usbReportTimer_(ioService), usbWatchdogTimer_(ioService), usbDeviceProbe_(&core::androidUsbDevices) {
+        usbRetryTimer_(ioService), usbReportTimer_(ioService), usbWatchdogTimer_(ioService), serverTimer_(ioService), usbDeviceProbe_(&core::androidUsbDevices) {
       // not inherited by child processes (plugins, pactl), so a restart can bind the port again
       ::fcntl(acceptor_.native_handle(), F_SETFD, FD_CLOEXEC);
 
@@ -202,10 +202,43 @@ namespace f1x::openauto::autoapp {
 
     startServerSocket();
     armUsbWait(false, "waiting for a device");
+    connectToServer(std::chrono::seconds(0));
+  }
+
+  void App::connectToServer(std::chrono::steady_clock::duration delay) {
+    if (serverPort_ == 0 || isStopped_) {
+      return;
+    }
+    serverTimer_.expires_after(delay);
+    serverTimer_.async_wait(strand_.wrap([this, self = this->shared_from_this()](const boost::system::error_code &ec) {
+      if (ec || isStopped_ || androidAutoEntity_ != nullptr) {
+        return;
+      }
+      auto socket = std::make_shared<boost::asio::ip::tcp::socket>(ioService_);
+      boost::system::error_code error;
+      const auto address = boost::asio::ip::make_address(serverHost_, error);
+      if (error) {
+        OPENAUTO_LOG(error) << "[App] head unit server: bad address " << serverHost_;
+        return;
+      }
+      socket->async_connect(boost::asio::ip::tcp::endpoint(address, serverPort_),
+                            strand_.wrap([this, self, socket](const boost::system::error_code &ec) {
+        if (ec) {
+          OPENAUTO_LOG(debug) << "[App] head unit server " << serverHost_ << ":" << serverPort_ << ": "
+                              << ec.message() << ", trying again";
+          this->connectToServer(std::chrono::seconds(3));
+          return;
+        }
+        OPENAUTO_LOG(info) << "[App] connected to the head unit server " << serverHost_ << ":" << serverPort_;
+        socket->set_option(boost::asio::ip::tcp::no_delay(true));
+        this->start(socket);
+      }));
+    }));
   }
 
   void App::armUsbWait(bool reregister, const char *reason) {
-    if (isStopped_) {
+    if (isStopped_ || serverPort_ != 0) {
+      // with the head unit server the phone stays in its USB mode (debugging)
       return;
     }
     const auto generation = ++usbWaitGeneration_;
@@ -294,6 +327,7 @@ namespace f1x::openauto::autoapp {
           OPENAUTO_LOG(info) << "[App] Waiting for device...";
           this->startServerSocket();
           this->armUsbWait(false, "session ended");
+          this->connectToServer(std::chrono::seconds(3));
           const auto generation = usbWaitGeneration_;
           usbReportTimer_.expires_after(usbReportDelay_);
           usbReportTimer_.async_wait(strand_.wrap([this, self = this->shared_from_this(), generation](
@@ -333,7 +367,7 @@ namespace f1x::openauto::autoapp {
   }
 
   void App::scheduleUsbWatchdog() {
-    if (isStopped_ || !usbDeviceProbe_) {
+    if (isStopped_ || !usbDeviceProbe_ || serverPort_ != 0) {
       return;
     }
     usbWatchdogTimer_.expires_after(usbWatchdogInterval_);
