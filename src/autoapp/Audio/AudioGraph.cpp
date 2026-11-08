@@ -487,7 +487,7 @@ void AudioGraph::onListed(const QByteArray& output)
 
 void AudioGraph::applyLevel(const AudioSource& source)
 {
-    run(this, "pw-cli", setControlArguments(source.sink, "level:Mult", levelFactor(this->level(source.id))));
+    run(this, "pw-cli", setControlArguments(source.sink, "level:Mult", sourceFactor(source, this->level(source.id))));
 }
 
 QList<AudioSource> AudioGraph::sourceList() const
@@ -560,6 +560,7 @@ QVariantList AudioGraph::sources() const
                                   {"plugin", source.plugin},
                                   {"pluginName", source.pluginName},
                                   {"level", this->level(source.id)},
+                                  {"baseLevel", source.baseLevel},
                                   {"canPause", source.canPause},
                                   {"present", present_.contains(source.sink)}});
     }

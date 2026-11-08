@@ -87,7 +87,7 @@ Where the keys are in the settings:
 | Key | Default | |
 |---|---|---|
 | `DuckLevel` | `20` | loudness of local sources (radio and other processes' audio streams) in % while Android Auto plays a navigation prompt, like Android's ducking (20 % loudness = -14 dB). The Assistant (transient audio focus) mutes them. The original volumes come back afterwards, on disconnect and when OpenHU ends; after a crash, a stream that starts below its remembered volume gets it back (`~/.openhu/audio-duck.json`). Needs `pactl` 16 or newer (`-f json`) |
-| `SourceLevels` | – | level of each audio source in dB as JSON, e.g. `{"aa.media":-3,"org.openhu.radio.dab":-6}` (Settings → Audio → Source levels, API `audio.level.set`). Only attenuation, −20 to 0 dB; sources at 0 dB are not stored. Every source plays into its own PipeWire sink (`openhu.<source id>`) with a level and an EQ, see [Audio sources](#audio-sources) |
+| `SourceLevels` | – | level of each audio source in dB as JSON, e.g. `{"aa.media":-3,"org.openhu.radio.dab":-6}` (Settings → Audio → Source levels, API `audio.level.set`). Only attenuation, −20 to 0 dB, relative to the plugin's normalization (`level` in its manifest, [plugins.md](plugins.md#audio)); sources at 0 dB are not stored. Every source plays into its own PipeWire sink (`openhu.<source id>`) with a level and an EQ, see [Audio sources](#audio-sources) |
 
 #### Audio sources
 

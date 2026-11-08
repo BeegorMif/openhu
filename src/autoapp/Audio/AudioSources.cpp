@@ -74,7 +74,12 @@ int clampLevel(int dB)
 
 double levelFactor(int dB)
 {
-    return std::pow(10.0, clampLevel(dB) / 20.0);
+    return std::pow(10.0, std::min(dB, 0) / 20.0);
+}
+
+double sourceFactor(const AudioSource& source, int userLevel)
+{
+    return levelFactor(clampLevel(source.baseLevel) + clampLevel(userLevel));
 }
 
 QList<AudioSource> coreSources()
@@ -108,6 +113,7 @@ QList<AudioSource> pluginSources(const QString& pluginId, const QVariantMap& man
         source.name = map.value("name", localId).toString();
         source.textId = pluginId + ".audio." + localId;
         source.canPause = map.value("pause", false).toBool();
+        source.baseLevel = clampLevel(map.value("level", 0).toInt());
         sources.append(source);
     }
     if(sources.isEmpty() && manifest.value("permissions").toStringList().contains("audio"))
@@ -119,6 +125,7 @@ QList<AudioSource> pluginSources(const QString& pluginId, const QVariantMap& man
         source.pluginName = manifest.value("name", pluginId).toString();
         source.name = source.pluginName;
         source.textId = pluginId + ".name";
+        source.baseLevel = clampLevel(manifest.value("audio").toMap().value("level", 0).toInt());
         sources.append(source);
     }
     return sources;
@@ -240,7 +247,7 @@ QString filterChainConfig(const QList<AudioSource>& sources, const QHash<QString
                                          "control = { \"Mult\" = %1 \"Add\" = 0.0 } }\n"
                                          "          { type = builtin name = duck label = linear "
                                          "control = { \"Mult\" = 1.0 \"Add\" = 0.0 } }\n")
-                                     .arg(levelFactor(levels.value(source.id, 0)), 0, 'f', 4),
+                                     .arg(sourceFactor(source, levels.value(source.id, 0)), 0, 'f', 4),
                            links, source.sink);
     }
     config += "]\n";

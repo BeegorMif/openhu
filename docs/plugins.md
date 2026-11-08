@@ -77,9 +77,13 @@ levels (so that switching sources keeps the loudness, openhu#154). A plugin decl
 | `id` | `a-z`, `0-9`, `-`, `_` (up to 32), unique in the plugin; the source is `<plugin id>.<id>`, its sink `openhu.<plugin id>.<id>` |
 | `name` | English name in the settings; the plugin's translation `<plugin id>.audio.<id>` wins ([Translations](#translations)) |
 | `pause` | the plugin can pause this source for real (default `false`: it is muted instead while e.g. the Assistant talks) |
+| `level` | the plugin's normalization in dB, −20 to 0 (default 0): how much quieter this source has to play to be as loud as the others (reference: Android Auto with Spotify, about −14 LUFS). E.g. `-8` for music files, which are mastered much louder |
 
 A plugin with the `audio` permission and no list gets one source, `<plugin id>` (sink `openhu.<plugin id>`, named
-like the plugin).
+like the plugin); its normalization is `"audio": {"level": -8}`.
+
+The user's level in the settings is relative to the normalization: it starts at 0 dB (as the plugin set it), the
+chain plays at the sum (normalization −8 dB and the user's −2 dB: −10 dB).
 
 The process finds its sinks in the environment: `OPENHU_AUDIO_SINK_<ID>` per source (`OPENHU_AUDIO_SINK_FM`, `-`
 becomes `_`), `OPENHU_AUDIO_SINK` for the default source, and `PULSE_SINK` / `PIPEWIRE_NODE` set to the first

@@ -371,6 +371,10 @@
         <source></source>
         <translation>nicht bereit</translation>
     </message>
+    <message id="settings.audio.source_normalized">
+        <source></source>
+        <translation>vom Plugin normalisiert: %1</translation>
+    </message>
     <message id="settings.audio.source.aa_media">
         <source></source>
         <translation>Android Auto: Medien</translation>

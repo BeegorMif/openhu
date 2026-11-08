@@ -299,6 +299,40 @@ private slots:
         graph.stop();
     }
 
+    // A plugin's normalization (manifest "level"): the user's level is relative to it, the chain plays at the sum
+    void pluginNormalization()
+    {
+        const auto music = pluginSources("org.openhu.media", manifest(R"({
+            "name": "Music", "permissions": ["audio"], "audio": {"level": -8}})"));
+        QCOMPARE(music.size(), 1);
+        QCOMPARE(music[0].baseLevel, -8);
+        const auto radio = pluginSources("org.openhu.radio", manifest(R"({"audio": {"sources": [
+            {"id": "fm", "level": -4}, {"id": "dab", "level": 6}, {"id": "am", "level": -50}]}})"));
+        QCOMPARE(radio[0].baseLevel, -4);
+        QCOMPARE(radio[1].baseLevel, 0);    // attenuation only
+        QCOMPARE(radio[2].baseLevel, -20);
+        QVERIFY(qAbs(sourceFactor(music[0], 0) - 0.398107) < 1e-5);    // -8 dB
+        QVERIFY(qAbs(sourceFactor(music[0], -2) - 0.316228) < 1e-5);   // -10 dB
+        QVERIFY(qAbs(sourceFactor(radio[2], -20) - 0.01) < 1e-6);      // -40 dB
+
+        QHash<QString, int> saved;
+        AudioGraph graph({{"org.openhu.media", -2}}, [&saved](const QHash<QString, int>& levels) { saved = levels; });
+        graph.setConfigDir(dir_->filePath("conf"));
+        graph.setTimings(30, 50);
+        graph.setPluginSources({{"org.openhu.media", music}});
+        graph.start();
+        QTRY_VERIFY(log().contains(level("openhu.org.openhu.media", "0.3162")));
+        QVERIFY(readFile("conf/org.openhu.media.conf").contains("\"Mult\" = 0.3162"));
+        QVariantMap published = graph.sources().last().toMap();
+        QCOMPARE(published.value("level").toInt(), -2);
+        QCOMPARE(published.value("baseLevel").toInt(), -8);
+        // back to 0: as the plugin set it, nothing stored
+        QVERIFY(graph.setLevel("org.openhu.media", 0));
+        QTRY_VERIFY(log().contains(level("openhu.org.openhu.media", "0.3981")));
+        QVERIFY(!saved.contains("org.openhu.media"));
+        graph.stop();
+    }
+
     // PipeWire restarted: the process still runs, but its sinks are gone (it does not reconnect). Seen through
     // pactl subscribe, the process is restarted and the sinks are there again.
     void recoversWhenPipeWireRestarts()

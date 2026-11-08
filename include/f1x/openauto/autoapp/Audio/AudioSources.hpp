@@ -51,14 +51,19 @@ struct AudioSource
     QString name;     // English name (manifest), empty for OpenHU's own (the shell translates "textId")
     QString textId;   // translation: settings.audio.source.aa_media, org.openhu.radio.audio.fm
     bool canPause = false;  // pauses for real on request; a source that cannot is muted instead
+    // the plugin's normalization in dB (manifest "level", -20..0): its content is that much louder than others.
+    // The user's level is relative to it (0 = as the plugin set it); the chain gets the sum.
+    int baseLevel = 0;
 };
 
 // Levels are attenuation only, in dB: no gain above 100 %, nothing clips
 constexpr int cMinSourceLevel = -20;
 constexpr int cMaxSourceLevel = 0;
 int clampLevel(int dB);
-// linear amplitude factor of a level (-6 dB = 0.501), as pactl takes it ("0.501")
+// linear amplitude factor of a level (-6 dB = 0.501), as pactl takes it ("0.501"); above 0 dB: 1.0
 double levelFactor(int dB);
+// the factor of a source's chain: the plugin's normalization plus the user's level
+double sourceFactor(const AudioSource& source, int userLevel);
 
 // the sink of a source: "openhu.<id>"
 QString sinkName(const QString& sourceId);

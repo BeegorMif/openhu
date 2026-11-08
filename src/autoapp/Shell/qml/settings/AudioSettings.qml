@@ -71,8 +71,11 @@ SettingsSection {
                     const text = qsTrId(id)
                     return text !== id ? text : (source.pluginName || source.plugin)
                 }
+                // the level is relative to the plugin's normalization (shown when it has one): 0 = as the plugin set it
                 description: (pluginTitle ? pluginTitle + " · " : "")
                              + (source.level === 0 ? "0 dB" : "−" + (-source.level) + " dB")
+                             + (source.baseLevel ? " · " + qsTrId("settings.audio.source_normalized")
+                                                               .arg("−" + (-source.baseLevel) + " dB") : "")
                              + (source.present ? "" : " · " + qsTrId("settings.audio.source_not_ready"))
                 Slider {
                     width: Theme.dockWidth * 3
