@@ -60,6 +60,7 @@
 #include <f1x/openauto/autoapp/Core/ServiceNotifier.hpp>
 #include <f1x/openauto/autoapp/Core/UsbReset.hpp>
 #include <f1x/openauto/autoapp/Input/ActionDispatcher.hpp>
+#include <f1x/openauto/autoapp/Service/NowPlaying.hpp>
 #include <f1x/openauto/autoapp/Plugins/PluginManager.hpp>
 #include <f1x/openauto/autoapp/Plugins/PluginMethods.hpp>
 #include <f1x/openauto/autoapp/Plugins/PluginStore.hpp>
@@ -221,6 +222,8 @@ int main(int argc, char* argv[])
     // radio and other local sources lower while Android Auto plays a prompt or the Assistant (#93)
     autoapp::audio::DuckingController duckingController([configuration]() { return configuration->duckLevel(); });
     duckingController.start();
+    // media.current: what plays now (home page, Bluetooth car audio)
+    autoapp::service::NowPlaying nowPlaying;
     autoapp::input::ActionDispatcher actionDispatcher(volumeController, shellController);
 
     // WebSocket API for external tools and plugins (docs/api.md)

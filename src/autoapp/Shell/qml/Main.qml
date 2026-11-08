@@ -228,6 +228,7 @@ Window {
                     anchors.fill: parent
                     visible: root.shownPage === "home"
                     onOpenAndroidAuto: root.navigate("aa")
+                    onOpenPage: name => root.navigate(name)
                 }
 
                 // in fullscreen above the whole shell (fullscreenArea). One instance: the video sink stays the same.
