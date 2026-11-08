@@ -28,21 +28,23 @@ NowPlaying::NowPlaying(QObject* parent)
 {
     auto& bus = core::EventBus::instance();
     // what was published before (only the last of each topic is known)
-    this->update(QStringLiteral("media.metadata"), bus.last("media.metadata"));
-    this->update(QStringLiteral("media.status"), bus.last("media.status"));
+    for(const QString topic: {QStringLiteral("media.metadata"), QStringLiteral("media.status")})
+    {
+        this->update(topic, bus.last(topic), bus.source(topic));
+    }
     if(!published_.isEmpty())
     {
         bus.publish("media.current", published_);
     }
     connect(&bus, &core::EventBus::event, this, [this](const QString& topic, const QVariantMap& data) {
-        if(this->update(topic, data))
+        if(this->update(topic, data, core::EventBus::instance().source(topic)))
         {
             core::EventBus::instance().publish("media.current", published_);
         }
     });
 }
 
-bool NowPlaying::update(const QString& topic, const QVariantMap& data)
+bool NowPlaying::update(const QString& topic, const QVariantMap& data, const QString& publisher)
 {
     const bool status = topic == QLatin1String("media.status");
     if((!status && topic != QLatin1String("media.metadata")) || data.isEmpty())
@@ -54,6 +56,10 @@ bool NowPlaying::update(const QString& topic, const QVariantMap& data)
     if(source.isEmpty())
     {
         source = QStringLiteral("androidauto");
+    }
+    if(publisher.startsWith(QLatin1String("plugin:")))
+    {
+        plugins_.insert(source, publisher.mid(7));
     }
     if(status)
     {
@@ -87,7 +93,8 @@ QVariantMap NowPlaying::current() const
     {
         return QVariantMap();
     }
-    return {{"source", source}, {"metadata", metadata_.value(source)}, {"status", statuses_.value(source)}};
+    return {{"source", source}, {"plugin", plugins_.value(source)}, {"metadata", metadata_.value(source)},
+            {"status", statuses_.value(source)}};
 }
 
 }

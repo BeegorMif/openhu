@@ -38,9 +38,10 @@ class NowPlaying: public QObject
 public:
     explicit NowPlaying(QObject* parent = nullptr);
 
-    // a media.status / media.metadata event; true when media.current changed
-    bool update(const QString& topic, const QVariantMap& data);
-    // {source, metadata, status}: empty maps while the source has not published them
+    // a media.status / media.metadata event and who published it ("plugin:<id>", ...); true when media.current changed
+    bool update(const QString& topic, const QVariantMap& data, const QString& publisher = QString());
+    // {source, plugin, metadata, status}: plugin is the id of the plugin behind the source (its page), empty for
+    // Android Auto and API clients; metadata/status are empty maps while the source has not published them
     QVariantMap current() const;
 
 private:
@@ -48,6 +49,7 @@ private:
     QString latest_;  // the source of the last status, while no source has started yet
     QHash<QString, QVariantMap> metadata_;
     QHash<QString, QVariantMap> statuses_;
+    QHash<QString, QString> plugins_;
     QVariantMap published_;
 };
 

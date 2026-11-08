@@ -48,10 +48,14 @@ private slots:
         QCOMPARE(now.current().value("source").toString(), QString("androidauto"));
         QCOMPARE(title(now.current()), QString("Recall"));
 
+        QCOMPARE(now.current().value("plugin").toString(), QString());
+
         // the music player published its (restored) track earlier... and starts: its track, not Spotify's
-        QVERIFY(!now.update("media.metadata", metadata("music", "Coast Road")));
-        QVERIFY(now.update("media.status", status("music", "playing")));
+        QVERIFY(!now.update("media.metadata", metadata("music", "Coast Road"), "plugin:org.openhu.media"));
+        QVERIFY(now.update("media.status", status("music", "playing"), "plugin:org.openhu.media"));
         QCOMPARE(now.current().value("source").toString(), QString("music"));
+        // its page opens on a tap
+        QCOMPARE(now.current().value("plugin").toString(), QString("org.openhu.media"));
         QCOMPARE(title(now.current()), QString("Coast Road"));
         QCOMPARE(state(now.current()), QString("playing"));
 

@@ -13,6 +13,8 @@ Rectangle {
 
     // the source that plays (or started last): its metadata also after a switch, not that of the last publisher
     BusTopic { id: current; topic: "media.current" }
+    // the plugin behind the source (its page opens on a tap), empty for Android Auto
+    readonly property string plugin: current.data.plugin || ""
     readonly property var metadata: current.data.metadata || ({})
     readonly property var playback: current.data.status || ({})
 

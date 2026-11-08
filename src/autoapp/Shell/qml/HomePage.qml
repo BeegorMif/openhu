@@ -8,6 +8,7 @@ Item {
     id: home
 
     signal openAndroidAuto()
+    signal openPage(string name)
 
     property date now: new Date()
 
@@ -77,14 +78,20 @@ Item {
             }
 
             NowPlayingCard {
+                id: nowPlaying
                 Layout.fillWidth: true
                 Layout.fillHeight: true
                 visible: home.connected
 
-                // Android Auto with the last media app (e.g. Spotify) in front
+                // the page of the source that plays: the plugin's (music player, radio), or Android Auto with the last
+                // media app (e.g. Spotify) in front
                 MouseArea {
                     anchors.fill: parent
                     onClicked: {
+                        if (nowPlaying.plugin !== "") {
+                            home.openPage("plugin:" + nowPlaying.plugin)
+                            return
+                        }
                         actions.trigger("aa.media")
                         home.openAndroidAuto()
                     }
