@@ -77,27 +77,6 @@ Item {
                 }
             }
 
-            NowPlayingCard {
-                id: nowPlaying
-                Layout.fillWidth: true
-                Layout.fillHeight: true
-                visible: home.connected
-
-                // the page of the source that plays: the plugin's (music player, radio), or Android Auto with the last
-                // media app (e.g. Spotify) in front
-                MouseArea {
-                    anchors.fill: parent
-                    onClicked: {
-                        if (nowPlaying.plugin !== "") {
-                            home.openPage("plugin:" + nowPlaying.plugin)
-                            return
-                        }
-                        actions.trigger("aa.media")
-                        home.openAndroidAuto()
-                    }
-                }
-            }
-
             Rectangle {
                 Layout.fillWidth: true
                 Layout.fillHeight: true
@@ -168,6 +147,30 @@ Item {
                         }
                     }
                     Item { Layout.fillHeight: true }
+                }
+            }
+
+            NowPlayingCard {
+                id: nowPlaying
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+                // without a phone too, while a source of the head unit (music player, radio) has a track
+                visible: home.connected || (source !== "androidauto" && hasTrack)
+
+                // the page of the source that plays: the plugin's (music player, radio), or Android Auto with the last
+                // media app (e.g. Spotify) in front
+                MouseArea {
+                    anchors.fill: parent
+                    onClicked: {
+                        if (nowPlaying.plugin !== "") {
+                            home.openPage("plugin:" + nowPlaying.plugin)
+                            return
+                        }
+                        if (!home.connected)
+                            return
+                        actions.trigger("aa.media")
+                        home.openAndroidAuto()
+                    }
                 }
             }
         }
