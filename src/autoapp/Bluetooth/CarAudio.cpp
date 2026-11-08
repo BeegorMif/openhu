@@ -94,13 +94,11 @@ CarAudio::CarAudio(configuration::IConfiguration::Pointer configuration, Bluetoo
     });
 
     connect(&core::EventBus::instance(), &core::EventBus::event, this, [this](const QString& topic, const QVariantMap& data) {
-        if(topic == "media.metadata")
+        if(topic == "media.current")
         {
-            metadata_ = data;
-        }
-        else if(topic == "media.status")
-        {
-            mediaStatus_ = data;
+            // the source that plays (or started last), not whatever source published last
+            metadata_ = data.value("metadata").toMap();
+            mediaStatus_ = data.value("status").toMap();
         }
         else if(topic == "phone.status")
         {
