@@ -87,7 +87,8 @@ void CarLocalMediaService::start()
             });
         // what the sources published before the connection
         const auto& bus = core::EventBus::instance();
-        for(const QString topic: {QStringLiteral("media.metadata"), QStringLiteral("media.status")})
+        for(const QString topic:
+            {QStringLiteral("companion.state"), QStringLiteral("media.metadata"), QStringLiteral("media.status")})
         {
             service->onBusEvent(topic, bus.last(topic));
         }
@@ -118,26 +119,35 @@ void CarLocalMediaService::fillFeatures(aap_protobuf::service::control::message:
 
 void CarLocalMediaService::onBusEvent(const QString& topic, const QVariantMap& data)
 {
-    const bool status = topic == QLatin1String("media.status");
-    if(!status && topic != QLatin1String("media.metadata"))
+    LocalMediaState::Changes changes;
+    if(topic == QLatin1String("companion.state"))
     {
-        return;
+        // the companion app shows the head unit's music itself: this player is shown stopped meanwhile
+        changes = state_.setCompanion(data.value("connected").toBool());
     }
-    const QString source = data.value("source").toString();
-    QString name = source;
-    if(source.isEmpty() || source == QLatin1String("androidauto")
-       || !allowed(core::EventBus::instance().source(topic), &name))
+    else
     {
-        return;
+        const bool status = topic == QLatin1String("media.status");
+        if(!status && topic != QLatin1String("media.metadata"))
+        {
+            return;
+        }
+        const QString source = data.value("source").toString();
+        QString name = source;
+        if(source.isEmpty() || source == QLatin1String("androidauto")
+           || !allowed(core::EventBus::instance().source(topic), &name))
+        {
+            return;
+        }
+        changes = status ? state_.onStatus(source, name, data) : state_.onMetadata(source, data);
     }
-    const auto changes = status ? state_.onStatus(source, name, data) : state_.onMetadata(source, data);
     if(!changes.status && !changes.metadata)
     {
         return;
     }
     // serialized here: the cover is decoded and scaled in this thread, not in the strand
     const std::string statusBytes =
-        changes.status ? playbackStatus(state_.status(), state_.name()).SerializeAsString() : std::string();
+        changes.status ? playbackStatus(state_.shownStatus(), state_.name()).SerializeAsString() : std::string();
     const std::string metadataBytes =
         changes.metadata ? playbackMetadata(state_.metadata()).SerializeAsString() : std::string();
     const QString current = state_.current();

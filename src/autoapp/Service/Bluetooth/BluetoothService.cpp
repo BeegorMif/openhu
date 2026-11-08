@@ -108,6 +108,9 @@ namespace f1x::openauto::autoapp::service::bluetooth {
       const aap_protobuf::service::bluetooth::message::BluetoothPairingRequest &request) {
     OPENAUTO_LOG(info) << "[BluetoothService] onBluetoothPairingRequest()";
     OPENAUTO_LOG(info) << "[BluetoothService] Phone Address: " << request.phone_address();
+    // the phone of this Android Auto session: the companion bridge connects to its app there (openhu#158)
+    core::EventBus::instance().publish("bluetooth.phone",
+                                       {{"address", QString::fromStdString(request.phone_address()).toUpper()}});
 
     aap_protobuf::service::bluetooth::message::BluetoothPairingResponse response;
 

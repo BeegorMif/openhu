@@ -20,6 +20,7 @@
 #include <f1x/openauto/Common/Log.hpp>
 #include <f1x/openauto/autoapp/Service/MediaPlaybackStatus/MediaPlaybackStatusService.hpp>
 #include <f1x/openauto/autoapp/Core/EventBus.hpp>
+#include <f1x/openauto/autoapp/Core/Companion.hpp>
 #include <f1x/openauto/autoapp/Core/DataUrl.hpp>
 #include <fstream>
 #include <QString>
@@ -92,6 +93,11 @@ namespace f1x {
 
 
           void MediaPlaybackStatusService::onMetadataUpdate(const aap_protobuf::service::mediaplayback::message::MediaPlaybackMetadata &metadata) {
+            if (companion_) {
+              // the companion app mirrors what the head unit plays: not the phone's music
+              channel_->receive(this->shared_from_this());
+              return;
+            }
             QVariantMap data;
             data["title"] = QString::fromStdString(metadata.song());
             data["artist"] = QString::fromStdString(metadata.artist());
@@ -110,6 +116,17 @@ namespace f1x {
             data["state"] = playback.state() == Status::PLAYING ? "playing"
                             : playback.state() == Status::PAUSED ? "paused" : "stopped";
             data["app"] = QString::fromStdString(playback.media_source());
+            // not while the phone streams music: that is another app, even if Android Auto still names the companion
+            const bool companion = core::isCompanionApp(data["app"].toString()) && !core::phoneMusicPlaying();
+            if (companion != companion_) {
+              OPENAUTO_LOG(info) << "[MediaPlaybackStatusService] companion app " << (companion ? "shown" : "left");
+              companion_ = companion;
+            }
+            if (companion_) {
+              // the music plays on the head unit (its own source): as the phone's, it would pause it (local sources
+              // pause when the phone plays)
+              data["state"] = "stopped";
+            }
             data["position"] = playback.playback_seconds();
             data["shuffle"] = playback.shuffle();
             data["repeat"] = playback.repeat();

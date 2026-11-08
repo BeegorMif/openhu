@@ -57,13 +57,21 @@ public:
     Changes onStatus(const QString& source, const QString& name, const QVariantMap& status);
     Changes onMetadata(const QString& source, const QVariantMap& metadata);
 
+    // The companion app (openhu#158) shows the head unit's music in Android Auto itself: while it is connected the
+    // phone gets this player stopped and no updates (kept, sent again when the app is gone)
+    Changes setCompanion(bool connected);
+    bool companion() const { return companion_; }
+
     QString current() const { return current_; }
     QString name() const { return names_.value(current_); }
     QVariantMap status() const { return statuses_.value(current_); }
+    // what the phone gets: the status, stopped while the companion app is connected
+    QVariantMap shownStatus() const;
     QVariantMap metadata() const { return metadata_.value(current_); }
 
 private:
     QString current_;
+    bool companion_ = false;
     QHash<QString, QString> names_;
     QHash<QString, QVariantMap> statuses_;
     QHash<QString, QVariantMap> metadata_;
