@@ -23,7 +23,9 @@
 #include <memory>
 #include <vector>
 #include <QElapsedTimer>
+#include <QHash>
 #include <QObject>
+#include <QPair>
 #include <QProcess>
 #include <QTimer>
 #include <QVariantList>
@@ -98,6 +100,12 @@ public:
     QString removeConfig(const QString& id, const QStringList& keys);
     QString resetConfig(const QString& id);
 
+    // Manifests of the enabled, compatible plugins {id: manifest} (audio sources, #154)
+    QHash<QString, QVariantMap> activeManifests() const;
+    // Extra environment for a plugin's process (the sinks of its audio sources), asked at every start
+    using EnvironmentProvider = std::function<QList<QPair<QString, QString>>(const QString& id, const QVariantMap& manifest)>;
+    void setEnvironmentProvider(EnvironmentProvider provider);
+
     // Stops a plugin before its files are replaced or removed.
     void unload(const QString& id);
 
@@ -154,6 +162,7 @@ private:
 
     quint16 apiPort_;
     std::function<void()> qmlCacheClearer_;
+    EnvironmentProvider environmentProvider_;
     PluginConfig config_;
     std::map<QString, std::unique_ptr<Plugin>> plugins_;
 };

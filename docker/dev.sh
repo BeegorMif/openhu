@@ -148,6 +148,8 @@ cmd_run() {
   xhost +SI:localuser:root >/dev/null
 
   local pulse_sock="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/pulse/native"
+  # PipeWire of the host: OpenHU creates the sinks of its audio sources there (#154), they go when it ends
+  local pipewire_sock="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/pipewire-0"
   local host_display="${DISPLAY:-:0}"
   local host_xsock="/tmp/.X11-unix/X${host_display#:}"
 
@@ -195,6 +197,8 @@ cmd_run() {
     -v "$host_xsock:$host_xsock" \
     -e PULSE_SERVER=unix:/run/pulse/native \
     -v "$pulse_sock:/run/pulse/native" \
+    -e PIPEWIRE_RUNTIME_DIR=/run/pipewire \
+    -v "$pipewire_sock:/run/pipewire/pipewire-0" \
     -v /dev/bus/usb:/dev/bus/usb \
     -v /run/udev:/run/udev:ro \
     -v /run/dbus/system_bus_socket:/run/dbus/system_bus_socket \

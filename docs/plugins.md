@@ -19,6 +19,7 @@ It can bring a QML page, an overlay and a background process in any language tha
   "permissions": ["audio", "usb"],
   "shared": ["openhu.py"],
   "androidAuto": {"services": ["radio"]},
+  "audio": {"sources": [{"id": "fm", "name": "FM"}, {"id": "dab", "name": "DAB"}]},
   "settings": [{"key": "rds", "type": "switch", "default": true, "title": "RDS"}]
 }
 ```
@@ -39,6 +40,7 @@ It can bring a QML page, an overlay and a background process in any language tha
 | `shared` | files from the repository's `common/` copied to `lib/` when the archive is built |
 | `packages` | Debian packages the plugin needs on the head unit, e.g. libraries of its native programs (informational, copied to the index) |
 | `androidAuto` | what the plugin provides to Android Auto, see [Android Auto](#android-auto) |
+| `audio` | the plugin's sources of sound, each with its own sink and level, see [Audio](#audio) |
 | `requires` | other plugins it needs: `{"org.openhu.can": "1.0.0"}` (id and minimum version, `""` for any) or a list of ids. Installed first by the store (refused when no source offers them), enabled along with it, started before it; without them it does not start and the store shows why. Disabling or removing a required plugin asks first and stops what requires it |
 | `recommends` | plugins it works with (list of ids), shown in the store ("Works with …") |
 | `settings` | settings the user changes in Settings → Apps & Store → Installed, see [Settings](#settings) |
@@ -47,7 +49,8 @@ Processes get `OPENHU_API_URL`, `OPENHU_PLUGIN_ID`, `OPENHU_PLUGIN_DIR`, `OPENHU
 the start, see [Translations](#translations)), `OPENHU_DATA_DIR` (persistent data,
 `~/.openhu/plugin-data/<id>`, kept on updates and on removal; its `config.json` is the plugin's
 [config store](#config-store), owned by OpenHU) and `OPENHU_PLUGIN_TOKEN` (new for every start: the process logs in
-with it, see [Android Auto](#android-auto); `openhu.py` does that). Output goes to `~/.openhu/logs/<id>.log`.
+with it, see [Android Auto](#android-auto); `openhu.py` does that), and the sinks of its [audio sources](#audio).
+Output goes to `~/.openhu/logs/<id>.log`.
 Enabled/disabled and dock state are kept in `~/.openhu/plugins.json`.
 
 Plugin processes connect over `127.0.0.1` and need no API token ([api.md](api.md#login-token)), as long as they send
@@ -56,6 +59,38 @@ device, passwords included. A plugin that offers a service to the network itself
 remote control) must not pass requests from there on to the API without its own login, otherwise it opens the API
 to the network without the token. `openhu.py` takes a token (`OpenHU(token=...)` or `OPENHU_API_TOKEN`) for running
 a plugin process on another computer against a head unit while developing.
+
+## Audio
+
+Every source of sound plays into its own PipeWire sink, with a level the user sets in Settings → Audio → Source
+levels (so that switching sources keeps the loudness, openhu#154). A plugin declares its sources in the manifest:
+
+```json
+"audio": {"sources": [
+  {"id": "fm", "name": "FM"},
+  {"id": "dab", "name": "DAB", "pause": false}
+]}
+```
+
+| Key | |
+|---|---|
+| `id` | `a-z`, `0-9`, `-`, `_` (up to 32), unique in the plugin; the source is `<plugin id>.<id>`, its sink `openhu.<plugin id>.<id>` |
+| `name` | English name in the settings; the plugin's translation `<plugin id>.audio.<id>` wins ([Translations](#translations)) |
+| `pause` | the plugin can pause this source for real (default `false`: it is muted instead while e.g. the Assistant talks) |
+| `level` | the plugin's normalization in dB, −20 to 0 (default 0): how much quieter this source has to play to be as loud as the others (reference: Android Auto with Spotify, about −14 LUFS). E.g. `-8` for music files, which are mastered much louder |
+
+A plugin with the `audio` permission and no list gets one source, `<plugin id>` (sink `openhu.<plugin id>`, named
+like the plugin); its normalization is `"audio": {"level": -8}`.
+
+The user's level in the settings is relative to the normalization: it starts at 0 dB (as the plugin set it), the
+chain plays at the sum (normalization −8 dB and the user's −2 dB: −10 dB).
+
+The process finds its sinks in the environment: `OPENHU_AUDIO_SINK_<ID>` per source (`OPENHU_AUDIO_SINK_FM`, `-`
+becomes `_`), `OPENHU_AUDIO_SINK` for the default source, and `PULSE_SINK` / `PIPEWIRE_NODE` set to the first
+source. A plugin with one source needs nothing else: `pacat`, `paplay`, `mpv` and other PulseAudio or PipeWire
+clients play there by themselves. With several sources, pass the sink per stream (`pacat --device=$OPENHU_AUDIO_SINK_DAB`,
+`mpv --audio-device=pulse/$OPENHU_AUDIO_SINK_FM`). A stream that starts before its sink exists plays on the default
+output and is moved to the sink as soon as it appears.
 
 ## Config store
 

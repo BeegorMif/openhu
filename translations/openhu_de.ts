@@ -359,6 +359,38 @@
         <source></source>
         <translation>Stumm</translation>
     </message>
+    <message id="settings.audio.source_levels">
+        <source></source>
+        <translation>Pegel der Quellen</translation>
+    </message>
+    <message id="settings.audio.source_levels_description">
+        <source></source>
+        <translation>Lautere Quellen absenken, bis beim Wechseln alle gleich laut sind. Die Pegel gehen nur nach unten, damit nichts übersteuert.</translation>
+    </message>
+    <message id="settings.audio.source_not_ready">
+        <source></source>
+        <translation>nicht bereit</translation>
+    </message>
+    <message id="settings.audio.source_normalized">
+        <source></source>
+        <translation>vom Plugin normalisiert: %1</translation>
+    </message>
+    <message id="settings.audio.source.aa_media">
+        <source></source>
+        <translation>Android Auto: Medien</translation>
+    </message>
+    <message id="settings.audio.source.aa_guidance">
+        <source></source>
+        <translation>Android Auto: Navigation</translation>
+    </message>
+    <message id="settings.audio.source.aa_call">
+        <source></source>
+        <translation>Android Auto: Telefonate</translation>
+    </message>
+    <message id="settings.audio.source.aa_system">
+        <source></source>
+        <translation>Android Auto: Systemtöne</translation>
+    </message>
     <message id="settings.audio.car_radio_bluetooth">
         <source></source>
         <translation>Autoradio (Bluetooth)</translation>

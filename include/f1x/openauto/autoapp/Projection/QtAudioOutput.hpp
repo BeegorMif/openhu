@@ -43,8 +43,15 @@ class QtAudioOutput: public QObject, public IAudioOutput
     Q_OBJECT
 
 public:
-    // name: the channel in the log (media, guidance, system)
-    QtAudioOutput(uint32_t channelCount, uint32_t sampleSize, uint32_t sampleRate, std::string name = "audio");
+    // name: the channel in the log (media, guidance, system); sink: the audio source's sink it plays on
+    // (openhu.aa.media, #154), the default output while that does not exist
+    QtAudioOutput(uint32_t channelCount, uint32_t sampleSize, uint32_t sampleRate, std::string name = "audio",
+                  QString sink = QString());
+
+    // The device a stream opens on: the sink with this name (QAudioDevice::id() is the sink's name), else the
+    // default output
+    static QAudioDevice deviceFor(const QString& sink, const QList<QAudioDevice>& outputs,
+                                  const QAudioDevice& defaultOutput);
     bool open() override;
     void write(aasdk::messenger::Timestamp::ValueType, const aasdk::common::DataConstBuffer& buffer) override;
     void start() override;
@@ -80,8 +87,10 @@ private:
     bool startPending_ = false;
     QByteArray pending_;
     std::unique_ptr<QAudioSink> audioOutput_;
-    // the device audioOutput_ plays on (the default when it was created)
+    // the device audioOutput_ plays on (the sink, or the default when it was created)
     QAudioDevice device_;
+    const QString sink_;
+    QAudioDevice currentDevice() const;
     bool playbackStarted_;
     std::atomic<uint64_t> droppedPackets_{0};
 

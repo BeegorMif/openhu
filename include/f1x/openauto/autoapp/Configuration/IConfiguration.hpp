@@ -21,6 +21,7 @@
 
 #include <memory>
 #include <string>
+#include <QHash>
 #include <QRect>
 #include <QString>
 #include <aap_protobuf/service/media/sink/message/VideoFrameRateType.pb.h>
@@ -171,6 +172,10 @@ public:
     // Loudness of local sources (radio) during Android Auto navigation prompts in %, 0-100 (openhu#93)
     virtual int duckLevel() const = 0;
     virtual void setDuckLevel(int value) = 0;
+
+    // Level of each audio source in dB (#154), only the ones that are not 0 dB; [Audio] SourceLevels as JSON
+    virtual QHash<QString, int> sourceLevels() const = 0;
+    virtual void setSourceLevels(const QHash<QString, int>& levels) = 0;
 
     // "key=value" from a system file (wireless Android Auto reads the hotspot SSID/password from hostapd.conf)
     virtual QString getParamFromFile(QString fileName, QString searchString) const = 0;

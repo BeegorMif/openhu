@@ -63,8 +63,10 @@ QString findBluetoothSink(const QList<Sink>& sinks, const QString& address);
 bool isA2dpSink(const std::optional<BluetoothCard>& card, const QString& sink);
 
 // Streams that go along when the output changes: applications (OpenHU's own Android Auto outputs, the radio's pacat,
-// ...), not the audio server's loopbacks and filters
+// ...) and the outputs of the audio sources' chains (#154), not the audio server's other loopbacks and filters
 bool followsOutput(const SinkInput& input);
+// the output stream of an audio source's chain ("openhu.<id>.output", AudioSources.hpp)
+bool isSourceChainOutput(const SinkInput& input);
 
 // Makes the sink of a Bluetooth device (car radio, speaker) the output and back (#112), with pactl like
 // VolumeController, without blocking the GUI thread.
@@ -72,7 +74,8 @@ bool followsOutput(const SinkInput& input);
 // (pacat --device, a target WirePlumber remembered for the application) stays where it is. The streams that still
 // play on the old default a moment after the switch, and OpenHU's own (Android Auto) wherever they play, are moved
 // with "pactl move-sink-input", while they play; streams on other outputs, chosen on purpose, stay. restore() moves
-// them back.
+// them back. Streams that play into an audio source's sink ("openhu.*", #154) stay there: the chain's output is what
+// moves.
 class OutputRouter: public QObject
 {
     Q_OBJECT

@@ -106,6 +106,10 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     apt-get update && apt-get install -y --no-install-recommends \
         qt6-wayland \
         pulseaudio-utils \
+        # the audio sources' filter-chain sinks (#154): "pipewire -c" connects to the host's PipeWire
+        pipewire-bin \
+        libpipewire-0.3-modules \
+        libspa-0.2-modules \
         usbutils \
         fonts-dejavu-core \
         xserver-xephyr \

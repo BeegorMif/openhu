@@ -84,14 +84,18 @@ docker/dev.sh run     # first run builds the image, aasdk and OpenHU (takes a wh
 
 After code changes `docker/dev.sh run` again: it rebuilds only what changed and starts right away.
 
-Plug in your phone (or set up wireless under *Einstellungen → Kabellos*). Bare-metal installation on a Raspberry Pi
-or a Debian/Ubuntu system, and what wireless Android Auto and the car radio need: [docs/installation.md](docs/installation.md).
+Plug in your phone (or set up wireless under *Einstellungen → Kabellos*). What wireless Android Auto and the car
+radio need: [docs/installation.md](docs/installation.md).
+
+**Supported setups:** OpenHU OS ([openhu-os](https://github.com/average-web-dev/openhu-os)) on the head unit, and
+the container above everywhere else. Installing the OpenHU `.deb` directly on another system (Debian, Ubuntu,
+Raspberry Pi OS) is not supported.
 
 ## Documentation
 
 | | |
 |---|---|
-| [Installation](docs/installation.md) | container, bare metal, service, wireless and car radio requirements |
+| [Installation](docs/installation.md) | supported setups, container, service, wireless and car radio requirements |
 | [Configuration](docs/configuration.md) | every setting of `openhu.ini`, data files |
 | [API](docs/api.md) | topics, methods and actions of the WebSocket API |
 | [Plugins](docs/plugins.md) | manifest, QML module, store repositories |
