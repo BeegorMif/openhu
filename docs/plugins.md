@@ -180,7 +180,7 @@ Only plugins that declare it in `androidAuto` feed Android Auto (#123):
 | Key | |
 |---|---|
 | `sensors` | vehicle data the plugin publishes for Android Auto, named like the topics without `vehicle.`: `speed`, `parkingBrake`, `gear`, `fuel`, `odometer`, `engine`, `climate`, `compass`, `drivingStatus`, `info` ([api.md](api.md#vehicle-data-android-auto-sensors)) |
-| `services` | Android Auto services the plugin backs: `radio` (`radio.state` / `radio.command`), `carControl` (`vehicle.controls`, [api.md](api.md#car-controls-android-auto-climate-rail)) |
+| `services` | Android Auto services the plugin backs: `radio` (`radio.state` / `radio.command`), `carControl` (`vehicle.controls`, [api.md](api.md#car-controls-android-auto-climate-rail)), `localMedia` (`media.status` / `media.metadata` in the phone's media card, [api.md](api.md#local-media-android-auto-media-card)) |
 
 - While the plugin is enabled, OpenHU announces exactly these sensors and services when the phone connects, whether
   values are there yet or not (the phone takes them when they arrive). Unknown names are ignored (logged).

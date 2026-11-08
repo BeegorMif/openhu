@@ -43,6 +43,7 @@
 #include <f1x/openauto/autoapp/Service/Radio/RadioService.hpp>
 #include <f1x/openauto/autoapp/Plugins/AndroidAutoProviders.hpp>
 #include <f1x/openauto/autoapp/Service/CarControl/CarControlService.hpp>
+#include <f1x/openauto/autoapp/Service/CarLocalMedia/CarLocalMediaService.hpp>
 #include <f1x/openauto/autoapp/Core/EventBus.hpp>
 #include <f1x/openauto/autoapp/Projection/FfmpegVideoOutput.hpp>
 #include <f1x/openauto/autoapp/Audio/AudioSources.hpp>
@@ -83,6 +84,11 @@ namespace f1x::openauto::autoapp::service {
         // The radio plugin as a media source in Android Auto (openhu#75). The services cannot change during a
         // connection: the plugin cannot be enabled or disabled while one runs.
         serviceList.emplace_back(std::make_shared<radio::RadioService>(ioService_, messenger));
+    }
+    if (carlocalmedia::CarLocalMediaService::available())
+    {
+        // The music player (and other plugins that declare "localMedia") in the phone's media card (openhu#147)
+        serviceList.emplace_back(std::make_shared<carlocalmedia::CarLocalMediaService>(ioService_, messenger));
     }
     if (carcontrol::CarControlService::available())
     {

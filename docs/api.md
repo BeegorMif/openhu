@@ -75,7 +75,7 @@ networks you trust.
 | `audio.duck` | `active`, `level` (loudness of local sources in %, 0 = muted, 100 = unchanged), `reason` (`transient`: audio focus GAIN_TRANSIENT, expected for the Assistant, muted; `may_duck`: GAIN_TRANSIENT_MAY_DUCK, expected for navigation prompts; `guidance`: another or no focus request; both lowered to Settings → Audio, `Audio.DuckLevel`; empty while inactive). While Android Auto plays on its guidance channel, OpenHU lowers the streams of other processes (e.g. the radio plugin's `pacat`) itself with `pactl`, with short fades, and restores them afterwards; plugins need not do anything, the topic is for UI hints |
 | `system.daynight` | `night` (bool) – switches Android Auto to night mode while Settings → Android Auto → Night mode is "Automatic" |
 | `system.nightMode` | `mode` (`auto`, `day`, `night`) – that setting (`General.NightMode`) |
-| `input.action` | `action`, `phase` (`click`, `press`, `release`) – every triggered action (one-shot event, no stored value). Media keys (`media.*`) go to the current media source: to the phone while `media.status.source` is `androidauto` (or empty), otherwise only here, to the plugin that published `media.status` with its own `source` (e.g. `radio`) |
+| `input.action` | `action`, `phase` (`click`, `press`, `release`) – every triggered action (one-shot event, no stored value). Media keys (`media.*`) go to the current media source: to the phone while `media.status.source` is `androidauto` (or empty), otherwise only here, to the plugin that published `media.status` with its own `source` (e.g. `radio`). With `source` (the buttons of Android Auto's media card, see [Local media](#local-media-android-auto-media-card)) the action is meant for that source, also while another one owns the media keys |
 | `ui.page` | `page` – page shown in the shell (`home`, `aa`, `settings`, `plugin:<id>`) |
 | `ui.overlay` | `overlays` – ids of the plugins whose overlay is shown (`ui.overlay.show`) |
 | `ui.language` | `language` (`de`, `en`), `available` – language of the shell; texts of plugin processes can follow it |
@@ -198,6 +198,18 @@ API clients on the wireless hotspot network are refused unless "API auch im WLAN
 Devices on the Ethernet port (OpenHU OS: Settings → Network → Ethernet, DHCP server: OpenHU is `10.42.1.1` and
 `openhu.local`) are clients from the network like any other: they reach the API once "Share the API in the network"
 is on, and always need the token.
+
+### Local media (Android Auto media card)
+
+A plugin that declares the service `localMedia` ([plugins.md](plugins.md#android-auto)), or an API client that is not
+a plugin, gets its `media.status` / `media.metadata` into Android Auto's media card (#147): title, artist, album,
+cover (a `data:image/...;base64` URL, scaled to at most 512 px), the source's name (the plugin's name) and the
+buttons play, pause, previous and next. The phone shows the source that started playing last; `playing` brings it to
+the front of the card.
+
+A button in the card comes back as `input.action` (`media.play`, `media.pause`, `media.previous`, `media.next`,
+`phase` `click`) with `"source": "<the source>"`. The plugin handles it even while Android Auto's own music owns the
+media keys. Android Auto has no song list for these sources: the songs are chosen on the plugin's page.
 
 ## Methods
 
