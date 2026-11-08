@@ -118,11 +118,23 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
         iw \
         python3 \
         python3-websockets \
-        rtl-sdr \
-        sox \
         x11-apps \
         xdotool \
-        imagemagick
+        imagemagick \
+        # the packages of the plugins (openhu-plugins, "packages" in their manifests; in OpenHU OS they are in the
+        # image): music player (org.openhu.media)
+        mpv \
+        python3-mutagen \
+        # radio (org.openhu.radio): rtl_fm, pacat, openhu-dab and redsea; ffmpeg for the simulated stick
+        rtl-sdr \
+        sox \
+        librtlsdr0 \
+        libfaad2 \
+        libfftw3-single3 \
+        libsamplerate0 \
+        libliquid1 \
+        libsndfile1 \
+        ffmpeg
 
 # aasdk is installed to /opt/aasdk (volume), OpenHU runs from its build directory (volume)
 ENV CMAKE_PREFIX_PATH=/opt/aasdk \
