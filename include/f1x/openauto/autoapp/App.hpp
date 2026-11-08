@@ -69,6 +69,14 @@ public:
     void setUsbRetryDelay(std::chrono::steady_clock::duration delay) { usbRetryDelay_ = delay; }
     // delay after a session end before the phones still on USB are reported again (default 3 s, openhu#92)
     void setUsbReportDelay(std::chrono::steady_clock::duration delay) { usbReportDelay_ = delay; }
+    // Development (openhu#158): connect to Android Auto's "head unit server" (developer settings, port 5277, reached
+    // through `adb forward tcp:5277 tcp:5277`) instead of waiting for a phone. No USB wait then: switching the phone
+    // to accessory mode would end its USB debugging. Call before waitForUSBDevice().
+    void setAndroidAutoServer(const std::string& host, unsigned short port)
+    {
+        serverHost_ = host;
+        serverPort_ = port;
+    }
 
 private:
     using std::enable_shared_from_this<App>::shared_from_this;
@@ -102,6 +110,10 @@ private:
     boost::asio::steady_timer usbReportTimer_;
     std::chrono::steady_clock::duration usbReportDelay_ = std::chrono::seconds(3);
     boost::asio::steady_timer usbWatchdogTimer_;
+    std::string serverHost_;
+    unsigned short serverPort_ = 0;
+    boost::asio::steady_timer serverTimer_;
+    void connectToServer(std::chrono::steady_clock::duration delay);
     std::function<QStringList()> usbDeviceProbe_;
     std::chrono::steady_clock::duration usbWatchdogInterval_ = std::chrono::seconds(5);
     core::UsbWatchdog usbWatchdog_;

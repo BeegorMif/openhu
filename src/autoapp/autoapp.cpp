@@ -416,7 +416,17 @@ int main(int argc, char* argv[])
 
     // A phone left in accessory mode by a previous run (restart, crash) still runs its old session and answers
     // with data the new session cannot decrypt: reset it, it reconnects from scratch.
-    if(!autoapp::core::resetAndroidUsbDevices(true).isEmpty())
+    // OPENHU_AA_SERVER=host:port: Android Auto's head unit server instead of USB/wireless (development, openhu#158)
+    const QString aaServer = qEnvironmentVariable("OPENHU_AA_SERVER");
+    if(!aaServer.isEmpty())
+    {
+        const int colon = aaServer.lastIndexOf(':');
+        const QString host = colon > 0 ? aaServer.left(colon) : aaServer;
+        const auto port = static_cast<unsigned short>(colon > 0 ? aaServer.mid(colon + 1).toUInt() : 5277);
+        OPENAUTO_LOG(info) << "[AutoApp] Android Auto through the head unit server " << host.toStdString() << ":" << port;
+        app->setAndroidAutoServer(host.toStdString(), port);
+    }
+    else if(!autoapp::core::resetAndroidUsbDevices(true).isEmpty())
     {
         OPENAUTO_LOG(info) << "[AutoApp] phone was still in accessory mode, reset it";
     }
