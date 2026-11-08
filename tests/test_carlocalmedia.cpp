@@ -132,6 +132,26 @@ private slots:
         QVERIFY(!state.onStatus("", "", {{"state", "playing"}}).status);
     }
 
+    // the companion app shows the head unit's music itself: the player is stopped meanwhile, then back as it was
+    void companion()
+    {
+        lm::LocalMediaState state;
+        QVERIFY(!state.setCompanion(true).status);  // nothing shown: nothing to hide
+        QVERIFY(!state.onStatus("music", "Music", ::status("playing")).status);
+        QVERIFY(!state.onMetadata("music", {{"title", "Song"}}).metadata);
+        QCOMPARE(state.shownStatus().value("state").toString(), QString("stopped"));
+
+        auto changes = state.setCompanion(false);
+        QVERIFY(changes.status && changes.metadata);
+        QCOMPARE(state.shownStatus().value("state").toString(), QString("playing"));
+        QCOMPARE(state.metadata().value("title").toString(), QString("Song"));
+
+        changes = state.setCompanion(true);
+        QVERIFY(changes.status && !changes.metadata);
+        QCOMPARE(state.shownStatus().value("state").toString(), QString("stopped"));
+        QVERIFY(!state.setCompanion(true).status);
+    }
+
     void sources()
     {
         const QVariantMap state{{"plugins", QVariantList{

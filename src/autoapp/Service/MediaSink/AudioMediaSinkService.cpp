@@ -18,6 +18,7 @@
 */
 
 #include <f1x/openauto/Common/Log.hpp>
+#include <f1x/openauto/autoapp/Core/EventBus.hpp>
 #include <f1x/openauto/autoapp/Audio/DuckingController.hpp>
 #include <f1x/openauto/autoapp/Service/MediaSink/AudioMediaSinkService.hpp>
 
@@ -210,6 +211,10 @@ namespace f1x {
             // Assistant and navigation prompts: local sources (radio) are lowered meanwhile (#93)
             if (channel_->getId() == aasdk::messenger::ChannelId::MEDIA_SINK_GUIDANCE_AUDIO) {
               audio::AndroidAutoAudio::instance().reportGuidance(playing);
+            }
+            // the phone streams music (core::phoneMusicPlaying, the companion app never does)
+            if (channel_->getId() == aasdk::messenger::ChannelId::MEDIA_SINK_MEDIA_AUDIO) {
+              core::EventBus::instance().publish("androidauto.mediaAudio", {{"playing", playing}});
             }
           }
 

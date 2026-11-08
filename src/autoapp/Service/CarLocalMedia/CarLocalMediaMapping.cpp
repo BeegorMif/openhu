@@ -123,7 +123,7 @@ LocalMediaState::Changes LocalMediaState::onStatus(const QString& source, const 
         changes.metadata = metadata_.contains(source);
     }
     changes.status = current_ == source;
-    return changes;
+    return companion_ ? Changes() : changes;
 }
 
 LocalMediaState::Changes LocalMediaState::onMetadata(const QString& source, const QVariantMap& metadata)
@@ -134,8 +134,35 @@ LocalMediaState::Changes LocalMediaState::onMetadata(const QString& source, cons
         return changes;
     }
     metadata_.insert(source, metadata);
-    changes.metadata = current_ == source;
+    changes.metadata = current_ == source && !companion_;
     return changes;
+}
+
+LocalMediaState::Changes LocalMediaState::setCompanion(bool connected)
+{
+    Changes changes;
+    if(connected == companion_)
+    {
+        return changes;
+    }
+    companion_ = connected;
+    if(current_.isEmpty())
+    {
+        return changes;  // nothing shown, nothing to hide
+    }
+    changes.status = true;
+    changes.metadata = !companion_ && metadata_.contains(current_);  // back: the song as well
+    return changes;
+}
+
+QVariantMap LocalMediaState::shownStatus() const
+{
+    QVariantMap status = this->status();
+    if(companion_)
+    {
+        status.insert("state", "stopped");
+    }
+    return status;
 }
 
 }

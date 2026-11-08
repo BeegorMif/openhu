@@ -58,6 +58,7 @@ networks you trust.
 | `projection.state` | `connected` (bool) – Android Auto session running |
 | `projection.video` | `active` (bool) – projection video playing |
 | `projection.transport` | `transport` (`usb`, `wifi`) – how the current session is connected |
+| `androidauto.mediaAudio` | `playing` (bool) – the phone streams music (Android Auto's media audio channel is open) |
 | `nav.status` | `state`: `active`, `inactive`, `rerouting`, `unavailable` |
 | `nav.turn` | `road`, `maneuver` (e.g. `turn_normal_left`, `roundabout_enter`, `destination`), `side` (`left`/`right`/`unspecified`), `roundaboutExit`, `turnAngle`, `image` (data URL, if the phone sends one), `lanes` (`[{directions:[...], highlighted}]`), `cue` |
 | `nav.distance` | to the next maneuver: `meters`, `seconds`, `display` (as shown by the phone), `unit` (`meters`, `kilometers`, `miles`, …) |
@@ -93,6 +94,8 @@ networks you trust.
 | `wireless.state` | `enabled`, `wifiAvailable` (a WiFi card is there), `wifiInterface`, `bluetoothAvailable` (a Bluetooth adapter is there; wireless Android Auto needs both and starts by itself when one is plugged in later), `running`, `hotspot` (`off`, `starting`, `on`, `error`), `hotspotMode` (`always`, `demand`), `hotspotError`, `hotspotRoom` (the hotspot leaves the card to WiFi networks: `search`, `client`, empty), `searchUntil` (ms since 1970), `wifiOff`, `interface`, `channel`, `ssid`, `bluetooth` (`off`, `on`, `error`), `bluetoothError`, `phase` (`idle`, `waiting`, `hotspot`, `handshake`, `joining`, `connected`, `error`), `phaseText`, `device` |
 | `wifi.state` | `available` (a WiFi card is there), `ready` (the cards are known), `enabled`, `devices` (WiFi cards), `client` (`ssid`, `ip`, `device`, `uuid`) while OpenHU is in a known WiFi network, `internet`, `networks` (saved ones, `uuid`, `ssid`, `priority`, `secured`, `hidden`, `active`, `joined` = connected at least once; highest priority first), `found` (after `wifi.scan`: `ssid`, `signal`, `security`, `secured`, `known`), `scanning`, `busy`, `message`, `hotspotDevice` (the card runs OpenHU's hotspot) |
 | `bluetooth.pairing` | `active`, `device`, `passkey` – a device asks to pair (confirmed in the shell or with `bluetooth.confirm`) |
+| `bluetooth.phone` | `address` – the Bluetooth address of the Android Auto phone, sent by the phone when the session starts (needs Bluetooth: wireless Android Auto or `Bluetooth.AdapterType` local) |
+| `companion.state` | `connected`, `app`, `version`, `label` – the companion app on the phone ([below](#companion-app)) |
 | `bluetooth.state` | `available` (an adapter is there, also before it is used), `error`, `adapter`, `pairing` (visible), `pairingDevice`, `pairingPasskey`, `pairingWith` (pairing started by OpenHU), `searching` |
 | `caraudio.state` | `enabled`, `device`, `name`, `paired`, `connected`, `sink`, `error`, `status` – sound to the Bluetooth car radio |
 | `system.update` | OpenHU OS only: `state` (`idle`, `checking`, `installing`, `done`, `uptodate`, `error`, `cancelled`), `phase` (`root`, `kernel`), `percent`, `from`, `version`, `error`, `source` (`usb`, `online`), after a check `checked`, `current`, `newest`, `available`, `source`, `checkError`; `usb` while a USB stick with OpenHU OS is plugged in (`version`, `newer`, `path`); `offer` – what `system.update.install` installs (`version`, `source`: the newer of the checked version and the stick's); `busy`, `blocked` (Android Auto connected) |
@@ -209,7 +212,44 @@ the front of the card.
 
 A button in the card comes back as `input.action` (`media.play`, `media.pause`, `media.previous`, `media.next`,
 `phase` `click`) with `"source": "<the source>"`. The plugin handles it even while Android Auto's own music owns the
-media keys. Android Auto has no song list for these sources: the songs are chosen on the plugin's page.
+media keys. Android Auto has no song list for these sources: the songs are chosen on the plugin's page, or in the
+companion app. While the companion app is connected, the card shows the source stopped, so Android Auto lists only
+the app; the card comes back when the app goes away.
+
+### Companion app
+
+The companion app ([openhu-companion](https://github.com/average-web-dev/openhu-companion), #158) shows the music
+plugin's library as a media app in Android Auto and controls the head unit's player. It plays no sound on the phone.
+
+**Connection.** The app listens on an RFCOMM service (UUID `57b07c95-708d-46ae-a658-9f296dfd034c`). When Android Auto
+starts, the phone sends its Bluetooth address (`bluetooth.phone`). OpenHU then connects to the app on that phone, a
+few times until the app's service is up. Nothing is set up in the app. This needs the Bluetooth service of the
+Android Auto session (wireless Android Auto, or `Bluetooth.AdapterType` local) and a phone paired with the head unit.
+
+**Protocol.** One JSON message per line, the messages of this API. The app sends its hello first:
+
+```
+→ {"type":"hello","app":"org.openhu.companion","version":"1.0.0","label":"OpenHU","protocol":1,"features":["media"]}
+← {"type":"hello","openhu":1}
+```
+
+Then it is a client like any other (`subscribe`, `request`, events). It is not a local client: OpenHU logs the link
+in with the token, because the bonded link to the session's phone is the trust. `companion.state` says that the app is
+connected and gives its `label`, the name Android Auto reports for it (`media.status` `app`).
+
+**Android Auto with the app.**
+- While Android Auto shows the app and a local source starts, the phone keeps the audio focus. A focus loss would
+  show the app as interrupted, and the music plays on the head unit anyway.
+- The app's own playback state from the phone is published as `stopped` without metadata. As phone music it would
+  pause the local sources.
+- When the phone streams music next to it (`androidauto.mediaAudio`, for example Spotify started on the phone), that
+  is another app. OpenHU publishes `media.status` `{"source":"androidauto","state":"playing"}`, and the local sources
+  pause as usual.
+
+**Bandwidth.** RFCOMM carries roughly 100–200 KB/s. OpenHU does not send Android Auto's own `media.current`,
+`media.metadata` or `media.status` (source `androidauto`, every second with its cover). The app follows the music
+plugin's `music.state` and takes the cover from its `media.metadata`. When the phone does not read (over 8 MB waiting),
+the link is dropped.
 
 ## Methods
 

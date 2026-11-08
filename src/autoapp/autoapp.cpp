@@ -48,6 +48,7 @@
 #include <f1x/openauto/autoapp/Service/AndroidAutoEntityFactory.hpp>
 #include <f1x/openauto/autoapp/Service/ServiceFactory.hpp>
 #include <f1x/openauto/autoapp/Api/ApiServer.hpp>
+#include <f1x/openauto/autoapp/Api/CompanionBridge.hpp>
 #include <f1x/openauto/autoapp/Api/ClientFilter.hpp>
 #include <f1x/openauto/autoapp/Api/CoreMethods.hpp>
 #include <f1x/openauto/autoapp/Audio/AudioGraph.hpp>
@@ -246,6 +247,11 @@ int main(int argc, char* argv[])
                      applyApiAccess);
     apiServer.listen(autoapp::api::listenAddress(QString::fromStdString(configuration->getApiListenAddress())),
                      configuration->getApiPort());
+    // the API over Bluetooth for the companion app on the Android Auto phone (openhu#158)
+    autoapp::api::CompanionBridge companionBridge(configuration->getApiPort(), [configuration]() {
+        return QString::fromStdString(configuration->getApiToken());
+    });
+    companionBridge.start();
 
     // Plugins (~/.openhu/plugins) and the store (~/.openhu/sources.list), docs/plugins.md
     autoapp::plugins::PluginManager pluginManager(configuration->getApiPort());
