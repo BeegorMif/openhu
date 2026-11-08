@@ -19,6 +19,7 @@
 
 #include <QCoreApplication>
 #include <QThread>
+#include <f1x/openauto/autoapp/Audio/AudioSources.hpp>
 #include <f1x/openauto/autoapp/Projection/QtAudioOutput.hpp>
 #include <f1x/openauto/Common/Log.hpp>
 
@@ -73,8 +74,8 @@ void QtAudioOutput::createAudioOutput()
     // QAudioSink is opened on a device, not on "the default". With PipeWire 1.4 its stream followed a new default
     // all the same, but a new stream is opened on the default of that moment (onStartPlayback) so that it does not
     // depend on that (Bluetooth car radio, #112; OutputRouter moves the playing ones). With an audio source's sink
-    // (#154) the stream opens there; the sink's chain goes to the output. A sink that is not there yet (its process
-    // starts) is looked up again at the next stream start.
+    // (#154) the stream opens there; the sink's chain goes to the output. A sink that is not there (its process
+    // starts, PipeWire restarted) is looked up again at the next stream start.
     device_ = this->currentDevice();
     audioOutput_ = std::make_unique<QAudioSink>(device_, audioFormat_);
 }
@@ -97,7 +98,9 @@ QAudioDevice QtAudioOutput::deviceFor(const QString& sink, const QList<QAudioDev
 
 QAudioDevice QtAudioOutput::currentDevice() const
 {
-    if(sink_.isEmpty())
+    // only a sink that exists now (AudioGraph's last list): Qt waits forever for a stream on a missing sink, in
+    // this (GUI) thread. Qt's own device list can still hold a sink that is gone (PipeWire restarted, #154).
+    if(sink_.isEmpty() || !audio::isSinkPresent(sink_))
     {
         return QMediaDevices::defaultAudioOutput();
     }

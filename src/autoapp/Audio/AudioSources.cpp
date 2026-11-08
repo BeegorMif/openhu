@@ -19,6 +19,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <mutex>
 #include <QRegularExpression>
 #include <QtGlobal>
 #include <QSet>
@@ -144,6 +145,24 @@ QStringList setControlArguments(const QString& sink, const QString& control, dou
 {
     return {"set-param", sink, "Props",
             QString("{ params = [ \"%1\" %2 ] }").arg(control).arg(value, 0, 'f', 4)};
+}
+
+namespace
+{
+std::mutex presentMutex;
+QSet<QString> presentSinks;
+}
+
+void setPresentSinks(const QSet<QString>& sinks)
+{
+    std::lock_guard<std::mutex> lock(presentMutex);
+    presentSinks = sinks;
+}
+
+bool isSinkPresent(const QString& sink)
+{
+    std::lock_guard<std::mutex> lock(presentMutex);
+    return presentSinks.contains(sink);
 }
 
 QList<int> eqBands()

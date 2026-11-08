@@ -78,6 +78,9 @@ AudioGraph::AudioGraph(QHash<QString, int> levels, std::function<void(const QHas
     configDir_ = (runtime.isEmpty() ? QDir::tempPath() : runtime) + "/openhu-audio";
     pollTimer_.setInterval(500);
     connect(&pollTimer_, &QTimer::timeout, this, &AudioGraph::list);
+    subscribeTimer_.setSingleShot(true);
+    subscribeTimer_.setInterval(1000);
+    connect(&subscribeTimer_, &QTimer::timeout, this, &AudioGraph::subscribe);
 
     auto own = std::make_unique<Group>();
     own->sources = coreSources();
@@ -108,6 +111,7 @@ void AudioGraph::start()
     }
     started_ = true;
     stopped_ = false;
+    this->subscribe();
     // the sinks that exist already decide which groups need a process of their own (onListed)
     this->list();
     pollTimer_.start();
@@ -119,11 +123,19 @@ void AudioGraph::stop()
     stopped_ = true;
     started_ = false;
     pollTimer_.stop();
+    subscribeTimer_.stop();
+    if(subscriber_)
+    {
+        subscriber_->disconnect(this);
+        subscriber_->kill();
+        subscriber_->waitForFinished(500);
+        subscriber_.reset();
+    }
     for(auto& entry: groups_)
     {
         this->stopGroup(*entry.second);
     }
-    present_.clear();
+    this->setPresent({});
     listed_ = false;
 }
 
@@ -227,6 +239,7 @@ void AudioGraph::startGroup(const QString& name, Group& group)
     file.close();
 
     group.stopping = false;
+    group.complete = false;
     group.process = std::make_unique<QProcess>();
     group.process->setProcessChannelMode(QProcess::MergedChannels);
     connect(group.process.get(), &QProcess::finished, this, [this, name]() { this->onGroupFinished(name); });
@@ -283,10 +296,12 @@ void AudioGraph::onGroupFinished(const QString& name)
     group.restartDelay = std::min(cMaxRestartMs, std::max(restartMs_, group.restartDelay * 2));
     OPENAUTO_LOG(warning) << "[AudioGraph] pipewire for " << (name.isEmpty() ? "OpenHU" : name.toStdString())
                           << " ended, again in " << group.restartDelay << " ms: " << output.toStdString();
+    QSet<QString> present = present_;
     for(const AudioSource& source: group.sources)
     {
-        present_.remove(source.sink);
+        present.remove(source.sink);
     }
+    this->setPresent(present);
     group.restartTimer.setSingleShot(true);
     group.restartTimer.disconnect();
     connect(&group.restartTimer, &QTimer::timeout, this, [this, name]() {
@@ -302,10 +317,75 @@ void AudioGraph::onGroupFinished(const QString& name)
     this->publish();
 }
 
+void AudioGraph::restartGroup(const QString& name, Group& group)
+{
+    // the process lost PipeWire (it restarted): it does not end by itself and does not reconnect. Ended here,
+    // onGroupFinished() starts it again.
+    OPENAUTO_LOG(warning) << "[AudioGraph] sinks of " << (name.isEmpty() ? "OpenHU" : name.toStdString())
+                          << " are gone (PipeWire restarted?), creating them again";
+    group.complete = false;
+    QProcess* process = group.process.get();
+    process->terminate();
+    QTimer::singleShot(1000, process, [process]() { process->kill(); });
+}
+
+void AudioGraph::subscribe()
+{
+    if(stopped_ || !started_)
+    {
+        return;
+    }
+    // sinks that come and go (also all at once: PipeWire restarted) are listed right away
+    subscriber_ = std::make_unique<QProcess>();
+    QProcess* process = subscriber_.get();
+    connect(process, &QProcess::readyReadStandardOutput, this, [this, process]() {
+        bool sinks = false;
+        while(process->canReadLine())
+        {
+            const QByteArray line = process->readLine();
+            // "Event 'remove' on sink #83"; not the frequent sink-input events
+            sinks = sinks || line.contains(" sink ") || line.contains(" server");
+        }
+        if(sinks)
+        {
+            this->list();
+        }
+    });
+    // pipewire-pulse restarted (or no pactl): again later, the list catches what changed meanwhile
+    const auto ended = [this, process]() {
+        if(stopped_ || subscriber_.get() != process)
+        {
+            return;
+        }
+        subscriber_.release()->deleteLater();
+        subscribeTimer_.start();
+        this->list();
+    };
+    connect(process, &QProcess::finished, this, ended);
+    connect(process, &QProcess::errorOccurred, this, [ended](QProcess::ProcessError error) {
+        if(error == QProcess::FailedToStart)
+        {
+            ended();
+        }
+    });
+    core::startChild(*subscriber_, "pactl", {"subscribe"});
+}
+
+void AudioGraph::setPresent(const QSet<QString>& sinks)
+{
+    present_ = sinks;
+    audio::setPresentSinks(sinks);
+}
+
 void AudioGraph::list()
 {
-    if(listing_ || stopped_)
+    if(stopped_)
     {
+        return;
+    }
+    if(listing_)
+    {
+        listAgain_ = true;
         return;
     }
     listing_ = true;
@@ -319,11 +399,17 @@ void AudioGraph::list()
         {
             this->onListed(output);
         }
+        if(listAgain_)
+        {
+            listAgain_ = false;
+            this->list();
+        }
     });
     connect(process, &QProcess::errorOccurred, this, [this, process](QProcess::ProcessError error) {
         if(error == QProcess::FailedToStart)
         {
             listing_ = false;
+            listAgain_ = false;
             process->deleteLater();
         }
     });
@@ -342,11 +428,34 @@ void AudioGraph::onListed(const QByteArray& output)
         now.insert(sink.name);
     }
     const QSet<QString> before = present_;
-    present_ = now;
+    this->setPresent(now);
     if(!listed_)
     {
         listed_ = true;
         this->ensureGroups();
+    }
+
+    for(auto& entry: groups_)
+    {
+        Group& group = *entry.second;
+        if(!group.process || group.process->state() != QProcess::Running)
+        {
+            continue;
+        }
+        bool allPresent = true;
+        for(const AudioSource& source: group.sources)
+        {
+            allPresent = allPresent && present_.contains(source.sink);
+        }
+        if(allPresent && !group.complete)
+        {
+            group.complete = true;
+            group.restartDelay = 0;
+        }
+        else if(!allPresent && group.complete)
+        {
+            this->restartGroup(entry.first, group);
+        }
     }
 
     bool allPresent = true;

@@ -22,6 +22,7 @@
 #include <QHash>
 #include <QList>
 #include <QPair>
+#include <QSet>
 #include <QString>
 #include <QStringList>
 #include <QVariantMap>
@@ -82,6 +83,12 @@ QString filterChainConfig(const QList<AudioSource>& sources, const QHash<QString
 
 // Arguments for pw-cli that set a control of a source's chain ("level:Mult" or "duck:Mult") to a linear factor
 QStringList setControlArguments(const QString& sink, const QString& control, double value);
+
+// The sinks AudioGraph found last, for any thread. A stream is opened only on a sink that exists: Qt 6.8 waits
+// forever for a stream on a missing sink (QPulseAudioSink::open() waits for PA_STREAM_READY, also after
+// PA_STREAM_FAILED), in the GUI thread, until the watchdog ends OpenHU.
+void setPresentSinks(const QSet<QString>& sinks);
+bool isSinkPresent(const QString& sink);
 
 }
 }

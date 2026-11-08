@@ -36,11 +36,19 @@ using namespace f1x::openauto::autoapp::audio;
 namespace
 {
 
-// pactl replacement in front of PATH: the sinks are the file "sinks"
+// pactl replacement in front of PATH: the sinks are the file "sinks"; subscribe reports changes of it
 const char* cFakePactl = R"(#!/bin/sh
 dir=$(dirname "$0")
 case "$1" in
     list) [ -f "$dir/sinks" ] && cat "$dir/sinks" ;;
+    subscribe)
+        last=$(cat "$dir/sinks" 2>/dev/null | cksum)
+        while :; do
+            sleep 0.05
+            now=$(cat "$dir/sinks" 2>/dev/null | cksum)
+            [ "$now" != "$last" ] && echo "Event 'change' on sink #7"
+            last="$now"
+        done ;;
 esac
 exit 0
 )";
@@ -203,6 +211,7 @@ private slots:
         QSignalSpy ready(&graph, &AudioGraph::sinkReady);
         graph.start();
         QTRY_COMPARE(ready.count(), 4);
+        QVERIFY(isSinkPresent("openhu.aa.media"));
         QVERIFY(QFile::exists(dir_->filePath("conf/openhu.conf")));
         QTRY_VERIFY(log().contains(level("openhu.aa.media", "0.5012")));
         QVERIFY(log().contains(level("openhu.aa.guidance", "1.0000")));
@@ -228,6 +237,7 @@ private slots:
 
         graph.stop();
         QVERIFY(!readFile("sinks").contains("openhu.aa.media"));
+        QVERIFY(!isSinkPresent("openhu.aa.media"));
     }
 
     // Sinks shipped by the OS: used as they are, no process of our own
@@ -286,6 +296,27 @@ private slots:
         graph.start();
         QTRY_COMPARE(ready.count(), 4);
         QCOMPARE(readFile("pipewire.log").count('\n'), 2);
+        graph.stop();
+    }
+
+    // PipeWire restarted: the process still runs, but its sinks are gone (it does not reconnect). Seen through
+    // pactl subscribe, the process is restarted and the sinks are there again.
+    void recoversWhenPipeWireRestarts()
+    {
+        AudioGraph graph({}, nullptr);
+        graph.setConfigDir(dir_->filePath("conf"));
+        graph.setTimings(30, 50);
+        QSignalSpy ready(&graph, &AudioGraph::sinkReady);
+        graph.start();
+        QTRY_COMPARE(ready.count(), 4);
+        QTest::qWait(100);  // the poll stopped, only the subscription sees the change
+
+        write("sinks", "");
+        QTRY_VERIFY(!isSinkPresent("openhu.aa.media"));
+        QTRY_COMPARE(ready.count(), 8);
+        QCOMPARE(readFile("pipewire.log").count('\n'), 2);
+        QVERIFY(isSinkPresent("openhu.aa.media"));
+        QCOMPARE(readFile("sinks").count("openhu.aa.media\t"), 1);
         graph.stop();
     }
 

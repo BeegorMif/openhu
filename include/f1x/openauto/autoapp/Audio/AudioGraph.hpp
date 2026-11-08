@@ -44,6 +44,8 @@ namespace audio
 // runs. Sinks that exist already with these names (shipped by the OS) are used as they are, without a process.
 // The level of a source is the "level" control of its chain: the start value in the config, changes with pw-cli
 // (also when a sink appears, for sinks the OS created).
+// "pactl subscribe" reports sinks that come and go: when PipeWire restarts, the processes stay but their sinks are
+// gone; a group whose sinks went away while its process runs is restarted.
 // Publishes "audio.sources" {sources: [{id, name, textId, sink, plugin, pluginName, level, canPause, present}]}.
 class AudioGraph: public QObject
 {
@@ -87,6 +89,7 @@ private:
         QTimer restartTimer;
         int restartDelay = 0;
         bool external = false;  // the sinks existed already: no process of our own
+        bool complete = false;  // all its sinks were there since the process started
         bool stopping = false;
     };
 
@@ -94,6 +97,9 @@ private:
     void startGroup(const QString& name, Group& group);
     void stopGroup(Group& group);
     void onGroupFinished(const QString& name);
+    void restartGroup(const QString& name, Group& group);
+    void subscribe();
+    void setPresent(const QSet<QString>& sinks);
     void list();
     void onListed(const QByteArray& output);
     void applyLevel(const AudioSource& source);
@@ -106,6 +112,9 @@ private:
     QSet<QString> present_;                             // sinks seen in the last list
     bool listed_ = false;                               // the sinks were listed once (external ones known)
     bool listing_ = false;
+    bool listAgain_ = false;                            // a change came during a list
+    std::unique_ptr<QProcess> subscriber_;              // pactl subscribe
+    QTimer subscribeTimer_;                             // starts it again
     bool started_ = false;
     bool stopped_ = false;
     bool warnedMissing_ = false;
