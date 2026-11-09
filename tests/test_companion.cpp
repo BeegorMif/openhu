@@ -127,13 +127,42 @@ private slots:
         QVERIFY(core::isCompanionApp("OpenHU"));
         QVERIFY(!core::isCompanionApp("Spotify"));
         QVERIFY(!core::isCompanionApp(""));
+        // the music app is an extension: Android Auto names it, the companion reports its name
+        EventBus::instance().publish("companion.state", {{"connected", true}, {"label", "OpenHU"},
+                                                          {"mediaLabels", QStringList{"Musik"}}});
+        QVERIFY(core::isCompanionApp("Musik"));
+        QVERIFY(!core::isCompanionApp("Spotify"));
         EventBus::instance().publish("companion.state", {{"connected", false}});
         QVERIFY(!core::isCompanionApp("OpenHU"));
+        QVERIFY(!core::isCompanionApp("Musik"));
 
         EventBus::instance().publish("androidauto.mediaAudio", {{"playing", true}});
         QVERIFY(core::phoneMusicPlaying());
         EventBus::instance().publish("androidauto.mediaAudio", {{"playing", false}});
         QVERIFY(!core::phoneMusicPlaying());
+    }
+
+    void extensionsFromTheManifests()
+    {
+        const QVariantMap manifest{{"id", "org.openhu.media"}, {"name", "Music"},
+                                   {"companion", QVariantMap{{"package", "org.openhu.companion.music"},
+                                                             {"topics", QStringList{"music.*"}},
+                                                             {"commands", QStringList{"music.command"}}}}};
+        const QVariantMap companion = core::companionOf(manifest);
+        QCOMPARE(companion.value("package").toString(), QString("org.openhu.companion.music"));
+        QCOMPARE(companion.value("name").toString(), QString("Music"));  // the plugin's name by default
+        QCOMPARE(companion.value("topics").toStringList(), QStringList{"music.*"});
+        QVERIFY(core::companionOf({{"id", "x"}, {"companion", QVariantMap{{"name", "no package"}}}}).isEmpty());
+        QVERIFY(core::companionOf({{"id", "x"}}).isEmpty());
+
+        const QVariantList plugins{
+            QVariantMap{{"id", "org.openhu.media"}, {"enabled", true}, {"companion", companion}},
+            QVariantMap{{"id", "org.openhu.off"}, {"enabled", false}, {"companion", companion}},
+            QVariantMap{{"id", "org.openhu.radio"}, {"enabled", true}}};
+        const QVariantList extensions = core::companionExtensions(plugins).value("extensions").toList();
+        QCOMPARE(extensions.size(), 1);
+        QCOMPARE(extensions.first().toMap().value("plugin").toString(), QString("org.openhu.media"));
+        QCOMPARE(extensions.first().toMap().value("commands").toStringList(), QStringList{"music.command"});
     }
 
     void androidAutoMediaStaysOnTheHeadUnit()
