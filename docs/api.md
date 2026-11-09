@@ -95,7 +95,8 @@ networks you trust.
 | `wifi.state` | `available` (a WiFi card is there), `ready` (the cards are known), `enabled`, `devices` (WiFi cards), `client` (`ssid`, `ip`, `device`, `uuid`) while OpenHU is in a known WiFi network, `internet`, `networks` (saved ones, `uuid`, `ssid`, `priority`, `secured`, `hidden`, `active`, `joined` = connected at least once; highest priority first), `found` (after `wifi.scan`: `ssid`, `signal`, `security`, `secured`, `known`), `scanning`, `busy`, `message`, `hotspotDevice` (the card runs OpenHU's hotspot) |
 | `bluetooth.pairing` | `active`, `device`, `passkey` – a device asks to pair (confirmed in the shell or with `bluetooth.confirm`) |
 | `bluetooth.phone` | `address` – the Bluetooth address of the Android Auto phone, sent by the phone when the session starts (needs Bluetooth: wireless Android Auto or `Bluetooth.AdapterType` local) |
-| `companion.state` | `connected`, `app`, `version`, `label` – the companion app on the phone ([below](#companion-app)) |
+| `companion.state` | `connected`, `app`, `version`, `label`, `mediaLabels` – the companion app on the phone and the names of its media extensions ([below](#companion-app)) |
+| `companion.extensions` | `extensions`: [{`plugin`, `package`, `name`, `topics`, `commands`}] – the enabled plugins that want an extension app on the phone (manifest `companion`, [plugins.md](plugins.md#companion-app)) |
 | `bluetooth.state` | `available` (an adapter is there, also before it is used), `error`, `adapter`, `pairing` (visible), `pairingDevice`, `pairingPasskey`, `pairingWith` (pairing started by OpenHU), `searching` |
 | `caraudio.state` | `enabled`, `device`, `name`, `paired`, `connected`, `sink`, `error`, `status` – sound to the Bluetooth car radio |
 | `system.update` | OpenHU OS only: `state` (`idle`, `checking`, `installing`, `done`, `uptodate`, `error`, `cancelled`), `phase` (`root`, `kernel`), `percent`, `from`, `version`, `error`, `source` (`usb`, `online`), after a check `checked`, `current`, `newest`, `available`, `source`, `checkError`; `usb` while a USB stick with OpenHU OS is plugged in (`version`, `newer`, `path`); `offer` – what `system.update.install` installs (`version`, `source`: the newer of the checked version and the stick's); `busy`, `blocked` (Android Auto connected) |
@@ -218,8 +219,12 @@ the app; the card comes back when the app goes away.
 
 ### Companion app
 
-The companion app ([openhu-companion](https://github.com/average-web-dev/openhu-companion), #158) shows the music
-plugin's library as a media app in Android Auto and controls the head unit's player. It plays no sound on the phone.
+The companion app ([openhu-companion](https://github.com/average-web-dev/openhu-companion), #158) holds the Bluetooth
+link to the head unit. Extension apps on the phone reach OpenHU through it (openhu-companion#3): a plugin names its
+app in its manifest (`companion`, [plugins.md](plugins.md#companion-app)), OpenHU publishes the list as
+`companion.extensions`, and the companion gives each app only its plugin's topics and commands, after the user allowed
+it once. The first extension is the music app ("Music"): the music plugin's library as a media app in Android Auto that
+controls the head unit's player and plays no sound on the phone.
 
 **Connection.** The app listens on an RFCOMM service (UUID `57b07c95-708d-46ae-a658-9f296dfd034c`). When Android Auto
 starts, the phone sends its Bluetooth address (`bluetooth.phone`). OpenHU then connects to the app on that phone, a
@@ -229,15 +234,16 @@ Android Auto session (wireless Android Auto, or `Bluetooth.AdapterType` local) a
 **Protocol.** One JSON message per line, the messages of this API. The app sends its hello first:
 
 ```
-→ {"type":"hello","app":"org.openhu.companion","version":"1.0.0","label":"OpenHU","protocol":1,"features":["media"]}
+→ {"type":"hello","app":"org.openhu.companion","version":"1.0.0","label":"OpenHU","mediaLabels":["Music"],"protocol":1,"features":["extensions"]}
 ← {"type":"hello","openhu":1}
 ```
 
 Then it is a client like any other (`subscribe`, `request`, events). It is not a local client: OpenHU logs the link
 in with the token, because the bonded link to the session's phone is the trust. `companion.state` says that the app is
-connected and gives its `label`, the name Android Auto reports for it (`media.status` `app`).
+connected; `mediaLabels` are the names Android Auto shows (and reports as `media.status` `app`) for its allowed media
+extensions. The app sends its hello again when they change.
 
-**Android Auto with the app.**
+**Android Auto with the music app** (Android Auto's media app is one of `mediaLabels`, or the companion's `label`).
 - While Android Auto shows the app and a local source starts, the phone keeps the audio focus. A focus loss would
   show the app as interrupted, and the music plays on the head unit anyway.
 - The app's own playback state from the phone is published as `stopped` without metadata. As phone music it would

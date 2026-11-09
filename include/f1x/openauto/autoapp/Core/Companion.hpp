@@ -19,6 +19,8 @@
 #pragma once
 
 #include <QString>
+#include <QVariantList>
+#include <QVariantMap>
 
 namespace f1x
 {
@@ -29,11 +31,21 @@ namespace autoapp
 namespace core
 {
 
-// The companion app (openhu-companion, openhu#158): a media app in Android Auto that shows the head unit's own music
-// and plays no sound on the phone. It announces itself over Bluetooth (CompanionBridge, companion.state).
+// The companion app (openhu-companion, openhu#158) and its extension apps: the local player is a media app in Android
+// Auto that shows the head unit's own music and plays no sound on the phone. The companion announces itself over
+// Bluetooth (CompanionBridge, companion.state) with the names Android Auto shows for its media extensions.
 
-// Whether Android Auto's media app (its label, media.status "app") is the connected companion app. Thread safe.
+// Whether Android Auto's media app (its label, media.status "app") is the companion or one of its media extensions
+// (companion.state "label" / "mediaLabels"). Thread safe.
 bool isCompanionApp(const QString& app);
+
+// The manifest field "companion" {package, name, topics, commands}: the plugin's extension app on the phone, null
+// map when the field is missing or has no package.
+QVariantMap companionOf(const QVariantMap& manifest);
+
+// "companion.extensions" {extensions: [{plugin, package, name, topics, commands}]} from plugins.state "plugins":
+// the enabled plugins that want an app. The companion gives an app only its plugin's topics and commands.
+QVariantMap companionExtensions(const QVariantList& plugins);
 
 // Whether the phone streams music now (androidauto.mediaAudio). The companion never does, so sound from the phone
 // is another app, also while Android Auto still names the companion as its media app. Thread safe.

@@ -275,7 +275,8 @@ bool CompanionBridge::onHello(const QString& device, const QByteArray& line)
     core::EventBus::instance().publish("companion.state", {{"connected", true},
                                                            {"app", hello.value("app").toString()},
                                                            {"version", hello.value("version").toString()},
-                                                           {"label", hello.value("label").toString()}});
+                                                           {"label", hello.value("label").toString()},
+                                                           {"mediaLabels", hello.value("mediaLabels").toVariant()}});
     return true;
 }
 

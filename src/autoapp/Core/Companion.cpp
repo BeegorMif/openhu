@@ -31,7 +31,39 @@ namespace core
 bool isCompanionApp(const QString& app)
 {
     const QVariantMap state = EventBus::instance().last(QStringLiteral("companion.state"));
-    return state.value("connected").toBool() && !app.isEmpty() && app == state.value("label").toString();
+    return state.value("connected").toBool() && !app.isEmpty()
+           && (app == state.value("label").toString() || state.value("mediaLabels").toStringList().contains(app));
+}
+
+QVariantMap companionOf(const QVariantMap& manifest)
+{
+    const QVariantMap companion = manifest.value("companion").toMap();
+    const QString package = companion.value("package").toString();
+    if(package.isEmpty())
+    {
+        return {};
+    }
+    return {{"package", package},
+            {"name", companion.value("name", manifest.value("name", manifest.value("id"))).toString()},
+            {"topics", companion.value("topics").toStringList()},
+            {"commands", companion.value("commands").toStringList()}};
+}
+
+QVariantMap companionExtensions(const QVariantList& plugins)
+{
+    QVariantList extensions;
+    for(const auto& entry: plugins)
+    {
+        const QVariantMap plugin = entry.toMap();
+        QVariantMap companion = plugin.value("companion").toMap();
+        if(companion.isEmpty() || !plugin.value("enabled").toBool())
+        {
+            continue;
+        }
+        companion.insert("plugin", plugin.value("id"));
+        extensions.append(companion);
+    }
+    return {{"extensions", extensions}};
 }
 
 bool phoneMusicPlaying()

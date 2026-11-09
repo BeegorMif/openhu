@@ -40,6 +40,7 @@ It can bring a QML page, an overlay and a background process in any language tha
 | `shared` | files from the repository's `common/` copied to `lib/` when the archive is built |
 | `packages` | Debian packages the plugin needs on the head unit, e.g. libraries of its native programs (informational, copied to the index) |
 | `androidAuto` | what the plugin provides to Android Auto, see [Android Auto](#android-auto) |
+| `companion` | its extension app on the phone, see [Companion app](#companion-app) |
 | `audio` | the plugin's sources of sound, each with its own sink and level, see [Audio](#audio) |
 | `requires` | other plugins it needs: `{"org.openhu.can": "1.0.0"}` (id and minimum version, `""` for any) or a list of ids. Installed first by the store (refused when no source offers them), enabled along with it, started before it; without them it does not start and the store shows why. Disabling or removing a required plugin asks first and stops what requires it |
 | `recommends` | plugins it works with (list of ids), shown in the store ("Works with …") |
@@ -193,6 +194,33 @@ Only plugins that declare it in `androidAuto` feed Android Auto (#123):
   enabled, disabled, updated or removed (store and API answer `android auto connected`). A new one can be installed;
   it is installed disabled. Restarts and crashes of its process are fine, its values are unavailable meanwhile.
 - The store shows the section before installing ("Provides to Android Auto: ...").
+
+## Companion app
+
+A plugin can have its own app on the phone with its own entry in Android Auto: an extension of the OpenHU companion
+app (openhu-companion#3). The extension talks to OpenHU only through the companion, which holds the Bluetooth link.
+The manifest says which app that is and what it may see and send:
+
+```json
+"companion": {
+  "package": "org.openhu.companion.music",
+  "name": "Music",
+  "topics": ["music.*", "media.metadata"],
+  "commands": ["music.command", "music.query"]
+}
+```
+
+| Key | |
+|---|---|
+| `package` | the Android package of the app (required) |
+| `name` | shown in the companion's list and its question to the user, default the plugin's name |
+| `topics` | what the app may subscribe and read (`bus.get`), OpenHU patterns (`music.*`) |
+| `commands` | what the app may emit (`bus.emit`) |
+
+OpenHU publishes the enabled plugins' entries as `companion.extensions`. An app gets nothing else, and only after the
+user allowed it in the companion. How to write one (protocol, client library, what Android Auto shows): the README of
+[openhu-companion](https://github.com/average-web-dev/openhu-companion). Installing the app on the phone is up to the
+user.
 
 ## QML
 

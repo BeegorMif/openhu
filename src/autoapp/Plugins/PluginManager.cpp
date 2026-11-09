@@ -28,6 +28,7 @@
 #include <QUrl>
 #include <QUuid>
 #include <f1x/openauto/autoapp/Core/ChildProcesses.hpp>
+#include <f1x/openauto/autoapp/Core/Companion.hpp>
 #include <f1x/openauto/autoapp/Plugins/PluginManager.hpp>
 #include <f1x/openauto/autoapp/Plugins/AndroidAutoProviders.hpp>
 #include <f1x/openauto/autoapp/Plugins/PluginStore.hpp>
@@ -814,12 +815,20 @@ QVariantMap PluginManager::toVariant(const Plugin& plugin) const
         // enable, disable, update and remove wait for the phone to disconnect (changeBlocked)
         result["androidAuto"] = plugin.androidAuto;
     }
+    const QVariantMap companion = core::companionOf(plugin.manifest);
+    if(!companion.isEmpty())
+    {
+        // its extension app on the phone (openhu-companion#3)
+        result["companion"] = companion;
+    }
     return result;
 }
 
 void PluginManager::publishState()
 {
-    core::EventBus::instance().publish("plugins.state", {{"plugins", this->plugins()}});
+    const QVariantList plugins = this->plugins();
+    core::EventBus::instance().publish("plugins.state", {{"plugins", plugins}});
+    core::EventBus::instance().publish("companion.extensions", core::companionExtensions(plugins));
 }
 
 void PluginManager::saveState() const
