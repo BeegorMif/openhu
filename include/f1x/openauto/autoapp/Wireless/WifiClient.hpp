@@ -27,6 +27,7 @@
 #include <QTimer>
 #include <QVariantList>
 #include <QVariantMap>
+#include <f1x/openauto/autoapp/Wireless/NmSettings.hpp>
 
 namespace f1x::openauto::autoapp::wireless
 {
@@ -50,7 +51,9 @@ class WifiClient: public QObject
 public:
     static constexpr const char* cPrefix = "openhu-wifi-";
 
-    explicit WifiClient(const QString& nmcli = QStringLiteral("nmcli"), QObject* parent = nullptr);
+    // nmSettings: profiles are added and changed over D-Bus (own one when null), the rest goes through nmcli
+    explicit WifiClient(const QString& nmcli = QStringLiteral("nmcli"), QObject* parent = nullptr,
+                        NmSettings* nmSettings = nullptr);
     ~WifiClient() override;
 
     QVariantMap state() const;
@@ -80,6 +83,9 @@ public:
     static QString unescape(const QString& value);
     // splits one line of nmcli's terse output at the unescaped ':'
     static QStringList splitTerse(const QString& line);
+    // the profile of a new network (empty password: open, sae: WPA3 only, empty interface: any card)
+    static NmSettings::Profile profileFor(const QString& uuid, const QString& ssid, const QString& password,
+                                          bool hidden, bool sae, const QString& interface);
 
 signals:
     void changed();
@@ -96,6 +102,8 @@ private:
     void nmcli(const QStringList& args, std::function<void(int, const QString&)> done);
     // sh -c script with nmcli as $1
     void script(const char* script, const QStringList& args, std::function<void(int, const QString&)> done);
+    // NmSettings::modify of every (uuid, changes); done once with the first error (empty: all done)
+    void modifyAll(const QList<QPair<QString, QVariantMap>>& changes, std::function<void(const QString&)> done);
     void parseState(const QString& output);
     void parseScan(const QString& output);
     void setPriorities(const QStringList& uuids);
@@ -108,6 +116,7 @@ private:
     void publish();
 
     QString nmcli_;
+    NmSettings* nmSettings_;
     bool enabled_ = true;
     QString interface_;
     QVariantMap client_;

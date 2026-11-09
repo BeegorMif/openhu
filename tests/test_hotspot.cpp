@@ -4,6 +4,7 @@
 
 using f1x::openauto::autoapp::configuration::WirelessSettings;
 using f1x::openauto::autoapp::wireless::Hotspot;
+using f1x::openauto::autoapp::wireless::NmSettings;
 
 class TestHotspot: public QObject
 {
@@ -12,9 +13,7 @@ class TestHotspot: public QObject
 private slots:
     void initTestCase()
     {
-        qDBusRegisterMetaType<QVariantMap>();
-        qDBusRegisterMetaType<QList<QVariantMap>>();
-        qDBusRegisterMetaType<Hotspot::ProfileSettings>();
+        NmSettings::registerTypes();
     }
 
     // Only the properties OpenHU sets: an older NetworkManager must know all of them (no nmcli defaults such as
@@ -55,7 +54,7 @@ private slots:
     // the D-Bus types NetworkManager expects
     void marshalsAsNetworkManagerTypes()
     {
-        QCOMPARE(QDBusMetaType::typeToSignature(QMetaType::fromType<Hotspot::ProfileSettings>()), "a{sa{sv}}");
+        QCOMPARE(QDBusMetaType::typeToSignature(QMetaType::fromType<NmSettings::Profile>()), "a{sa{sv}}");
         QCOMPARE(QDBusMetaType::typeToSignature(QMetaType::fromType<QList<QVariantMap>>()), "aa{sv}");
         QCOMPARE(QDBusMetaType::typeToSignature(QMetaType::fromType<QByteArray>()), "ay");
         QCOMPARE(QDBusMetaType::typeToSignature(QMetaType::fromType<QStringList>()), "as");

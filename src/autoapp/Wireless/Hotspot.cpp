@@ -16,12 +16,6 @@
 *  along with OpenHU. If not, see <https://www.gnu.org/licenses/>.
 */
 
-#include <QDBusConnection>
-#include <QDBusMessage>
-#include <QDBusMetaType>
-#include <QDBusObjectPath>
-#include <QDBusPendingCallWatcher>
-#include <QDBusPendingReply>
 #include <QProcessEnvironment>
 #include <QUuid>
 #include <f1x/openauto/autoapp/Core/ChildProcesses.hpp>
@@ -33,11 +27,6 @@ namespace f1x::openauto::autoapp::wireless
 
 namespace
 {
-
-const char* cNmService = "org.freedesktop.NetworkManager";
-const char* cNmSettingsPath = "/org/freedesktop/NetworkManager/Settings";
-const char* cNmSettingsInterface = "org.freedesktop.NetworkManager.Settings";
-const char* cNmConnectionInterface = "org.freedesktop.NetworkManager.Settings.Connection";
 
 // Values come in through the environment, so they need no quoting.
 const char* cPrepareScript = R"SH(
@@ -60,22 +49,12 @@ echo "BSSID:$(cat /sys/class/net/$IF/address)"
 echo "CHANNEL:$(iw dev "$IF" info 2>/dev/null | awk '/channel/{print $2; exit}')"
 )SH";
 
-void registerDBusTypes()
-{
-    static const bool registered = [] {
-        qDBusRegisterMetaType<QVariantMap>();
-        qDBusRegisterMetaType<QList<QVariantMap>>();
-        qDBusRegisterMetaType<Hotspot::ProfileSettings>();
-        return true;
-    }();
-    Q_UNUSED(registered);
-}
-
 }
 
 
-Hotspot::Hotspot(QObject* parent)
+Hotspot::Hotspot(QObject* parent, NmSettings* nmSettings)
     : QObject(parent)
+    , nmSettings_(nmSettings != nullptr ? nmSettings : new NmSettings(this))
 {
     connect(&process_, qOverload<int, QProcess::ExitStatus>(&QProcess::finished), this,
             [this](int exitCode, QProcess::ExitStatus) { this->onFinished(exitCode); });
@@ -86,11 +65,11 @@ Hotspot::~Hotspot()
     this->stop();
 }
 
-Hotspot::ProfileSettings Hotspot::profileSettings(const configuration::WirelessSettings& settings, const QString& ssid,
+NmSettings::Profile Hotspot::profileSettings(const configuration::WirelessSettings& settings, const QString& ssid,
                                                   const QString& uuid, const QString& interface, const QString& band,
                                                   int channel)
 {
-    ProfileSettings profile;
+    NmSettings::Profile profile;
     profile["connection"] = {
         {"id", QStringLiteral("openhu-hotspot")},
         {"uuid", uuid},
@@ -139,7 +118,7 @@ void Hotspot::start(const configuration::WirelessSettings& settings, const QStri
     settings_ = settings;
     ssid_ = ssid;
     uuid_ = QUuid::createUuid().toString(QUuid::WithoutBraces);
-    profilePath_.clear();
+    profileAdded_ = false;
     bandSetting_ = band == "auto" ? "auto" : band != "2.4" ? "a" : "bg";
     address_ = Hotspot::addressOf(settings);
     interface_.clear();
@@ -176,34 +155,30 @@ void Hotspot::killProcess()
 
 void Hotspot::writeProfile(const QString& band, int channel)
 {
-    registerDBusTypes();
     band_ = band;
-    const ProfileSettings profile = Hotspot::profileSettings(settings_, ssid_, uuid_, interface_, band, channel);
-    const bool update = !profilePath_.isEmpty();
-    QDBusMessage message = update
-        ? QDBusMessage::createMethodCall(cNmService, profilePath_, cNmConnectionInterface, "Update")
-        : QDBusMessage::createMethodCall(cNmService, cNmSettingsPath, cNmSettingsInterface, "AddConnection");
-    message << QVariant::fromValue(profile);
-
-    auto* watcher = new QDBusPendingCallWatcher(QDBusConnection::systemBus().asyncCall(message, 10000), this);
+    const auto profile = Hotspot::profileSettings(settings_, ssid_, uuid_, interface_, band, channel);
     const int generation = generation_;
-    connect(watcher, &QDBusPendingCallWatcher::finished, this, [this, watcher, generation, update]() {
-        watcher->deleteLater();
+    auto written = [this, generation](const QString& error) {
         if(generation != generation_ || state_ != State::Starting)
         {
             return;
         }
-        if(watcher->isError())
+        if(!error.isEmpty())
         {
-            this->fail("add", watcher->error().name() + ": " + watcher->error().message());
+            this->fail("add", error);
             return;
         }
-        if(!update)
-        {
-            profilePath_ = QDBusPendingReply<QDBusObjectPath>(*watcher).value().path();
-        }
+        profileAdded_ = true;
         this->runUp();
-    });
+    };
+    if(profileAdded_)
+    {
+        nmSettings_->replace(uuid_, profile, written);
+    }
+    else
+    {
+        nmSettings_->add(profile, written);
+    }
 }
 
 void Hotspot::runUp()

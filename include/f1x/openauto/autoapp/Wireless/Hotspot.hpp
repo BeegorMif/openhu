@@ -18,11 +18,10 @@
 
 #pragma once
 
-#include <QMap>
 #include <QObject>
 #include <QProcess>
-#include <QVariantMap>
 #include <f1x/openauto/autoapp/Configuration/IConfiguration.hpp>
+#include <f1x/openauto/autoapp/Wireless/NmSettings.hpp>
 
 namespace f1x
 {
@@ -35,26 +34,23 @@ namespace wireless
 
 // WiFi access point for wireless Android Auto, set up through NetworkManager (connection "openhu-hotspot",
 // IPv4 shared = DHCP for the phone). Needs nmcli and a WiFi card with AP mode.
-// The profile is added over D-Bus (AddConnection) with only the properties OpenHU sets: nmcli also sends
-// properties its own version knows, which an older NetworkManager rejects (nmcli 1.52 in the Docker image
-// against NetworkManager 1.46 on the host: "802-11-wireless.mac-address-denylist: unknown property").
+// The profile is written over D-Bus (NmSettings), nmcli does the rest.
 class Hotspot: public QObject
 {
     Q_OBJECT
 
 public:
     enum class State { Off, Starting, On, Error };
-    // NetworkManager connection settings, D-Bus type a{sa{sv}}
-    using ProfileSettings = QMap<QString, QVariantMap>;
 
     // IP of OpenHU in the hotspot network (without prefix)
     static QString addressOf(const configuration::WirelessSettings& settings);
     // the hotspot profile; band "a" or "bg"
-    static ProfileSettings profileSettings(const configuration::WirelessSettings& settings, const QString& ssid,
+    static NmSettings::Profile profileSettings(const configuration::WirelessSettings& settings, const QString& ssid,
                                            const QString& uuid, const QString& interface, const QString& band,
-                                           int channel);
+                                               int channel);
 
-    explicit Hotspot(QObject* parent = nullptr);
+    // nmSettings: NetworkManager over D-Bus (own one when null)
+    explicit Hotspot(QObject* parent = nullptr, NmSettings* nmSettings = nullptr);
     ~Hotspot() override;
 
     void start(const configuration::WirelessSettings& settings, const QString& ssid);
@@ -82,12 +78,13 @@ private:
     enum class Step { Prepare, Up };
 
     void onFinished(int exitCode);
-    // AddConnection (first try) or Update (2.4 GHz fallback) over D-Bus, then up
+    // added (first try) or replaced (2.4 GHz fallback), then up
     void writeProfile(const QString& band, int channel);
     void runUp();
     void killProcess();
     void fail(const QString& code, const QString& detail);
 
+    NmSettings* nmSettings_;
     QProcess process_;
     Step step_ = Step::Prepare;
     // stale D-Bus replies (after stop/start) are ignored
@@ -96,8 +93,7 @@ private:
     configuration::WirelessSettings settings_;
     QString ssid_;
     QString uuid_;
-    // D-Bus object of the added profile
-    QString profilePath_;
+    bool profileAdded_ = false;
     // "auto", "a" or "bg"
     QString bandSetting_;
     QString band_;
