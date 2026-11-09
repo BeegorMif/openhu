@@ -18,8 +18,10 @@
 
 #pragma once
 
+#include <QMap>
 #include <QObject>
 #include <QProcess>
+#include <QVariantMap>
 #include <f1x/openauto/autoapp/Configuration/IConfiguration.hpp>
 
 namespace f1x
@@ -33,15 +35,24 @@ namespace wireless
 
 // WiFi access point for wireless Android Auto, set up through NetworkManager (connection "openhu-hotspot",
 // IPv4 shared = DHCP for the phone). Needs nmcli and a WiFi card with AP mode.
+// The profile is added over D-Bus (AddConnection) with only the properties OpenHU sets: nmcli also sends
+// properties its own version knows, which an older NetworkManager rejects (nmcli 1.52 in the Docker image
+// against NetworkManager 1.46 on the host: "802-11-wireless.mac-address-denylist: unknown property").
 class Hotspot: public QObject
 {
     Q_OBJECT
 
 public:
     enum class State { Off, Starting, On, Error };
+    // NetworkManager connection settings, D-Bus type a{sa{sv}}
+    using ProfileSettings = QMap<QString, QVariantMap>;
 
     // IP of OpenHU in the hotspot network (without prefix)
     static QString addressOf(const configuration::WirelessSettings& settings);
+    // the hotspot profile; band "a" or "bg"
+    static ProfileSettings profileSettings(const configuration::WirelessSettings& settings, const QString& ssid,
+                                           const QString& uuid, const QString& interface, const QString& band,
+                                           int channel);
 
     explicit Hotspot(QObject* parent = nullptr);
     ~Hotspot() override;
@@ -67,9 +78,29 @@ signals:
     void changed();
 
 private:
+    // prepare: checks, finds the WiFi device, removes the old profile; up: activates the profile
+    enum class Step { Prepare, Up };
+
     void onFinished(int exitCode);
+    // AddConnection (first try) or Update (2.4 GHz fallback) over D-Bus, then up
+    void writeProfile(const QString& band, int channel);
+    void runUp();
+    void killProcess();
+    void fail(const QString& code, const QString& detail);
 
     QProcess process_;
+    Step step_ = Step::Prepare;
+    // stale D-Bus replies (after stop/start) are ignored
+    int generation_ = 0;
+    bool killing_ = false;
+    configuration::WirelessSettings settings_;
+    QString ssid_;
+    QString uuid_;
+    // D-Bus object of the added profile
+    QString profilePath_;
+    // "auto", "a" or "bg"
+    QString bandSetting_;
+    QString band_;
     State state_ = State::Off;
     QString error_;
     QString errorCode_;
