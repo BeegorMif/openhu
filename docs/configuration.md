@@ -132,7 +132,7 @@ levels.
 | `Client` | `true` | join saved WiFi networks (Settings → WiFi) whenever the hotspot does not need the card, see [installation.md](installation.md#wifi-networks) |
 | `ClientInterface` | empty | WiFi card for those networks, empty = any free one; a card other than the hotspot's keeps both running |
 | `Address` | `10.42.0.1/24` | OpenHU in the hotspot network (gateway and DNS for the phone) |
-| `DhcpRange` | empty | e.g. `10.42.0.50-10.42.0.60`, empty = NetworkManager default (needs NetworkManager ≥ 1.42) |
+| `DhcpRange` | empty | e.g. `10.42.0.50-10.42.0.60`, empty = NetworkManager default (needs NetworkManager ≥ 1.48) |
 | `Hotspot` | `always` | `always` or `demand`: started when a paired phone asks for it, off after 2 minutes without a wireless session |
 | `Priority` | `usb` | phone on the cable while wireless is possible: `usb` (cable wins, no WiFi credentials for it) or `wifi` |
 | `LastDevice` | set by OpenHU | Bluetooth address of the phone that is connected first |

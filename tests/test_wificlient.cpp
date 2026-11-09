@@ -1,10 +1,12 @@
 #include <QFile>
 #include <QSignalSpy>
 #include <QTemporaryDir>
+#include <QTimer>
 #include <QtTest>
 #include "English.hpp"
 #include <f1x/openauto/autoapp/Wireless/WifiClient.hpp>
 
+using f1x::openauto::autoapp::wireless::NmSettings;
 using f1x::openauto::autoapp::wireless::WifiClient;
 
 namespace
@@ -13,6 +15,7 @@ namespace
 // Answers like NetworkManager for: wlan0 in "Gar:age" (escaped by nmcli, joined before, autoconnect), a profile of the
 // user's own (not listed), "Phone" (never joined, no autoconnect). Every call is logged to $FAKE_NM/calls;
 // "connection up" of a new profile fails with a wrong password.
+// Profiles are added and changed over D-Bus: FakeNmSettings logs these calls to the same file.
 const char* cFakeNmcli = R"(#!/bin/sh
 echo "$*" >> "$FAKE_NM/calls"
 case "$*" in
@@ -30,11 +33,72 @@ case "$*" in
         printf '802-11-wireless.ssid:Phone\n802-11-wireless.hidden:no\nconnection.autoconnect-priority:2\n802-11-wireless-security.key-mgmt:\nconnection.autoconnect:no\nconnection.interface-name:\nconnection.timestamp:0\n' ;;
     "-t -f SSID,SIGNAL,SECURITY device wifi list --rescan yes")
         printf 'Cafe:40:\nWork\\:shop:70:WPA2\nWork\\:shop:55:WPA2\n:30:WPA2\nPhone:20:WPA2\n' ;;
-    "connection add"*) echo "Connection 'x' (u9) successfully added." ;;
-    "--wait 30 connection up u9") echo "Error: Connection activation failed: Secrets were required, but not provided"; exit 4 ;;
+    "--wait 30 connection up u1"|"--wait 30 connection up u3") ;;
+    "--wait 30 connection up "*) echo "Error: Connection activation failed: Secrets were required, but not provided"; exit 4 ;;
 esac
 exit 0
 )";
+
+// "setting.property=value" sorted, without the generated UUID
+QString describe(const QVariantMap& values)
+{
+    QStringList parts;
+    for(auto value = values.begin(); value != values.end(); ++value)
+    {
+        if(value.key() != "connection.uuid")
+        {
+            parts << value.key() + "=" + value.value().toString();
+        }
+    }
+    return parts.join(' ');
+}
+
+class FakeNmSettings: public NmSettings
+{
+public:
+    explicit FakeNmSettings(const QString& calls)
+        : calls_(calls)
+    {
+    }
+
+    void add(const Profile& profile, Done done) override
+    {
+        QVariantMap flat;
+        for(auto setting = profile.begin(); setting != profile.end(); ++setting)
+        {
+            for(auto property = setting->begin(); property != setting->end(); ++property)
+            {
+                flat[setting.key() + "." + property.key()] = property.value();
+            }
+        }
+        this->log("add " + describe(flat));
+        QTimer::singleShot(0, this, [done]() { done({}); });
+    }
+
+    void modify(const QString& uuid, const QVariantMap& changes, Done done) override
+    {
+        this->log("modify " + uuid + " " + describe(changes));
+        QTimer::singleShot(0, this, [done]() { done({}); });
+    }
+
+    void replace(const QString& uuid, const Profile&, Done done) override
+    {
+        this->log("replace " + uuid);
+        QTimer::singleShot(0, this, [done]() { done({}); });
+    }
+
+private:
+    void log(const QString& line)
+    {
+        QFile file(calls_);
+        if(file.open(QIODevice::Append))
+        {
+            file.write((line + "\n").toUtf8());
+        }
+    }
+
+    QString calls_;
+};
 
 }
 
@@ -66,7 +130,8 @@ private slots:
     void noWifiCard()
     {
         qputenv("FAKE_NO_WIFI", "1");
-        WifiClient wifi(dir_.filePath("nmcli"));
+        FakeNmSettings nm(dir_.filePath("calls"));
+        WifiClient wifi(dir_.filePath("nmcli"), nullptr, &nm);
         QSignalSpy devices(&wifi, &WifiClient::devicesChanged);
         QVERIFY(!wifi.ready());
         QTRY_VERIFY(wifi.ready());
@@ -84,7 +149,8 @@ private slots:
 
     void state()
     {
-        WifiClient wifi(dir_.filePath("nmcli"));
+        FakeNmSettings nm(dir_.filePath("calls"));
+        WifiClient wifi(dir_.filePath("nmcli"), nullptr, &nm);
         QTRY_VERIFY(wifi.state().value("available").toBool());
         const QVariantMap client = wifi.state().value("client").toMap();
         QCOMPARE(client.value("ssid").toString(), QString("Gar:age"));
@@ -102,32 +168,34 @@ private slots:
         QVERIFY(networks.at(1).toMap().value("joined").toBool());
         QCOMPARE(wifi.state().value("devices").toStringList(), QStringList({"wlan0"}));
         // the profiles are as they should be: nothing changed
-        QVERIFY(!QString::fromUtf8(read(dir_.filePath("calls"))).contains("connection modify"));
+        QVERIFY(!QString::fromUtf8(read(dir_.filePath("calls"))).contains("modify "));
     }
 
     // switched off: no profile joins by itself, the active one is left; a card of its own: all profiles bound to it
     void configure()
     {
-        WifiClient wifi(dir_.filePath("nmcli"));
+        FakeNmSettings nm(dir_.filePath("calls"));
+        WifiClient wifi(dir_.filePath("nmcli"), nullptr, &nm);
         QTRY_COMPARE(wifi.state().value("networks").toList().size(), 2);
         wifi.configure(false, "");
         QTRY_VERIFY(QString::fromUtf8(read(dir_.filePath("calls"))).contains("connection down u1"));
         QString calls = QString::fromUtf8(read(dir_.filePath("calls")));
-        QVERIFY(calls.contains("connection modify u1 connection.autoconnect no connection.interface-name \n"));
+        QVERIFY(calls.contains("modify u1 connection.autoconnect=false connection.interface-name=\n"));
         QVERIFY(!wifi.add("Cafe", "", false, {}).isEmpty());
 
         QFile::remove(dir_.filePath("calls"));
         wifi.configure(true, "wlan1");
-        QTRY_VERIFY(QString::fromUtf8(read(dir_.filePath("calls"))).contains("connection modify u3"));
+        QTRY_VERIFY(QString::fromUtf8(read(dir_.filePath("calls"))).contains("modify u3"));
         calls = QString::fromUtf8(read(dir_.filePath("calls")));
         // only one that worked before joins by itself
-        QVERIFY(calls.contains("connection modify u1 connection.autoconnect yes connection.interface-name wlan1"));
-        QVERIFY(calls.contains("connection modify u3 connection.autoconnect no connection.interface-name wlan1"));
+        QVERIFY(calls.contains("modify u1 connection.autoconnect=true connection.interface-name=wlan1"));
+        QVERIFY(calls.contains("modify u3 connection.autoconnect=false connection.interface-name=wlan1"));
     }
 
     void scan()
     {
-        WifiClient wifi(dir_.filePath("nmcli"));
+        FakeNmSettings nm(dir_.filePath("calls"));
+        WifiClient wifi(dir_.filePath("nmcli"), nullptr, &nm);
         QTRY_COMPARE(wifi.state().value("networks").toList().size(), 2);
         wifi.scan();
         QTRY_VERIFY(!wifi.state().value("found").toList().isEmpty());
@@ -143,7 +211,8 @@ private slots:
 
     void addWithWrongPassword()
     {
-        WifiClient wifi(dir_.filePath("nmcli"));
+        FakeNmSettings nm(dir_.filePath("calls"));
+        WifiClient wifi(dir_.filePath("nmcli"), nullptr, &nm);
         QSignalSpy errors(&wifi, &WifiClient::error);
         QTRY_COMPARE(wifi.state().value("networks").toList().size(), 2);
         QVERIFY(!wifi.add("Cafe", "short", false, {}).isEmpty());
@@ -152,29 +221,32 @@ private slots:
         QString added;
         QCOMPARE(wifi.add("Work:shop", "long-enough", false, [&added](const QString& uuid) { added = uuid; }),
                  QString());
-        QTRY_COMPARE(added, QString("u9"));
+        QTRY_VERIFY(!added.isEmpty());
         wifi.connectTo(added);
         QTRY_COMPARE(errors.count(), 1);
         QVERIFY(errors.first().first().toString().contains("Work:shop"));
         const QString calls = QString::fromUtf8(read(dir_.filePath("calls")));
-        QVERIFY(calls.contains("connection add type wifi con-name openhu-wifi-Work:shop ssid Work:shop "
-                               "connection.autoconnect no connection.autoconnect-priority 0 "
-                               "wifi-sec.key-mgmt wpa-psk wifi-sec.psk long-enough"));
+        // only the properties OpenHU sets (an older NetworkManager knows them all)
+        QVERIFY(calls.contains("add 802-11-wireless-security.key-mgmt=wpa-psk 802-11-wireless-security.psk=long-enough "
+                               "802-11-wireless.ssid=Work:shop connection.autoconnect=false "
+                               "connection.autoconnect-priority=0 connection.id=openhu-wifi-Work:shop "
+                               "connection.type=802-11-wireless\n"));
         // the new one last, the others keep their order (renumbered from the top)
-        QVERIFY(calls.contains("connection modify u3 connection.autoconnect-priority 3"));
-        QVERIFY(calls.contains("connection modify u9 connection.autoconnect-priority 1"));
+        QVERIFY(calls.contains("modify u3 connection.autoconnect-priority=3"));
+        QVERIFY(calls.contains("modify " + added + " connection.autoconnect-priority=1"));
         // a wrong password is not kept
-        QTRY_VERIFY(QString::fromUtf8(read(dir_.filePath("calls"))).contains("connection delete u9"));
+        QTRY_VERIFY(QString::fromUtf8(read(dir_.filePath("calls"))).contains("connection delete " + added));
         QTRY_VERIFY(!wifi.state().value("busy").toBool());
     }
 
     void moveUp()
     {
-        WifiClient wifi(dir_.filePath("nmcli"));
+        FakeNmSettings nm(dir_.filePath("calls"));
+        WifiClient wifi(dir_.filePath("nmcli"), nullptr, &nm);
         QTRY_COMPARE(wifi.state().value("networks").toList().size(), 2);
         wifi.moveUp("u1");
-        QTRY_VERIFY(QString::fromUtf8(read(dir_.filePath("calls"))).contains("connection modify u3 connection.autoconnect-priority 1"));
-        QVERIFY(QString::fromUtf8(read(dir_.filePath("calls"))).contains("connection modify u1 connection.autoconnect-priority 2"));
+        QTRY_VERIFY(QString::fromUtf8(read(dir_.filePath("calls"))).contains("modify u3 connection.autoconnect-priority=1"));
+        QVERIFY(QString::fromUtf8(read(dir_.filePath("calls"))).contains("modify u1 connection.autoconnect-priority=2"));
     }
 
 private:
