@@ -25,6 +25,7 @@
 #include <f1x/openauto/autoapp/Api/ClientFilter.hpp>
 #include <f1x/openauto/autoapp/Core/EventBus.hpp>
 #include <f1x/openauto/Common/Log.hpp>
+#include <f1x/openauto/autoapp/Api/CompanionBridge.hpp>
 
 namespace f1x
 {
@@ -137,7 +138,9 @@ void ApiServer::setAllowedOrigins(const QStringList& origins)
 
 void ApiServer::onOriginAuthentication(QWebSocketCorsAuthenticator* authenticator)
 {
-    const bool allowed = originAllowed(authenticator->origin(), allowedOrigins_);
+    // the companion bridge is not a browser (its clients log in with the token)
+    const bool allowed = authenticator->origin() == CompanionBridge::cOrigin
+                         || originAllowed(authenticator->origin(), allowedOrigins_);
     if(!allowed)
     {
         OPENAUTO_LOG(info) << "[ApiServer] origin refused: " << authenticator->origin().toStdString();

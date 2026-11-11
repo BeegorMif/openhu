@@ -1,18 +1,19 @@
 /*
-*  This file is part of openauto project.
+*  This file is part of OpenHU.
+*  Copyright (C) 2026 Leon Strauß
 *
-*  openauto is free software: you can redistribute it and/or modify
+*  OpenHU is free software: you can redistribute it and/or modify
 *  it under the terms of the GNU General Public License as published by
 *  the Free Software Foundation; either version 3 of the License, or
 *  (at your option) any later version.
-
-*  openauto is distributed in the hope that it will be useful,
+*
+*  OpenHU is distributed in the hope that it will be useful,
 *  but WITHOUT ANY WARRANTY; without even the implied warranty of
 *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 *  GNU General Public License for more details.
 *
 *  You should have received a copy of the GNU General Public License
-*  along with openauto. If not, see <http://www.gnu.org/licenses/>.
+*  along with OpenHU. If not, see <https://www.gnu.org/licenses/>.
 */
 
 // The Bluetooth car radio/speaker becomes the output: A2DP profile, default sink and the playing streams (#112)
@@ -252,6 +253,41 @@ private slots:
         QVERIFY(router->sink().isEmpty());
         QCOMPARE(this->sortedLog(), sorted(QStringList{"set-default-sink " + cSpeakers, "move-sink-input 11 " + cSpeakers,
                                            "move-sink-input 12 " + cSpeakers, "move-sink-input 13 " + cSpeakers}));
+    }
+
+    // With the audio sources' chains (#154): Android Auto plays into its source sink and stays there, the chain's
+    // output (a stream of the "pipewire -c" process) moves to the radio and back
+    void sourceChainsMoveNotWhatPlaysIntoThem()
+    {
+        this->write("sinks", sinks(true) + "90\topenhu.aa.media\tPipeWire\tfloat32le 2ch 48000Hz\tRUNNING\n");
+        const QString inputs = QStringLiteral(R"([
+{"index":11,"owner_module":null,"client":"5","sink":90,"channel_map":"front-left,front-right",
+ "volume":{"front-left":{"value":65536},"front-right":{"value":65536}},
+ "properties":{"application.name":"openhu","media.name":"QtmPulseStream-1000-1","application.process.id":"1000",
+  "application.process.binary":"openhu"}},
+{"index":17,"owner_module":null,"client":"40","sink":%1,"channel_map":"front-left,front-right",
+ "volume":{"front-left":{"value":65536},"front-right":{"value":65536}},
+ "properties":{"media.name":"OpenHU aa.media","node.name":"openhu.aa.media.output","application.process.id":"5000",
+  "application.process.binary":"pipewire"}}
+])");
+        this->write("sink-inputs.json", inputs.arg(55));
+        const QList<SinkInput> parsed = parseSinkInputs(inputs.arg(55).toUtf8());
+        QVERIFY(isSourceChainOutput(parsed[1]));
+        QVERIFY(followsOutput(parsed[1]));
+        QVERIFY(!isSourceChainOutput(parsed[0]));
+
+        auto router = this->router();
+        QSignalSpy routed(router.get(), &OutputRouter::routed);
+        router->route(cAddress);
+        QTRY_COMPARE(routed.size(), 1);
+        QCOMPARE(this->sortedLog(), sorted(QStringList{"set-default-sink " + cRadio, "move-sink-input 17 " + cRadio}));
+
+        this->clearLog();
+        this->write("sink-inputs.json", inputs.arg(80));
+        QSignalSpy restored(router.get(), &OutputRouter::restored);
+        router->restore();
+        QTRY_COMPARE(restored.size(), 1);
+        QCOMPARE(this->sortedLog(), sorted(QStringList{"set-default-sink " + cSpeakers, "move-sink-input 17 " + cSpeakers}));
     }
 
     void streamsThatFollowTheDefaultAreLeftAlone()

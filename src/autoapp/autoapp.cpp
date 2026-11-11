@@ -48,8 +48,10 @@
 #include <f1x/openauto/autoapp/Service/AndroidAutoEntityFactory.hpp>
 #include <f1x/openauto/autoapp/Service/ServiceFactory.hpp>
 #include <f1x/openauto/autoapp/Api/ApiServer.hpp>
+#include <f1x/openauto/autoapp/Api/CompanionBridge.hpp>
 #include <f1x/openauto/autoapp/Api/ClientFilter.hpp>
 #include <f1x/openauto/autoapp/Api/CoreMethods.hpp>
+#include <f1x/openauto/autoapp/Audio/AudioGraph.hpp>
 #include <f1x/openauto/autoapp/Audio/DuckingController.hpp>
 #include <f1x/openauto/autoapp/Audio/VolumeController.hpp>
 #include <f1x/openauto/autoapp/Core/ChildProcesses.hpp>
@@ -59,6 +61,7 @@
 #include <f1x/openauto/autoapp/Core/ServiceNotifier.hpp>
 #include <f1x/openauto/autoapp/Core/UsbReset.hpp>
 #include <f1x/openauto/autoapp/Input/ActionDispatcher.hpp>
+#include <f1x/openauto/autoapp/Service/NowPlaying.hpp>
 #include <f1x/openauto/autoapp/Plugins/PluginManager.hpp>
 #include <f1x/openauto/autoapp/Plugins/PluginMethods.hpp>
 #include <f1x/openauto/autoapp/Plugins/PluginStore.hpp>
@@ -220,6 +223,8 @@ int main(int argc, char* argv[])
     // radio and other local sources lower while Android Auto plays a prompt or the Assistant (#93)
     autoapp::audio::DuckingController duckingController([configuration]() { return configuration->duckLevel(); });
     duckingController.start();
+    // media.current: what plays now (home page, Bluetooth car audio)
+    autoapp::service::NowPlaying nowPlaying;
     autoapp::input::ActionDispatcher actionDispatcher(volumeController, shellController);
 
     // WebSocket API for external tools and plugins (docs/api.md)
@@ -242,13 +247,42 @@ int main(int argc, char* argv[])
                      applyApiAccess);
     apiServer.listen(autoapp::api::listenAddress(QString::fromStdString(configuration->getApiListenAddress())),
                      configuration->getApiPort());
+    // the API over Bluetooth for the companion app on the Android Auto phone (openhu#158)
+    autoapp::api::CompanionBridge companionBridge(configuration->getApiPort(), [configuration]() {
+        return QString::fromStdString(configuration->getApiToken());
+    });
+    companionBridge.start();
 
     // Plugins (~/.openhu/plugins) and the store (~/.openhu/sources.list), docs/plugins.md
     autoapp::plugins::PluginManager pluginManager(configuration->getApiPort());
     autoapp::plugins::PluginStore pluginStore(pluginManager);
     autoapp::plugins::registerPluginMethods(apiServer, pluginManager, pluginStore);
     autoapp::plugins::QmlApi qmlApi(apiServer);
+
+    // Every source of sound plays into its own PipeWire sink with its own level (#154): Android Auto's outputs and
+    // the sources the plugins declare. Plugin processes get their sinks in the environment.
+    autoapp::audio::AudioGraph audioGraph(configuration->sourceLevels(),
+                                          [configuration](const QHash<QString, int>& levels) {
+                                              configuration->setSourceLevels(levels);
+                                              configuration->save();
+                                          });
+    autoapp::api::registerAudioMethods(apiServer, audioGraph);
+    pluginManager.setEnvironmentProvider([](const QString& id, const QVariantMap& manifest) {
+        return autoapp::audio::sinkEnvironment(autoapp::audio::pluginSources(id, manifest));
+    });
+    const auto updateAudioSources = [&pluginManager, &audioGraph]() {
+        QHash<QString, QList<autoapp::audio::AudioSource>> sources;
+        const auto manifests = pluginManager.activeManifests();
+        for(auto it = manifests.cbegin(); it != manifests.cend(); ++it)
+        {
+            sources.insert(it.key(), autoapp::audio::pluginSources(it.key(), it.value()));
+        }
+        audioGraph.setPluginSources(sources);
+    };
+    QObject::connect(&pluginManager, &autoapp::plugins::PluginManager::pluginsChanged, &audioGraph, updateAudioSources);
+    audioGraph.start();
     pluginManager.load();
+    updateAudioSources();
 
     // Wireless Android Auto: Bluetooth (BlueZ) + WiFi hotspot (NetworkManager)
     autoapp::bt::BluetoothManager bluetoothManager(configuration);
@@ -297,6 +331,7 @@ int main(int argc, char* argv[])
     engine.rootContext()->setContextProperty("shell", &shellController);
     engine.rootContext()->setContextProperty("settings", &settingsController);
     engine.rootContext()->setContextProperty("volume", &volumeController);
+    engine.rootContext()->setContextProperty("audioSources", &audioGraph);
     engine.rootContext()->setContextProperty("actions", &actionDispatcher);
     engine.rootContext()->setContextProperty("plugins", &pluginManager);
     engine.rootContext()->setContextProperty("store", &pluginStore);
@@ -317,6 +352,7 @@ int main(int argc, char* argv[])
         carAudio.stop();
         wirelessController.stop();
         pluginManager.stopAll();
+        audioGraph.stop();
         volumeController.stop();
         configuration->save();
         std::fflush(nullptr);
@@ -357,6 +393,7 @@ int main(int argc, char* argv[])
         carAudio.stop();
         wirelessController.stop();
         pluginManager.stopAll();
+        audioGraph.stop();
         volumeController.stop();
     });
 
@@ -385,7 +422,17 @@ int main(int argc, char* argv[])
 
     // A phone left in accessory mode by a previous run (restart, crash) still runs its old session and answers
     // with data the new session cannot decrypt: reset it, it reconnects from scratch.
-    if(!autoapp::core::resetAndroidUsbDevices(true).isEmpty())
+    // OPENHU_AA_SERVER=host:port: Android Auto's head unit server instead of USB/wireless (development, openhu#158)
+    const QString aaServer = qEnvironmentVariable("OPENHU_AA_SERVER");
+    if(!aaServer.isEmpty())
+    {
+        const int colon = aaServer.lastIndexOf(':');
+        const QString host = colon > 0 ? aaServer.left(colon) : aaServer;
+        const auto port = static_cast<unsigned short>(colon > 0 ? aaServer.mid(colon + 1).toUInt() : 5277);
+        OPENAUTO_LOG(info) << "[AutoApp] Android Auto through the head unit server " << host.toStdString() << ":" << port;
+        app->setAndroidAutoServer(host.toStdString(), port);
+    }
+    else if(!autoapp::core::resetAndroidUsbDevices(true).isEmpty())
     {
         OPENAUTO_LOG(info) << "[AutoApp] phone was still in accessory mode, reset it";
     }

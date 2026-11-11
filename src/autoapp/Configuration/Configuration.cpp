@@ -21,6 +21,8 @@
 #include <fstream>
 #include <boost/property_tree/ini_parser.hpp>
 #include <QCryptographicHash>
+#include <QJsonDocument>
+#include <QJsonObject>
 #include <f1x/openauto/autoapp/Configuration/Configuration.hpp>
 #include <f1x/openauto/Common/Log.hpp>
 
@@ -55,6 +57,7 @@ const std::string cVideoResolutionKey = "Video.Resolution";
 const std::string cVideoScreenDPIKey = "Video.ScreenDPI";
 const std::string cVideoMarginWidthKey = "Video.MarginWidth";
 const std::string cVideoMarginHeightKey = "Video.MarginHeight";
+const std::string cVideoFullscreenKey = "Video.Fullscreen";
 const std::string cTouchscreenKey = "Input.EnableTouchscreen";
 const std::string cOnScreenKeyboardKey = "Input.OnScreenKeyboard";
 const std::string cBluetoothAdapterTypeKey = "Bluetooth.AdapterType";
@@ -82,6 +85,23 @@ const std::string cAudioSystemKey = "AudioChannel.SystemEnabled";
 const std::string cAudioTelephonyKey = "AudioChannel.TelephonyEnabled";
 const std::string cRadioAndroidAutoKey = "Radio.AndroidAuto";
 const std::string cAudioDuckLevelKey = "Audio.DuckLevel";
+const std::string cAudioSourceLevelsKey = "Audio.SourceLevels";
+
+// {"aa.media": -3, ...}: attenuation only (-20..0 dB), 0 dB is not stored
+QHash<QString, int> parseSourceLevels(const std::string& json)
+{
+    QHash<QString, int> levels;
+    const QJsonObject object = QJsonDocument::fromJson(QByteArray::fromStdString(json)).object();
+    for(auto it = object.begin(); it != object.end(); ++it)
+    {
+        const int level = std::clamp(it.value().toInt(), -20, 0);
+        if(level != 0)
+        {
+            levels.insert(it.key(), level);
+        }
+    }
+    return levels;
+}
 
 }
 
@@ -129,6 +149,7 @@ void Configuration::load()
         videoDecoder_ = ini.get<std::string>(cVideoDecoderKey, videoDecoder_);
         screenDPI_ = ini.get<size_t>(cVideoScreenDPIKey, screenDPI_);
         videoMargins_ = QRect(0, 0, ini.get<int32_t>(cVideoMarginWidthKey, 0), ini.get<int32_t>(cVideoMarginHeightKey, 0));
+        videoFullscreen_ = ini.get<bool>(cVideoFullscreenKey, videoFullscreen_);
         enableTouchscreen_ = ini.get<bool>(cTouchscreenKey, enableTouchscreen_);
         onScreenKeyboard_ = ini.get<bool>(cOnScreenKeyboardKey, onScreenKeyboard_);
 
@@ -159,6 +180,7 @@ void Configuration::load()
         audioChannelEnabledTelephony_ = ini.get<bool>(cAudioTelephonyKey, audioChannelEnabledTelephony_);
         radioServiceEnabled_ = ini.get<bool>(cRadioAndroidAutoKey, radioServiceEnabled_);
         duckLevel_ = std::clamp(ini.get<int>(cAudioDuckLevelKey, duckLevel_), 0, 100);
+        sourceLevels_ = parseSourceLevels(ini.get<std::string>(cAudioSourceLevelsKey, ""));
     }
     catch(const boost::property_tree::ptree_error& e)
     {
@@ -188,6 +210,7 @@ void Configuration::reset()
     videoResolution_ = aap_protobuf::service::media::sink::message::VideoCodecResolutionType::VIDEO_800x480;
     screenDPI_ = 140;
     videoMargins_ = QRect(0, 0, 0, 0);
+    videoFullscreen_ = false;
     enableTouchscreen_ = true;
     onScreenKeyboard_ = true;
     bluetoothAdapterType_ = BluetoothAdapterType::NONE;
@@ -202,6 +225,7 @@ void Configuration::reset()
     audioChannelEnabledTelephony_ = true;
     radioServiceEnabled_ = true;
     duckLevel_ = 20;
+    sourceLevels_.clear();
 }
 
 void Configuration::save()
@@ -227,6 +251,7 @@ void Configuration::save()
     ini.put<size_t>(cVideoScreenDPIKey, screenDPI_);
     ini.put<int32_t>(cVideoMarginWidthKey, videoMargins_.width());
     ini.put<int32_t>(cVideoMarginHeightKey, videoMargins_.height());
+    ini.put<bool>(cVideoFullscreenKey, videoFullscreen_);
     ini.put<bool>(cTouchscreenKey, enableTouchscreen_);
     ini.put<bool>(cOnScreenKeyboardKey, onScreenKeyboard_);
     ini.put<uint32_t>(cBluetoothAdapterTypeKey, static_cast<uint32_t>(bluetoothAdapterType_));
@@ -254,6 +279,16 @@ void Configuration::save()
     ini.put<bool>(cAudioTelephonyKey, audioChannelEnabledTelephony_);
     ini.put<bool>(cRadioAndroidAutoKey, radioServiceEnabled_);
     ini.put<int>(cAudioDuckLevelKey, duckLevel_);
+    if(!sourceLevels_.isEmpty())
+    {
+        QJsonObject levels;
+        for(auto it = sourceLevels_.cbegin(); it != sourceLevels_.cend(); ++it)
+        {
+            levels.insert(it.key(), it.value());
+        }
+        ini.put<std::string>(cAudioSourceLevelsKey,
+                             QJsonDocument(levels).toJson(QJsonDocument::Compact).toStdString());
+    }
 
     try
     {
@@ -477,6 +512,16 @@ QRect Configuration::getVideoMargins() const
     return videoMargins_;
 }
 
+bool Configuration::getVideoFullscreen() const
+{
+    return videoFullscreen_;
+}
+
+void Configuration::setVideoFullscreen(bool value)
+{
+    videoFullscreen_ = value;
+}
+
 bool Configuration::getTouchscreenEnabled() const
 {
     return enableTouchscreen_;
@@ -595,6 +640,16 @@ int Configuration::duckLevel() const
 void Configuration::setDuckLevel(int value)
 {
     duckLevel_ = std::clamp(value, 0, 100);
+}
+
+QHash<QString, int> Configuration::sourceLevels() const
+{
+    return sourceLevels_;
+}
+
+void Configuration::setSourceLevels(const QHash<QString, int>& levels)
+{
+    sourceLevels_ = levels;
 }
 
 QString Configuration::getParamFromFile(QString fileName, QString searchString) const

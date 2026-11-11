@@ -286,13 +286,13 @@ set(CPACK_DEBIAN_PACKAGE_REPLACES "openauto")
 set(CPACK_DEBIAN_PACKAGE_SHLIBDEPS ON)
 
 # Libraries come from shlibdeps (Qt 6, FFmpeg for the video); the QML modules of the shell, the SVG image plugin
-# (plugin icons), pactl for the volume
+# (plugin icons), pactl for the volume, PipeWire for the sinks of the audio sources (#154)
 # Wireless Android Auto and car radio: BlueZ for Bluetooth, NetworkManager for the hotspot, iw for the WiFi country
 # Plugins written in Python use the API client of openhu-plugins (python3-websockets)
 set(CPACK_DEBIAN_PACKAGE_RECOMMENDS "bluez, network-manager, iw, python3, python3-websockets")
 string(REGEX MATCH "^([0-9]+)\\.([0-9]+)" _aasdk_version "${OPENHU_AASDK_VERSION}")
 math(EXPR _aasdk_next_minor "${CMAKE_MATCH_2} + 1")
-set(CPACK_DEBIAN_PACKAGE_DEPENDS "libaasdk (>= ${OPENHU_AASDK_VERSION}), libaasdk (<< ${CMAKE_MATCH_1}.${_aasdk_next_minor}), pulseaudio-utils, qt6-svg-plugins, qml6-module-qtquick, qml6-module-qtquick-window, qml6-module-qtquick-layouts, qml6-module-qtquick-controls, qml6-module-qtmultimedia, qml6-module-qtquick-virtualkeyboard, qt6-virtualkeyboard-plugin")
+set(CPACK_DEBIAN_PACKAGE_DEPENDS "libaasdk (>= ${OPENHU_AASDK_VERSION}), libaasdk (<< ${CMAKE_MATCH_1}.${_aasdk_next_minor}), pulseaudio-utils, pipewire-bin, libpipewire-0.3-modules, libspa-0.2-modules, qt6-svg-plugins, qml6-module-qtquick, qml6-module-qtquick-window, qml6-module-qtquick-layouts, qml6-module-qtquick-controls, qml6-module-qtmultimedia, qml6-module-qtquick-virtualkeyboard, qt6-virtualkeyboard-plugin")
 
 # Debian package control scripts (no systemd unit: OpenHU OS starts OpenHU with its own session unit, elsewhere see
 # docs/installation.md)

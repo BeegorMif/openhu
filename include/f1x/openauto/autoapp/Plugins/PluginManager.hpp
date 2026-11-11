@@ -23,10 +23,13 @@
 #include <memory>
 #include <vector>
 #include <QElapsedTimer>
+#include <QHash>
 #include <QObject>
+#include <QPair>
 #include <QProcess>
 #include <QTimer>
 #include <QVariantList>
+#include <f1x/openauto/autoapp/Plugins/PluginConfig.hpp>
 
 class QQmlEngine;
 
@@ -90,6 +93,19 @@ public:
     // why a plugin is not started: [{id, version, reason: notInstalled|tooOld|disabled|incompatible}]
     QVariantList missingRequirements(const QString& id) const;
 
+    // Config store of the plugins (openhu#152): values, schema ("settings" of the manifest)
+    PluginConfig& config() { return config_; }
+    // changes through here: a changed setting with "applies": "restart" restarts the plugin's process
+    QString setConfig(const QString& id, const QVariantMap& changes);
+    QString removeConfig(const QString& id, const QStringList& keys);
+    QString resetConfig(const QString& id);
+
+    // Manifests of the enabled, compatible plugins {id: manifest} (audio sources, #154)
+    QHash<QString, QVariantMap> activeManifests() const;
+    // Extra environment for a plugin's process (the sinks of its audio sources), asked at every start
+    using EnvironmentProvider = std::function<QList<QPair<QString, QString>>(const QString& id, const QVariantMap& manifest)>;
+    void setEnvironmentProvider(EnvironmentProvider provider);
+
     // Stops a plugin before its files are replaced or removed.
     void unload(const QString& id);
 
@@ -142,9 +158,12 @@ private:
     // "plugins.state" {plugins: [...]}: the services read the enabled plugins and their androidAuto sections
     void publishState();
     QVariantMap loadState() const;
+    void restartForSettings(const QString& id, const QStringList& changed);
 
     quint16 apiPort_;
     std::function<void()> qmlCacheClearer_;
+    EnvironmentProvider environmentProvider_;
+    PluginConfig config_;
     std::map<QString, std::unique_ptr<Plugin>> plugins_;
 };
 

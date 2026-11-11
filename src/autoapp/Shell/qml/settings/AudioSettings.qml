@@ -39,6 +39,57 @@ SettingsSection {
         stepSize: 5
     }
 
+    // one level per source, so that switching sources keeps the loudness (#154): attenuation only, no clipping
+    Column {
+        width: parent.width
+        spacing: Theme.spacing / 2
+        visible: audioSources.sources.length > 0
+        SectionTitle { text: qsTrId("settings.audio.source_levels") }
+        Text {
+            width: parent.width
+            text: qsTrId("settings.audio.source_levels_description")
+            color: Theme.textDim
+            font.pixelSize: Theme.fontSmall
+            wrapMode: Text.WordWrap
+        }
+        Repeater {
+            // the count, not the list: every level change publishes a new list, which would rebuild the rows (and
+            // end the drag of the slider)
+            model: audioSources.sources.length
+            SettingRow {
+                id: sourceRow
+                required property int index
+                readonly property var source: audioSources.sources[index] || ({})
+                // OpenHU's own sources are in the shell's translation, a plugin's in its own (else the manifest)
+                readonly property string translated: qsTrId(source.textId || "")
+                title: translated !== source.textId ? translated : (source.name || source.id || "")
+                // a plugin's sources: which plugin ("Radio · −3 dB"), translated like the dock does
+                readonly property string pluginTitle: {
+                    if (!source.plugin)
+                        return ""
+                    const id = source.plugin + ".name"
+                    const text = qsTrId(id)
+                    return text !== id ? text : (source.pluginName || source.plugin)
+                }
+                // the level is relative to the plugin's normalization (shown when it has one): 0 = as the plugin set it
+                description: (pluginTitle ? pluginTitle + " · " : "")
+                             + (source.level === 0 ? "0 dB" : "−" + (-source.level) + " dB")
+                             + (source.baseLevel ? " · " + qsTrId("settings.audio.source_normalized")
+                                                               .arg("−" + (-source.baseLevel) + " dB") : "")
+                             + (source.present ? "" : " · " + qsTrId("settings.audio.source_not_ready"))
+                Slider {
+                    width: Theme.dockWidth * 3
+                    from: -20
+                    to: 0
+                    stepSize: 1
+                    snapMode: Slider.SnapAlways
+                    value: sourceRow.source.level || 0
+                    onMoved: audioSources.setLevel(sourceRow.source.id, value)
+                }
+            }
+        }
+    }
+
     Column {
         width: parent.width
         spacing: Theme.spacing / 2

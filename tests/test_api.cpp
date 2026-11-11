@@ -225,6 +225,11 @@ private slots:
         QVERIFY(Configuration().getVideoFPS() == aap_protobuf::service::media::sink::message::VideoFrameRateType::VIDEO_FPS_60);
 
         QCOMPARE(server.call("settings.set", {{"key", "general.showCursor"}, {"value", "off"}}).toMap().value("value").toBool(), false);
+        // fullscreen Android Auto: the projection area decides resolution and margins (#146)
+        result = server.call("settings.set", {{"key", "aa.fullscreen"}, {"value", true}}).toMap();
+        QVERIFY(result.value("value").toBool());
+        QCOMPARE(result.value("applies").toString(), QString("reconnect"));
+        QVERIFY(Configuration().getVideoFullscreen());
         QCOMPARE(server.call("settings.set", {{"key", "aa.dpi"}, {"value", 200}}).toMap().value("value").toInt(), 200);
         QVERIFY(server.call("settings.set", {{"key", "api.port"}, {"value", "6000"}}).toMap().value("pending").toStringList().contains("restart"));
 

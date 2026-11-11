@@ -21,6 +21,7 @@
 #include <QObject>
 #include <QProcess>
 #include <f1x/openauto/autoapp/Configuration/IConfiguration.hpp>
+#include <f1x/openauto/autoapp/Wireless/NmSettings.hpp>
 
 namespace f1x
 {
@@ -33,6 +34,7 @@ namespace wireless
 
 // WiFi access point for wireless Android Auto, set up through NetworkManager (connection "openhu-hotspot",
 // IPv4 shared = DHCP for the phone). Needs nmcli and a WiFi card with AP mode.
+// The profile is written over D-Bus (NmSettings), nmcli does the rest.
 class Hotspot: public QObject
 {
     Q_OBJECT
@@ -42,8 +44,13 @@ public:
 
     // IP of OpenHU in the hotspot network (without prefix)
     static QString addressOf(const configuration::WirelessSettings& settings);
+    // the hotspot profile; band "a" or "bg"
+    static NmSettings::Profile profileSettings(const configuration::WirelessSettings& settings, const QString& ssid,
+                                           const QString& uuid, const QString& interface, const QString& band,
+                                               int channel);
 
-    explicit Hotspot(QObject* parent = nullptr);
+    // nmSettings: NetworkManager over D-Bus (own one when null)
+    explicit Hotspot(QObject* parent = nullptr, NmSettings* nmSettings = nullptr);
     ~Hotspot() override;
 
     void start(const configuration::WirelessSettings& settings, const QString& ssid);
@@ -67,9 +74,29 @@ signals:
     void changed();
 
 private:
-    void onFinished(int exitCode);
+    // prepare: checks, finds the WiFi device, removes the old profile; up: activates the profile
+    enum class Step { Prepare, Up };
 
+    void onFinished(int exitCode);
+    // added (first try) or replaced (2.4 GHz fallback), then up
+    void writeProfile(const QString& band, int channel);
+    void runUp();
+    void killProcess();
+    void fail(const QString& code, const QString& detail);
+
+    NmSettings* nmSettings_;
     QProcess process_;
+    Step step_ = Step::Prepare;
+    // stale D-Bus replies (after stop/start) are ignored
+    int generation_ = 0;
+    bool killing_ = false;
+    configuration::WirelessSettings settings_;
+    QString ssid_;
+    QString uuid_;
+    bool profileAdded_ = false;
+    // "auto", "a" or "bg"
+    QString bandSetting_;
+    QString band_;
     State state_ = State::Off;
     QString error_;
     QString errorCode_;

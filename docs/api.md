@@ -58,6 +58,7 @@ networks you trust.
 | `projection.state` | `connected` (bool) – Android Auto session running |
 | `projection.video` | `active` (bool) – projection video playing |
 | `projection.transport` | `transport` (`usb`, `wifi`) – how the current session is connected |
+| `androidauto.mediaAudio` | `playing` (bool) – the phone streams music (Android Auto's media audio channel is open) |
 | `nav.status` | `state`: `active`, `inactive`, `rerouting`, `unavailable` |
 | `nav.turn` | `road`, `maneuver` (e.g. `turn_normal_left`, `roundabout_enter`, `destination`), `side` (`left`/`right`/`unspecified`), `roundaboutExit`, `turnAngle`, `image` (data URL, if the phone sends one), `lanes` (`[{directions:[...], highlighted}]`), `cue` |
 | `nav.distance` | to the next maneuver: `meters`, `seconds`, `display` (as shown by the phone), `unit` (`meters`, `kilometers`, `miles`, …) |
@@ -65,15 +66,17 @@ networks you trust.
 | `nav.road` | `name` – current road |
 | `media.metadata` | `title`, `artist`, `album`, `playlist`, `duration` (s), `cover` (data URL), `source` |
 | `media.status` | `state` (`playing`, `paused`, `stopped`), `app`, `position` (s), `shuffle`, `repeat`, `repeatOne`, `source` |
+| `media.current` | `source`, `plugin` (the id of the plugin behind the source, empty for Android Auto), `metadata`, `status` – what plays now: the `media.metadata` and `media.status` of the source that started playing last (the one with the media keys), kept per source by OpenHU. `media.metadata` / `media.status` hold whatever source published last, so after a switch they show the new source's track only with its next one; the home page and Bluetooth car audio read `media.current`; a tap on the home page's card opens the plugin's page, for Android Auto its media app |
 | `radio.state` / `radio.command` | of the radio plugin (`org.openhu.radio`, format in its `bin/radio.py`); OpenHU passes them to Android Auto's radio channel while the plugin runs (Settings → Android Auto → Radio, `Radio.AndroidAuto`): the plugin's stations become a media source in Android Auto, the phone's tune/seek/favorite/mute requests come back as `radio.command` |
 | `radio.logos` | of the radio plugin: `fm`, `am`, `dab` – station logos (`{"96.2": data URL}`, DAB by service id `"0xD882"`, from image files the user put into the plugin's data dir, nothing from the internet), published only when they change; OpenHU scales them to 128×128 for the station list, favorites and current station in Android Auto |
 | `radio.slide` | of the radio plugin: `band`, `station` (DAB service id), `image` (data URL, empty if none) – the DAB+ slideshow picture (MOT SLS) of the station that plays, from the broadcast; album art of the current station in Android Auto |
 | `phone.status` | `callState` (`idle`, `incoming`, `in_call`, `on_hold`, …), `calls` (`[{state, duration, number, name, numberType, thumbnail}]`), `signal` |
 | `audio.volume` | `volume` (0–100), `muted` |
+| `audio.sources` | `sources` (list of `{id, name, textId, sink, plugin, pluginName, level, baseLevel, canPause, present}`: the audio sources with their sinks, `level`: the user's level in dB, relative to `baseLevel`, the plugin's normalization in dB (the chain plays at the sum), `present`: the sink exists), `min`, `max` (level range in dB, −20 and 0). See `audio.level.set` and [configuration.md](configuration.md#audio-sources) |
 | `audio.duck` | `active`, `level` (loudness of local sources in %, 0 = muted, 100 = unchanged), `reason` (`transient`: audio focus GAIN_TRANSIENT, expected for the Assistant, muted; `may_duck`: GAIN_TRANSIENT_MAY_DUCK, expected for navigation prompts; `guidance`: another or no focus request; both lowered to Settings → Audio, `Audio.DuckLevel`; empty while inactive). While Android Auto plays on its guidance channel, OpenHU lowers the streams of other processes (e.g. the radio plugin's `pacat`) itself with `pactl`, with short fades, and restores them afterwards; plugins need not do anything, the topic is for UI hints |
 | `system.daynight` | `night` (bool) – switches Android Auto to night mode while Settings → Android Auto → Night mode is "Automatic" |
 | `system.nightMode` | `mode` (`auto`, `day`, `night`) – that setting (`General.NightMode`) |
-| `input.action` | `action`, `phase` (`click`, `press`, `release`) – every triggered action (one-shot event, no stored value). Media keys (`media.*`) go to the current media source: to the phone while `media.status.source` is `androidauto` (or empty), otherwise only here, to the plugin that published `media.status` with its own `source` (e.g. `radio`) |
+| `input.action` | `action`, `phase` (`click`, `press`, `release`) – every triggered action (one-shot event, no stored value). Media keys (`media.*`) go to the current media source: to the phone while `media.status.source` is `androidauto` (or empty), otherwise only here, to the plugin that published `media.status` with its own `source` (e.g. `radio`). With `source` (the buttons of Android Auto's media card, see [Local media](#local-media-android-auto-media-card)) the action is meant for that source, also while another one owns the media keys |
 | `ui.page` | `page` – page shown in the shell (`home`, `aa`, `settings`, `plugin:<id>`) |
 | `ui.overlay` | `overlays` – ids of the plugins whose overlay is shown (`ui.overlay.show`) |
 | `ui.language` | `language` (`de`, `en`), `available` – language of the shell; texts of plugin processes can follow it |
@@ -86,10 +89,14 @@ networks you trust.
 | `vehicle.control.set`, `vehicle.control.result`, `vehicle.control.action` | events between OpenHU and that plugin, see [Car controls](#car-controls-android-auto-climate-rail) |
 | `vehicle.simulate` | `state` (`park`, `drive`, `reverse`, empty = off) – a driving state for tests, through the API or Settings → Debug (`debug.simulate`, debug mode; the status bar then shows it) (`openhu-cli api bus.publish '{"topic": "vehicle.simulate", "data": {"state": "park"}}'`), kept until OpenHU ends: Android Auto gets its gear, parking brake, speed (0, 50 or 5 km/h) and driving status (parked: unrestricted, otherwise every restriction) instead of the vehicle data from plugins. Parking brake and speed are announced only when a state is set at the connect: set it, then reconnect the phone; afterwards it can be switched during the session |
 | `plugins.state` | `plugins` – installed plugins (like `plugin.list`), on every change (load, enable, disable, dock) |
+| `plugin.config.<id>` | `values`, `changed` (keys) – the [config store](plugins.md#config-store) of a plugin: when it is loaded and on every change (also from outside, also while it is disabled); declared settings with their default where nothing valid is stored |
 | `store.state` | `busy`, `status`, `error` – progress of store operations |
 | `wireless.state` | `enabled`, `wifiAvailable` (a WiFi card is there), `wifiInterface`, `bluetoothAvailable` (a Bluetooth adapter is there; wireless Android Auto needs both and starts by itself when one is plugged in later), `running`, `hotspot` (`off`, `starting`, `on`, `error`), `hotspotMode` (`always`, `demand`), `hotspotError`, `hotspotRoom` (the hotspot leaves the card to WiFi networks: `search`, `client`, empty), `searchUntil` (ms since 1970), `wifiOff`, `interface`, `channel`, `ssid`, `bluetooth` (`off`, `on`, `error`), `bluetoothError`, `phase` (`idle`, `waiting`, `hotspot`, `handshake`, `joining`, `connected`, `error`), `phaseText`, `device` |
 | `wifi.state` | `available` (a WiFi card is there), `ready` (the cards are known), `enabled`, `devices` (WiFi cards), `client` (`ssid`, `ip`, `device`, `uuid`) while OpenHU is in a known WiFi network, `internet`, `networks` (saved ones, `uuid`, `ssid`, `priority`, `secured`, `hidden`, `active`, `joined` = connected at least once; highest priority first), `found` (after `wifi.scan`: `ssid`, `signal`, `security`, `secured`, `known`), `scanning`, `busy`, `message`, `hotspotDevice` (the card runs OpenHU's hotspot) |
 | `bluetooth.pairing` | `active`, `device`, `passkey` – a device asks to pair (confirmed in the shell or with `bluetooth.confirm`) |
+| `bluetooth.phone` | `address` – the Bluetooth address of the Android Auto phone, sent by the phone when the session starts (needs Bluetooth: wireless Android Auto or `Bluetooth.AdapterType` local) |
+| `companion.state` | `connected`, `app`, `version`, `label`, `mediaLabels` – the companion app on the phone and the names of its media extensions ([below](#companion-app)) |
+| `companion.extensions` | `extensions`: [{`plugin`, `package`, `name`, `topics`, `commands`}] – the enabled plugins that want an extension app on the phone (manifest `companion`, [plugins.md](plugins.md#companion-app)) |
 | `bluetooth.state` | `available` (an adapter is there, also before it is used), `error`, `adapter`, `pairing` (visible), `pairingDevice`, `pairingPasskey`, `pairingWith` (pairing started by OpenHU), `searching` |
 | `caraudio.state` | `enabled`, `device`, `name`, `paired`, `connected`, `sink`, `error`, `status` – sound to the Bluetooth car radio |
 | `system.update` | OpenHU OS only: `state` (`idle`, `checking`, `installing`, `done`, `uptodate`, `error`, `cancelled`), `phase` (`root`, `kernel`), `percent`, `from`, `version`, `error`, `source` (`usb`, `online`), after a check `checked`, `current`, `newest`, `available`, `source`, `checkError`; `usb` while a USB stick with OpenHU OS is plugged in (`version`, `newer`, `path`); `offer` – what `system.update.install` installs (`version`, `source`: the newer of the checked version and the stick's); `busy`, `blocked` (Android Auto connected) |
@@ -196,6 +203,60 @@ Devices on the Ethernet port (OpenHU OS: Settings → Network → Ethernet, DHCP
 `openhu.local`) are clients from the network like any other: they reach the API once "Share the API in the network"
 is on, and always need the token.
 
+### Local media (Android Auto media card)
+
+A plugin that declares the service `localMedia` ([plugins.md](plugins.md#android-auto)), or an API client that is not
+a plugin, gets its `media.status` / `media.metadata` into Android Auto's media card (#147): title, artist, album,
+cover (a `data:image/...;base64` URL, scaled to at most 512 px), the source's name (the plugin's name) and the
+buttons play, pause, previous and next. The phone shows the source that started playing last; `playing` brings it to
+the front of the card.
+
+A button in the card comes back as `input.action` (`media.play`, `media.pause`, `media.previous`, `media.next`,
+`phase` `click`) with `"source": "<the source>"`. The plugin handles it even while Android Auto's own music owns the
+media keys. Android Auto has no song list for these sources: the songs are chosen on the plugin's page, or in the
+companion app. While the companion app is connected, the card shows the source stopped, so Android Auto lists only
+the app; the card comes back when the app goes away.
+
+### Companion app
+
+The companion app ([openhu-companion](https://github.com/average-web-dev/openhu-companion), #158) holds the Bluetooth
+link to the head unit. Extension apps on the phone reach OpenHU through it (openhu-companion#3): a plugin names its
+app in its manifest (`companion`, [plugins.md](plugins.md#companion-app)), OpenHU publishes the list as
+`companion.extensions`, and the companion gives each app only its plugin's topics and commands, after the user allowed
+it once. The first extension is the music app ("Music"): the music plugin's library as a media app in Android Auto that
+controls the head unit's player and plays no sound on the phone.
+
+**Connection.** The app listens on an RFCOMM service (UUID `57b07c95-708d-46ae-a658-9f296dfd034c`). When Android Auto
+starts, the phone sends its Bluetooth address (`bluetooth.phone`). OpenHU then connects to the app on that phone, a
+few times until the app's service is up. Nothing is set up in the app. This needs the Bluetooth service of the
+Android Auto session (wireless Android Auto, or `Bluetooth.AdapterType` local) and a phone paired with the head unit.
+
+**Protocol.** One JSON message per line, the messages of this API. The app sends its hello first:
+
+```
+→ {"type":"hello","app":"org.openhu.companion","version":"1.0.0","label":"OpenHU","mediaLabels":["Music"],"protocol":1,"features":["extensions"]}
+← {"type":"hello","openhu":1}
+```
+
+Then it is a client like any other (`subscribe`, `request`, events). It is not a local client: OpenHU logs the link
+in with the token, because the bonded link to the session's phone is the trust. `companion.state` says that the app is
+connected; `mediaLabels` are the names Android Auto shows (and reports as `media.status` `app`) for its allowed media
+extensions. The app sends its hello again when they change.
+
+**Android Auto with the music app** (Android Auto's media app is one of `mediaLabels`, or the companion's `label`).
+- While Android Auto shows the app and a local source starts, the phone keeps the audio focus. A focus loss would
+  show the app as interrupted, and the music plays on the head unit anyway.
+- The app's own playback state from the phone is published as `stopped` without metadata. As phone music it would
+  pause the local sources.
+- When the phone streams music next to it (`androidauto.mediaAudio`, for example Spotify started on the phone), that
+  is another app. OpenHU publishes `media.status` `{"source":"androidauto","state":"playing"}`, and the local sources
+  pause as usual.
+
+**Bandwidth.** RFCOMM carries roughly 100–200 KB/s. OpenHU does not send Android Auto's own `media.current`,
+`media.metadata` or `media.status` (source `androidauto`, every second with its cover). The app follows the music
+plugin's `music.state` and takes the cover from its `media.metadata`. When the phone does not read (over 8 MB waiting),
+the link is dropped.
+
 ## Methods
 
 | Method | Params | Result |
@@ -210,20 +271,26 @@ is on, and always need the token.
 | `settings.list` | – | `{values, pending}` – all settings (keys as in the settings page: `aa.fps`, `wireless.hotspot`, …); passwords and the API token (`secret`) only for clients on the device |
 | `settings.get` | `key` | `{key, value}`; unknown key → error |
 | `settings.set` | `key`, `value` | `{key, value, applies, pending}` – the same checks as the settings page, saved to `openhu.ini` right away; the value may be text (`"60"`, `"on"`, `"false"`) and is converted to the key's type; a wrong value → error with the reason |
+| `audio.sources` | – | `{sources, min, max}` like the topic `audio.sources` |
+| `audio.level.set` | `source` (id, e.g. `aa.media`, `org.openhu.radio.fm`), `level` (dB, −20 to 0, clamped) | `{source, level}`; stored in `Audio.SourceLevels`, applied at once |
 | `volume.get` | – | `{volume, muted}` |
 | `volume.set` | `value` (0–100) | `{volume, muted}` |
 | `volume.change` | `delta` (e.g. `5`, `-5`) | `{volume, muted}` |
 | `volume.mute` | `muted` (optional, toggles without) | `{volume, muted}` |
-| `ui.navigate` | `page` (`home`, `aa`, `settings`, `settings/<category>`, `store` = `settings/apps`, `plugin:<id>`); categories: `general`, `aa`, `audio`, `wifi`, `bluetooth`, `network`, `keys`, `apps`, `system`, `info` (one that is not there, e.g. without its adapter, shows General) | `{}` |
+| `ui.navigate` | `page` (`home`, `aa`, `settings`, `settings/<category>`, `store` = `settings/apps`, `settings/apps/<plugin id>` = the settings of a plugin, `plugin:<id>`); categories: `general`, `aa`, `audio`, `wifi`, `bluetooth`, `network`, `keys`, `apps`, `system`, `info` (one that is not there, e.g. without its adapter, shows General) | `{}` |
 | `ui.toast` | `text`, `duration` (ms, default 3000) | `{}` |
 | `daynight.set` | `night` (bool) | `{}` |
 | `projection.reconnect` | – | `{reset:[...]}` – USB reset of the phone, Android Auto reconnects |
 | `input.action` | `action`, `phase` (`click` default, `press`, `release`) | `{handled}` |
 | `input.actions` | – | built-in actions with description |
 | `input.keymap` | – | active keyboard mapping |
-| `plugin.list` | – | installed plugins (`id`, `name`, `version`, `enabled`, `running`, `dock`, `page`, `overlay`, `androidAuto`, `requires`, `recommends`, `missing`: [{`id`, `version`, `reason`: `notInstalled`/`tooOld`/`disabled`/`incompatible`}], …) |
+| `plugin.list` | – | installed plugins (`id`, `name`, `version`, `enabled`, `running`, `dock`, `page`, `overlay`, `androidAuto`, `requires`, `recommends`, `missing`: [{`id`, `version`, `reason`: `notInstalled`/`tooOld`/`disabled`/`incompatible`}], `settings` (the checked `settings` of the manifest, only when it has some), …) |
 | `plugin.enable` / `plugin.disable` | `id`, `force` (disable) | plugin; enabling also enables what it `requires`; disabling one that enabled plugins require is refused (`required by …`) unless `force: true`, which disables them too. Error `android auto connected` for a plugin with `androidAuto` (or one such a plugin requires) while the phone is connected |
 | `plugin.restart` | `id` | plugin – restarts its process |
+| `plugin.config.get` | `id`, `key` (optional) | `{id, values}`, or `{id, key, value}`; an unknown key → error ([config store](plugins.md#config-store)) |
+| `plugin.config.set` | `id` and `key`, `value` – or `values` (object, several keys, all or none) | `{id, key, value}` or `{id, values}` – declared settings are checked and converted like `settings.set` (a wrong value → error with the reason), free keys take any JSON value; at most 1 MB per plugin; also for disabled plugins. A changed setting with `"applies": "restart"` restarts the process |
+| `plugin.config.remove` | `id` and `key` or `keys` | `{id, values}` – a free key is deleted, a declared one goes back to its default |
+| `plugin.config.reset` | `id` | `{id, values}` – all settings back to their defaults, free keys stay |
 | `plugin.setDock` | `id`, `dock` (bool) | plugin – page as dock entry |
 | `ui.overlay.show` / `ui.overlay.hide` | `id` | `{}` – plugin overlay above everything, including Android Auto (the phone is told, see above) |
 | `store.list` | – | packages of all sources with `installed`, `installedVersion`, `updateAvailable`, `source`, `official` |

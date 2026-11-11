@@ -18,8 +18,10 @@
 
 
 #include <algorithm>
+#include <memory>
 #include <QDir>
 #include <QStandardPaths>
+#include <QUuid>
 #include <f1x/openauto/autoapp/Core/ChildProcesses.hpp>
 #include <f1x/openauto/autoapp/Wireless/WifiClient.hpp>
 #include <f1x/openauto/autoapp/Core/EventBus.hpp>
@@ -59,26 +61,6 @@ done
 done
 )SH";
 
-// $1 nmcli, then per profile: uuid, autoconnect (yes/no), card ("" for any), down (yes: leave it now)
-const char* cSyncScript = R"SH(
-nmcli="$1"; shift
-while [ $# -ge 4 ]; do
-    "$nmcli" connection modify "$1" connection.autoconnect "$2" connection.interface-name "$3" || exit 1
-    [ "$4" = yes ] && "$nmcli" connection down "$1"
-    shift 4
-done
-exit 0
-)SH";
-
-// $1 nmcli, then pairs of uuid and priority
-const char* cPriorityScript = R"SH(
-nmcli="$1"; shift
-while [ $# -ge 2 ]; do
-    "$nmcli" connection modify "$1" connection.autoconnect-priority "$2" || exit 1
-    shift 2
-done
-)SH";
-
 QString valueAfterColon(const QString& line)
 {
     return WifiClient::unescape(line.section(':', 1));
@@ -86,9 +68,10 @@ QString valueAfterColon(const QString& line)
 
 }
 
-WifiClient::WifiClient(const QString& nmcli, QObject* parent)
+WifiClient::WifiClient(const QString& nmcli, QObject* parent, NmSettings* nmSettings)
     : QObject(parent)
     , nmcli_(nmcli)
+    , nmSettings_(nmSettings != nullptr ? nmSettings : new NmSettings(this))
 {
     nmcliFound_ = !QStandardPaths::findExecutable(nmcli_).isEmpty();
 
@@ -350,17 +333,25 @@ void WifiClient::parseState(const QString& output)
 bool WifiClient::syncProfiles()
 {
     QStringList args;
+    QList<QPair<QString, QVariantMap>> changes;
+    QStringList leave;
     for(const QVariant& entry: networks_)
     {
         const QVariantMap network = entry.toMap();
         // joined by itself only when switched on and after it worked once
         const bool autoconnect = enabled_ && network.value("joined").toBool();
-        const bool leave = !enabled_ && network.value("active").toBool();
+        const bool leaveNow = !enabled_ && network.value("active").toBool();
         if(network.value("autoconnect").toBool() != autoconnect || network.value("interface").toString() != interface_
-           || leave)
+           || leaveNow)
         {
-            args << network.value("uuid").toString() << (autoconnect ? "yes" : "no") << interface_
-                 << (leave ? "yes" : "no");
+            const QString uuid = network.value("uuid").toString();
+            args << uuid << (autoconnect ? "yes" : "no") << interface_ << (leaveNow ? "yes" : "no");
+            changes.append({uuid, {{"connection.autoconnect", autoconnect},
+                                   {"connection.interface-name", interface_.isEmpty() ? QVariant() : interface_}}});
+            if(leaveNow)
+            {
+                leave << uuid;
+            }
         }
     }
     if(args.isEmpty() || args == lastSync_)
@@ -368,12 +359,17 @@ bool WifiClient::syncProfiles()
         return false;
     }
     lastSync_ = args;
-    this->script(cSyncScript, args, [this](int exitCode, const QString& output) {
-        if(exitCode != 0)
+    this->modifyAll(changes, [this, leave](const QString& error) {
+        if(!error.isEmpty())
         {
-            OPENAUTO_LOG(warning) << "[WifiClient] profiles: " << output.trimmed().toStdString();
+            OPENAUTO_LOG(warning) << "[WifiClient] profiles: " << error.toStdString();
         }
-        this->refresh();
+        if(leave.isEmpty())
+        {
+            this->refresh();
+            return;
+        }
+        this->nmcli(QStringList{"connection", "down"} + leave, [this](int, const QString&) { this->refresh(); });
     });
     return true;
 }
@@ -478,33 +474,19 @@ QString WifiClient::add(const QString& ssid, const QString& password, bool hidde
         (network.value("ssid") == ssid ? replaced : order) << network.value("uuid").toString();
     }
 
-    // autoconnect only once it worked (syncProfiles)
-    QStringList args{"connection", "add", "type", "wifi", "con-name", cPrefix + ssid, "ssid", ssid,
-                     "connection.autoconnect", "no", "connection.autoconnect-priority", "0"};
-    if(!interface_.isEmpty())
-    {
-        args << "connection.interface-name" << interface_;
-    }
-    if(!password.isEmpty())
-    {
-        args << "wifi-sec.key-mgmt" << (sae ? "sae" : "wpa-psk") << "wifi-sec.psk" << password;
-    }
-    if(hidden)
-    {
-        args << "802-11-wireless.hidden" << "yes";
-    }
+    const QString uuid = QUuid::createUuid().toString(QUuid::WithoutBraces);
+    const auto profile = WifiClient::profileFor(uuid, ssid, password, hidden, sae, interface_);
 
     OPENAUTO_LOG(info) << "[WifiClient] adding " << ssid.toStdString();
     busy_ = true;
     message_.clear();
     this->publish();
-    auto addNew = [this, args, ssid, order, added]() {
-        this->nmcli(args, [this, ssid, order, added](int exitCode, const QString& output) {
+    auto addNew = [this, profile, uuid, ssid, order, added]() {
+        nmSettings_->add(profile, [this, uuid, ssid, order, added](const QString& failure) {
             busy_ = false;
-            const QString uuid = output.section('(', 1).section(')', 0, 0);
-            if(exitCode != 0 || uuid.isEmpty())
+            if(!failure.isEmpty())
             {
-                emit error(qtTrId("wifi.could_not_saved").arg(ssid, output.trimmed()));
+                emit error(qtTrId("wifi.could_not_saved").arg(ssid, failure));
                 this->refresh();
                 return;
             }
@@ -607,12 +589,69 @@ void WifiClient::moveUp(const QString& uuid)
 void WifiClient::setPriorities(const QStringList& uuids)
 {
     // first = highest; NetworkManager tries the highest first
-    QStringList args;
+    QList<QPair<QString, QVariantMap>> changes;
     for(int i = 0; i < uuids.size(); ++i)
     {
-        args << uuids[i] << QString::number(uuids.size() - i);
+        changes.append({uuids[i], {{"connection.autoconnect-priority", qint32(uuids.size() - i)}}});
     }
-    this->script(cPriorityScript, args, [this](int, const QString&) { this->refresh(); });
+    this->modifyAll(changes, [this](const QString& error) {
+        if(!error.isEmpty())
+        {
+            OPENAUTO_LOG(warning) << "[WifiClient] order: " << error.toStdString();
+        }
+        this->refresh();
+    });
+}
+
+void WifiClient::modifyAll(const QList<QPair<QString, QVariantMap>>& changes, std::function<void(const QString&)> done)
+{
+    if(changes.isEmpty())
+    {
+        done({});
+        return;
+    }
+    auto left = std::make_shared<int>(changes.size());
+    auto firstError = std::make_shared<QString>();
+    for(const auto& change: changes)
+    {
+        nmSettings_->modify(change.first, change.second, [left, firstError, done](const QString& error) {
+            if(!error.isEmpty() && firstError->isEmpty())
+            {
+                *firstError = error;
+            }
+            if(--*left == 0)
+            {
+                done(*firstError);
+            }
+        });
+    }
+}
+
+NmSettings::Profile WifiClient::profileFor(const QString& uuid, const QString& ssid, const QString& password,
+                                           bool hidden, bool sae, const QString& interface)
+{
+    // autoconnect only once it worked (syncProfiles)
+    QVariantMap connection{{"id", QString(cPrefix) + ssid},
+                           {"uuid", uuid},
+                           {"type", QStringLiteral("802-11-wireless")},
+                           {"autoconnect", false},
+                           {"autoconnect-priority", qint32(0)}};
+    if(!interface.isEmpty())
+    {
+        connection["interface-name"] = interface;
+    }
+    QVariantMap wireless{{"ssid", ssid.toUtf8()}};
+    if(hidden)
+    {
+        wireless["hidden"] = true;
+    }
+    NmSettings::Profile profile{{"connection", connection}, {"802-11-wireless", wireless}};
+    if(!password.isEmpty())
+    {
+        profile["802-11-wireless-security"] = {{"key-mgmt", sae ? QStringLiteral("sae") : QStringLiteral("wpa-psk")},
+                                               {"psk", password}};
+    }
+    return profile;
 }
 
 void WifiClient::nmcli(const QStringList& args, std::function<void(int, const QString&)> done)

@@ -46,7 +46,7 @@ inline const QStringList& androidAutoSensorNames()
 
 inline const QStringList& androidAutoServiceNames()
 {
-    static const QStringList names{"radio", "carControl"};
+    static const QStringList names{"radio", "carControl", "localMedia"};
     return names;
 }
 

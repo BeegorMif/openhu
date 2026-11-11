@@ -6,7 +6,13 @@ set -euo pipefail
 RES="${OPENHU_RESOLUTION:-1280x720}"
 VDISPLAY=":99"
 
-Xephyr "$VDISPLAY" -screen "$RES" -title "OpenHU ($RES)" -nolisten tcp -no-host-grab -ac &
+# OPENHU_FULLSCREEN: "1" the whole host display, otherwise the name of one output (monitor); the size is the host's
+case "${OPENHU_FULLSCREEN:-}" in
+  ""|0) SCREEN=(-screen "$RES" -title "OpenHU ($RES)") ;;
+  1) SCREEN=(-fullscreen -title "OpenHU") ;;
+  *) SCREEN=(-output "$OPENHU_FULLSCREEN" -title "OpenHU") ;;
+esac
+Xephyr "$VDISPLAY" "${SCREEN[@]}" -nolisten tcp -no-host-grab -ac &
 XEPHYR_PID=$!
 trap 'kill $XEPHYR_PID 2>/dev/null || true' EXIT
 # docker stop: SIGTERM an OpenHU weiterreichen, damit es z. B. den WLAN-Hotspot sauber beendet

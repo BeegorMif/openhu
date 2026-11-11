@@ -106,6 +106,10 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     apt-get update && apt-get install -y --no-install-recommends \
         qt6-wayland \
         pulseaudio-utils \
+        # the audio sources' filter-chain sinks (#154): "pipewire -c" connects to the host's PipeWire
+        pipewire-bin \
+        libpipewire-0.3-modules \
+        libspa-0.2-modules \
         usbutils \
         fonts-dejavu-core \
         xserver-xephyr \
@@ -114,11 +118,23 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
         iw \
         python3 \
         python3-websockets \
-        rtl-sdr \
-        sox \
         x11-apps \
         xdotool \
-        imagemagick
+        imagemagick \
+        # the packages of the plugins (openhu-plugins, "packages" in their manifests; in OpenHU OS they are in the
+        # image): music player (org.openhu.media)
+        mpv \
+        python3-mutagen \
+        # radio (org.openhu.radio): rtl_fm, pacat, openhu-dab and redsea; ffmpeg for the simulated stick
+        rtl-sdr \
+        sox \
+        librtlsdr0 \
+        libfaad2 \
+        libfftw3-single3 \
+        libsamplerate0 \
+        libliquid1 \
+        libsndfile1 \
+        ffmpeg
 
 # aasdk is installed to /opt/aasdk (volume), OpenHU runs from its build directory (volume)
 ENV CMAKE_PREFIX_PATH=/opt/aasdk \

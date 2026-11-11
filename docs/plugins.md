@@ -18,7 +18,9 @@ It can bring a QML page, an overlay and a background process in any language tha
   "process": {"exec": "bin/radio.py", "args": [], "restart": "on-failure"},
   "permissions": ["audio", "usb"],
   "shared": ["openhu.py"],
-  "androidAuto": {"services": ["radio"]}
+  "androidAuto": {"services": ["radio"]},
+  "audio": {"sources": [{"id": "fm", "name": "FM"}, {"id": "dab", "name": "DAB"}]},
+  "settings": [{"key": "rds", "type": "switch", "default": true, "title": "RDS"}]
 }
 ```
 
@@ -32,19 +34,24 @@ It can bring a QML page, an overlay and a background process in any language tha
 | `ui.dock` | page as dock entry (users can change it, `plugin.setDock`) |
 | `ui.overlay` | QML above the whole shell, shown with `ui.overlay.show` / `ui.overlay.hide` |
 | `ui.icon` | SVG/PNG for the dock |
-| `process.exec` | started with the plugin dir as working directory; `.py`/`.sh` without executable bit run with python3/bash |
+| `process.exec` | started with the plugin dir as working directory; `.py`/`.sh`/`.ts`/`.js` without executable bit run with python3/bash/bun (bun is not part of OpenHU OS: a TypeScript plugin needs it installed, see [TypeScript](#typescript-bun)) |
 | `process.restart` | `on-failure` (default), `always`, `never`; crash loops back off up to 60 s |
 | `permissions` | shown in the store before installing (informational) |
 | `shared` | files from the repository's `common/` copied to `lib/` when the archive is built |
 | `packages` | Debian packages the plugin needs on the head unit, e.g. libraries of its native programs (informational, copied to the index) |
 | `androidAuto` | what the plugin provides to Android Auto, see [Android Auto](#android-auto) |
+| `companion` | its extension app on the phone, see [Companion app](#companion-app) |
+| `audio` | the plugin's sources of sound, each with its own sink and level, see [Audio](#audio) |
 | `requires` | other plugins it needs: `{"org.openhu.can": "1.0.0"}` (id and minimum version, `""` for any) or a list of ids. Installed first by the store (refused when no source offers them), enabled along with it, started before it; without them it does not start and the store shows why. Disabling or removing a required plugin asks first and stops what requires it |
 | `recommends` | plugins it works with (list of ids), shown in the store ("Works with …") |
+| `settings` | settings the user changes in Settings → Apps & Store → Installed, see [Settings](#settings) |
 
 Processes get `OPENHU_API_URL`, `OPENHU_PLUGIN_ID`, `OPENHU_PLUGIN_DIR`, `OPENHU_LANGUAGE` (language of the shell at
 the start, see [Translations](#translations)), `OPENHU_DATA_DIR` (persistent data,
-`~/.openhu/plugin-data/<id>`, kept on updates) and `OPENHU_PLUGIN_TOKEN` (new for every start: the process logs in
-with it, see [Android Auto](#android-auto); `openhu.py` does that). Output goes to `~/.openhu/logs/<id>.log`.
+`~/.openhu/plugin-data/<id>`, kept on updates and on removal; its `config.json` is the plugin's
+[config store](#config-store), owned by OpenHU) and `OPENHU_PLUGIN_TOKEN` (new for every start: the process logs in
+with it, see [Android Auto](#android-auto); `openhu.py` does that), and the sinks of its [audio sources](#audio).
+Output goes to `~/.openhu/logs/<id>.log`.
 Enabled/disabled and dock state are kept in `~/.openhu/plugins.json`.
 
 Plugin processes connect over `127.0.0.1` and need no API token ([api.md](api.md#login-token)), as long as they send
@@ -53,6 +60,115 @@ device, passwords included. A plugin that offers a service to the network itself
 remote control) must not pass requests from there on to the API without its own login, otherwise it opens the API
 to the network without the token. `openhu.py` takes a token (`OpenHU(token=...)` or `OPENHU_API_TOKEN`) for running
 a plugin process on another computer against a head unit while developing.
+
+## Audio
+
+Every source of sound plays into its own PipeWire sink, with a level the user sets in Settings → Audio → Source
+levels (so that switching sources keeps the loudness, openhu#154). A plugin declares its sources in the manifest:
+
+```json
+"audio": {"sources": [
+  {"id": "fm", "name": "FM"},
+  {"id": "dab", "name": "DAB", "pause": false}
+]}
+```
+
+| Key | |
+|---|---|
+| `id` | `a-z`, `0-9`, `-`, `_` (up to 32), unique in the plugin; the source is `<plugin id>.<id>`, its sink `openhu.<plugin id>.<id>` |
+| `name` | English name in the settings; the plugin's translation `<plugin id>.audio.<id>` wins ([Translations](#translations)) |
+| `pause` | the plugin can pause this source for real (default `false`: it is muted instead while e.g. the Assistant talks) |
+| `level` | the plugin's normalization in dB, −20 to 0 (default 0): how much quieter this source has to play to be as loud as the others (reference: Android Auto with Spotify, about −14 LUFS). E.g. `-8` for music files, which are mastered much louder |
+
+A plugin with the `audio` permission and no list gets one source, `<plugin id>` (sink `openhu.<plugin id>`, named
+like the plugin); its normalization is `"audio": {"level": -8}`.
+
+The user's level in the settings is relative to the normalization: it starts at 0 dB (as the plugin set it), the
+chain plays at the sum (normalization −8 dB and the user's −2 dB: −10 dB).
+
+The process finds its sinks in the environment: `OPENHU_AUDIO_SINK_<ID>` per source (`OPENHU_AUDIO_SINK_FM`, `-`
+becomes `_`), `OPENHU_AUDIO_SINK` for the default source, and `PULSE_SINK` / `PIPEWIRE_NODE` set to the first
+source. A plugin with one source needs nothing else: `pacat`, `paplay`, `mpv` and other PulseAudio or PipeWire
+clients play there by themselves. With several sources, pass the sink per stream (`pacat --device=$OPENHU_AUDIO_SINK_DAB`,
+`mpv --audio-device=pulse/$OPENHU_AUDIO_SINK_FM`). A stream that starts before its sink exists plays on the default
+output and is moved to the sink as soon as it appears.
+
+## Config store
+
+Every plugin has a config store in OpenHU (#152): one JSON object, kept in `~/.openhu/plugin-data/<id>/config.json`.
+OpenHU reads it when it loads the plugin, keeps it in memory and writes it (atomically) on every change; the plugin
+reads and changes it through the API (`openhu.py`/`openhu.ts`: `api.config`), never by writing the file itself.
+
+- **Declared keys** are the plugin's [settings](#settings): typed, checked against the manifest, with a default,
+  shown in Settings → Apps.
+- **Free keys** are everything else (stations, presets, the plugin's state): any JSON value, the plugin checks them.
+- The values (declared keys with their default where nothing valid is stored) are the topic `plugin.config.<id>`
+  `{values, changed}`, published when the plugin is loaded and on every change, also while the plugin is disabled.
+  `changed` lists the keys of the last change.
+- Methods ([api.md](api.md#methods)): `plugin.config.get`, `plugin.config.set` (one key or several at once, all or
+  none), `plugin.config.remove` (a free key is deleted, a declared one goes back to its default),
+  `plugin.config.reset` (all settings back to their defaults, free keys stay). Any API client may use them, like
+  `settings.set`.
+- At most 1 MB per plugin. A file that is not a JSON object is kept as `config.json.broken` and the store starts
+  empty. A file changed by someone else (by hand, a plugin that still writes it) is read again before the next change
+  and published, not overwritten.
+- The file is the one `load_config`/`save_config` of `openhu.py` used before, so existing configs carry over.
+
+```python
+api = OpenHU()
+api.config["ppm"]                           # at the start: config.json + the manifest's defaults, no connection needed
+api.config.get("stations", [])
+await api.config.set("frequency", 101.3)    # through OpenHU (checked for declared keys); before the connection: sent once connected
+await api.config.update({"band": "fm", "frequency": 99.5})
+await api.config.remove("oldKey")
+api.on_config(lambda values, changed: ...)  # changes from Settings → Apps or other clients
+```
+
+Plugins that keep a dict from `load_config(DEFAULTS)` can stay with it: `load_config` reads through the store,
+`save_config(config)` sends what changed since the last load or save, and `follow_config(api, config, on_change)`
+writes changes from the settings into the dict and calls `on_change(changed keys)`.
+
+In QML: `BusTopic { id: config; topic: "plugin.config.org.example.radio" }` → `config.data.values`, changes with
+`api.request("plugin.config.set", {id: "org.example.radio", key: "rds", value: false})`.
+
+## Settings
+
+A plugin declares its settings in the manifest; OpenHU shows them in Settings → Apps & Store → Installed → Settings
+(also `ui.navigate` `settings/apps/<id>`), with the shell's own setting rows, also while the plugin is disabled. The
+values are declared keys of its [config store](#config-store).
+
+```json
+"settings": [
+  {"type": "section", "key": "tuner", "title": "Tuner"},
+  {"key": "gain", "type": "choice", "default": "auto", "options": ["auto", "0", "20", "49.6"], "title": "Tuner gain"},
+  {"key": "ppm", "type": "number", "default": 0, "min": -100, "max": 100, "title": "Frequency correction (ppm)"},
+  {"key": "biasTee", "type": "switch", "default": false, "applies": "restart", "title": "Bias-T",
+   "description": "Powers an active antenna through the stick"},
+  {"key": "name", "type": "text", "default": "", "maxLength": 20, "placeholder": "Golf", "title": "Name"}
+]
+```
+
+| Type | Shown as | Value | Keys |
+|---|---|---|---|
+| `switch` | switch | bool | – |
+| `choice` | buttons (up to 4 options), drop-down (more) | text from `options` (numbers are taken as text: `49.6` → `"49.6"`) | `options` |
+| `number` | number field | whole number | `min`, `max` (required), `step` (default 1, counted from `min`) |
+| `text` | text field | text | `maxLength` (default 256, at most 4096), `placeholder` |
+| `section` | heading | – | – |
+
+- Every entry: `key` (letters, digits, `_`, unique), `type`, `default` (required except for sections, in the type of
+  the value and valid itself), `title` and `description` (English, see below), `applies`: `now` (default: the process
+  follows the topic) or `restart` (OpenHU restarts the process after a change).
+- Values are checked and converted like `settings.set`: `"on"`/`"off"`, `"5"`; a wrong value is refused with the
+  reason. A stored value that does not fit any more (an update narrowed a range) counts as the default until it is set
+  again. A value equal to the default stays stored once the user picked it.
+- Invalid entries are left out and logged (`settings[3] gain: default: must be one of: …, left out`); the rest of the
+  plugin works. `tools/openhu-repo-index` (openhu-plugins) refuses them.
+- Texts: the shell asks the plugin's translation for `<id>.settings.<key>` (title), `<id>.settings.<key>.description`
+  and `<id>.settings.<key>.<option>` (label of a choice option) and falls back to `title`, `description` and the option
+  itself. Like `.name`, add them to the `.ts` files by hand ([Translations](#translations)).
+- Settings that need lists only the process knows (devices, profiles) or live state stay on the plugin's page; they
+  can still be free keys of the store.
 
 ## Android Auto
 
@@ -65,7 +181,7 @@ Only plugins that declare it in `androidAuto` feed Android Auto (#123):
 | Key | |
 |---|---|
 | `sensors` | vehicle data the plugin publishes for Android Auto, named like the topics without `vehicle.`: `speed`, `parkingBrake`, `gear`, `fuel`, `odometer`, `engine`, `climate`, `compass`, `drivingStatus`, `info` ([api.md](api.md#vehicle-data-android-auto-sensors)) |
-| `services` | Android Auto services the plugin backs: `radio` (`radio.state` / `radio.command`), `carControl` (`vehicle.controls`, [api.md](api.md#car-controls-android-auto-climate-rail)) |
+| `services` | Android Auto services the plugin backs: `radio` (`radio.state` / `radio.command`), `carControl` (`vehicle.controls`, [api.md](api.md#car-controls-android-auto-climate-rail)), `localMedia` (`media.status` / `media.metadata` in the phone's media card, [api.md](api.md#local-media-android-auto-media-card)) |
 
 - While the plugin is enabled, OpenHU announces exactly these sensors and services when the phone connects, whether
   values are there yet or not (the phone takes them when they arrive). Unknown names are ignored (logged).
@@ -78,6 +194,33 @@ Only plugins that declare it in `androidAuto` feed Android Auto (#123):
   enabled, disabled, updated or removed (store and API answer `android auto connected`). A new one can be installed;
   it is installed disabled. Restarts and crashes of its process are fine, its values are unavailable meanwhile.
 - The store shows the section before installing ("Provides to Android Auto: ...").
+
+## Companion app
+
+A plugin can have its own app on the phone with its own entry in Android Auto: an extension of the OpenHU companion
+app (openhu-companion#3). The extension talks to OpenHU only through the companion, which holds the Bluetooth link.
+The manifest says which app that is and what it may see and send:
+
+```json
+"companion": {
+  "package": "org.openhu.companion.music",
+  "name": "Music",
+  "topics": ["music.*", "media.metadata"],
+  "commands": ["music.command", "music.query"]
+}
+```
+
+| Key | |
+|---|---|
+| `package` | the Android package of the app (required) |
+| `name` | shown in the companion's list and its question to the user, default the plugin's name |
+| `topics` | what the app may subscribe and read (`bus.get`), OpenHU patterns (`music.*`) |
+| `commands` | what the app may emit (`bus.emit`) |
+
+OpenHU publishes the enabled plugins' entries as `companion.extensions`. An app gets nothing else, and only after the
+user allowed it in the companion. How to write one (protocol, client library, what Android Auto shows): the README of
+[openhu-companion](https://github.com/average-web-dev/openhu-companion). Installing the app on the phone is up to the
+user.
 
 ## QML
 
@@ -185,6 +328,23 @@ Rectangle {
         Button { text: "Reset"; onClicked: api.emitEvent("speed.command", {cmd: "reset"}) }
     }
 }
+```
+
+## TypeScript (bun)
+
+`common/openhu.ts` of openhu-plugins is the same client as `openhu.py` for [bun](https://bun.sh): API, events,
+`Texts`, `config`. A plugin names it in `shared` and starts `bin/<name>.ts` (run with bun when it has no executable
+bit). bun is not part of OpenHU OS: such a plugin runs where bun is installed (a development machine, an own image).
+
+```ts
+import { OpenHU } from "../lib/openhu.ts";
+
+const api = new OpenHU();
+api.on("vehicle.speed", async (topic, data) => {
+  await api.publish("speed.state", { kmh: data.kmh ?? 0 });
+});
+api.onConfig((values, changed) => console.log("settings", changed));
+await api.run();
 ```
 
 ## Repositories (store sources)

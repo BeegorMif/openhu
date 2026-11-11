@@ -84,14 +84,18 @@ docker/dev.sh run     # first run builds the image, aasdk and OpenHU (takes a wh
 
 After code changes `docker/dev.sh run` again: it rebuilds only what changed and starts right away.
 
-Plug in your phone (or set up wireless under *Einstellungen → Kabellos*). Bare-metal installation on a Raspberry Pi
-or a Debian/Ubuntu system, and what wireless Android Auto and the car radio need: [docs/installation.md](docs/installation.md).
+Plug in your phone (or set up wireless under *Einstellungen → Kabellos*). What wireless Android Auto and the car
+radio need: [docs/installation.md](docs/installation.md).
+
+**Supported setups:** OpenHU OS ([openhu-os](https://github.com/average-web-dev/openhu-os)) on the head unit, and
+the container above everywhere else. Installing the OpenHU `.deb` directly on another system (Debian, Ubuntu,
+Raspberry Pi OS) is not supported.
 
 ## Documentation
 
 | | |
 |---|---|
-| [Installation](docs/installation.md) | container, bare metal, service, wireless and car radio requirements |
+| [Installation](docs/installation.md) | supported setups, container, service, wireless and car radio requirements |
 | [Configuration](docs/configuration.md) | every setting of `openhu.ini`, data files |
 | [API](docs/api.md) | topics, methods and actions of the WebSocket API |
 | [Plugins](docs/plugins.md) | manifest, QML module, store repositories |
@@ -122,9 +126,16 @@ upstream opencardev/aasdk plus navigation state and phone status messages and fa
 
 ## Credits and license
 
-OpenHU is a fork of [OpenAuto](https://github.com/opencardev/openauto) by f1x.studio (Michal Szwaj) and the
-OpenCarDev team (original README: [docs/upstream-openauto-README.md](docs/upstream-openauto-README.md)) and uses
-[aasdk](https://github.com/opencardev/aasdk). Thanks to them – none of this would exist without their work.
+OpenHU is developed by **Leon Strauß** ([average-web-dev](https://github.com/average-web-dev)) together with
+everyone who contributed to this repository ([contributors](https://github.com/average-web-dev/openhu/graphs/contributors)).
+
+OpenHU started as a fork of [OpenAuto](https://github.com/opencardev/openauto) by f1x.studio (Michal Szwaj) and the
+OpenCarDev team (original README: [docs/upstream-openauto-README.md](docs/upstream-openauto-README.md)) and has been
+largely reworked since. It uses [aasdk](https://github.com/opencardev/aasdk). Thanks to them – none of this would
+exist without their work.
+
+If you fork or redistribute OpenHU, please keep this section and add your own credits next to it, so everyone who
+built it stays mentioned. The copyright notices in the source files stay as they are, as the GPL asks.
 
 **GPL-3.0**, see [LICENSE](LICENSE).
 

@@ -19,6 +19,7 @@
 
 #include <f1x/openauto/autoapp/Audio/DuckingController.hpp>
 #include <f1x/openauto/autoapp/Core/EventBus.hpp>
+#include <f1x/openauto/autoapp/Core/Companion.hpp>
 #include <f1x/openauto/autoapp/Service/AudioFocusPolicy.hpp>
 #include <QVariantList>
 #include <aasdk/Channel/Control/ControlServiceChannel.hpp>
@@ -60,12 +61,32 @@ namespace f1x {
             // Without it both play: Android Auto does not pause its music when its own radio source is chosen.
             std::weak_ptr<AndroidAutoEntity> weak = this->shared_from_this();
             auto policy = std::make_shared<AudioFocusPolicy>(core::EventBus::instance().last("media.status"));
+            // While Android Auto shows the companion app (openhu#158), the phone keeps the focus: the app only controls
+            // the head unit's own player, and a focus loss would show it interrupted. Sound from the phone next to
+            // it is another app (the companion plays none): that counts as the phone's music.
+            auto phoneApp = std::make_shared<QString>();
             mediaConnection_ = QObject::connect(&core::EventBus::instance(), &core::EventBus::event,
-                                                [weak, policy](const QString &topic, const QVariantMap &data) {
+                                                [weak, policy, phoneApp](const QString &topic, const QVariantMap &data) {
+              if (topic == "androidauto.mediaAudio") {
+                if (data.value("playing").toBool() && core::isCompanionApp(*phoneApp)) {
+                  OPENAUTO_LOG(info) << "[AndroidAutoEntity] the phone plays music next to the companion app";
+                  core::EventBus::instance().publish("media.status", {{"source", "androidauto"}, {"state", "playing"}});
+                }
+                return;
+              }
               if (topic != "media.status") {
                 return;
               }
+              if (data.value("source").toString() == "androidauto" && data.contains("app")) {
+                *phoneApp = data.value("app").toString();
+              }
               const bool started = policy->update(data);
+              // checked when the local source starts: the app may have announced itself after the phone's status
+              if (started && core::isCompanionApp(*phoneApp)) {
+                OPENAUTO_LOG(info) << "[AndroidAutoEntity] " << data.value("source").toString().toStdString()
+                                   << " plays, Android Auto shows the companion app: the phone keeps the focus";
+                return;
+              }
               if (auto entity = weak.lock(); entity && started) {
                 const std::string source = data.value("source").toString().toStdString();
                 entity->strand_.dispatch([entity, source]() { entity->sendAudioFocusLoss(source); });

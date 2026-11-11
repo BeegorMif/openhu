@@ -60,6 +60,7 @@ Where the keys are in the settings:
 | `FPS` | `2` | `1` = 60 fps, `2` = 30 fps |
 | `ScreenDPI` | `140` | larger = bigger text and icons in Android Auto |
 | `MarginWidth`, `MarginHeight` | `0` | `0`/`0` = computed so the projection fills the area undistorted |
+| `Fullscreen` | `false` | Android Auto covers the whole window while it shows a picture, without the dock and the status bar (the other pages keep them). A swipe from the left edge shows the dock for 5 s; Android Auto's exit button and the `ui.home` / `ui.back` actions go back to the shell. Applies at the next connection: resolution and margins follow the whole window (#146) |
 | `Decoder` | `auto` | debug setting: H.264 decoder (FFmpeg): `auto` = hardware decoder where available (`h264_v4l2m2m` on ARM), else software; `software`; or the name of an FFmpeg decoder. The log shows which one runs and its speed every 10 s |
 | `Codec` | `auto` | debug setting: the video codec offered to the phone: `h264`, `h265` (the phone switches the whole stream to H.265 if it has an encoder for it, otherwise it shows an error and stays on H.264; decoded with `hevc`, on ARM first `hevc_v4l2m2m`), `auto` (H.264 for now; the choice per device follows with the Raspberry Pi 5 measurements, #10) |
 
@@ -87,6 +88,23 @@ Where the keys are in the settings:
 | Key | Default | |
 |---|---|---|
 | `DuckLevel` | `20` | loudness of local sources (radio and other processes' audio streams) in % while Android Auto plays a navigation prompt, like Android's ducking (20 % loudness = -14 dB). The Assistant (transient audio focus) mutes them. The original volumes come back afterwards, on disconnect and when OpenHU ends; after a crash, a stream that starts below its remembered volume gets it back (`~/.openhu/audio-duck.json`). Needs `pactl` 16 or newer (`-f json`) |
+| `SourceLevels` | – | level of each audio source in dB as JSON, e.g. `{"aa.media":-3,"org.openhu.radio.dab":-6}` (Settings → Audio → Source levels, API `audio.level.set`). Only attenuation, −20 to 0 dB, relative to the plugin's normalization (`level` in its manifest, [plugins.md](plugins.md#audio)); sources at 0 dB are not stored. Every source plays into its own PipeWire sink (`openhu.<source id>`) with a level and an EQ, see [Audio sources](#audio-sources) |
+
+#### Audio sources
+
+Every source of sound has its own PipeWire filter-chain sink, so that switching sources keeps the loudness (#154):
+
+| Source | Sink |
+|---|---|
+| Android Auto media, navigation, calls, system sounds | `openhu.aa.media`, `openhu.aa.guidance`, `openhu.aa.call`, `openhu.aa.system` |
+| plugin sources (`audio.sources` in the manifest, [plugins.md](plugins.md#audio)) | `openhu.<plugin id>.<source id>`, or `openhu.<plugin id>` for a plugin with the `audio` permission and no list |
+
+Each chain is a flat 10-band EQ (for the EQ plugin, openhu-plugins#43), the source level and a gain for ducking;
+its output follows the default sink (the Bluetooth car radio moves it, `[CarAudio]`). OpenHU creates the sinks itself
+with `pipewire -c <config>` (one process for its own sources and one per plugin, configs in
+`$XDG_RUNTIME_DIR/openhu-audio/`) and ends them with it. Sinks that exist already under these names (shipped by the
+OS) are used as they are. Needs PipeWire (`pipewire-bin`); without it everything plays on the default output, without
+levels.
 
 ### [Radio]
 
@@ -115,7 +133,7 @@ Where the keys are in the settings:
 | `Client` | `true` | join saved WiFi networks (Settings → WiFi) whenever the hotspot does not need the card, see [installation.md](installation.md#wifi-networks) |
 | `ClientInterface` | empty | WiFi card for those networks, empty = any free one; a card other than the hotspot's keeps both running |
 | `Address` | `10.42.0.1/24` | OpenHU in the hotspot network (gateway and DNS for the phone) |
-| `DhcpRange` | empty | e.g. `10.42.0.50-10.42.0.60`, empty = NetworkManager default (needs NetworkManager ≥ 1.42) |
+| `DhcpRange` | empty | e.g. `10.42.0.50-10.42.0.60`, empty = NetworkManager default (needs NetworkManager ≥ 1.48) |
 | `Hotspot` | `always` | `always` or `demand`: started when a paired phone asks for it, off after 2 minutes without a wireless session |
 | `Priority` | `usb` | phone on the cable while wireless is possible: `usb` (cable wins, no WiFi credentials for it) or `wifi` |
 | `LastDevice` | set by OpenHU | Bluetooth address of the phone that is connected first |

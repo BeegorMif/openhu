@@ -157,6 +157,7 @@ QVariantMap SettingsController::keys()
         {"aa.dpi", number(80, 400, cReconnect)},
         {"aa.marginWidth", number(0, 600, cReconnect)},
         {"aa.marginHeight", number(0, 600, cReconnect)},
+        {"aa.fullscreen", flag(cReconnect)},
         {"aa.touchscreen", flag(cReconnect)},
         {"aa.wireless", flag("now")},
         {"aa.audioMedia", flag(cReconnect)},
@@ -220,6 +221,7 @@ QVariantMap SettingsController::values() const
         {"aa.dpi", static_cast<int>(configuration_->getScreenDPI())},
         {"aa.marginWidth", margins.width()},
         {"aa.marginHeight", margins.height()},
+        {"aa.fullscreen", configuration_->getVideoFullscreen()},
         {"aa.touchscreen", configuration_->getTouchscreenEnabled()},
         {"aa.wireless", configuration_->getWirelessProjectionEnabled()},
         {"wireless.ssid", QString::fromStdString(wireless.ssid)},
@@ -434,6 +436,12 @@ QString SettingsController::set(const QString& key, const QVariant& value)
             margins.setHeight(margin & ~1);
         }
         configuration_->setVideoMargins(margins);
+        this->markPending(cReconnect);
+    }
+    else if(key == "aa.fullscreen")
+    {
+        // the shell changes its layout once no session runs: the projection area decides resolution and margins
+        configuration_->setVideoFullscreen(value.toBool());
         this->markPending(cReconnect);
     }
     else if(key == "aa.touchscreen")

@@ -28,6 +28,7 @@
 #include <QUrl>
 #include <QUuid>
 #include <f1x/openauto/autoapp/Core/ChildProcesses.hpp>
+#include <f1x/openauto/autoapp/Core/Companion.hpp>
 #include <f1x/openauto/autoapp/Plugins/PluginManager.hpp>
 #include <f1x/openauto/autoapp/Plugins/AndroidAutoProviders.hpp>
 #include <f1x/openauto/autoapp/Plugins/PluginStore.hpp>
@@ -118,6 +119,7 @@ void PluginManager::load()
         known.append(entry.first);
     }
     plugins_.clear();
+    config_.clear();
     bool stateChanged = false;
 
     QDir().mkpath(pluginsDir());
@@ -163,6 +165,13 @@ void PluginManager::load()
                                   << manifest.value("api", 1).toInt() << ", this OpenHU has " << cApiVersion
                                   << ": not loaded, update it in the store";
         }
+        QStringList schemaErrors;
+        const QVariantList schema = PluginConfig::parseSchema(manifest, &schemaErrors);
+        for(const auto& error: schemaErrors)
+        {
+            OPENAUTO_LOG(warning) << "[PluginManager] " << id.toStdString() << ": " << error.toStdString() << ", left out";
+        }
+        config_.load(id, schema);
         plugin->dock = state.value(id).toMap().contains("dock") ? state.value(id).toMap().value("dock").toBool() : -1;
         plugin->restartTimer.setSingleShot(true);
         connect(&plugin->restartTimer, &QTimer::timeout, this, [this, id]() {
@@ -518,9 +527,51 @@ void PluginManager::unload(const QString& id)
     {
         this->stopProcess(*it->second);
         plugins_.erase(it);
+        config_.unload(id);
         emit pluginsChanged();
         this->publishOverlays();
     }
+}
+
+QString PluginManager::setConfig(const QString& id, const QVariantMap& changes)
+{
+    QStringList changed;
+    const QString error = config_.set(id, changes, &changed);
+    this->restartForSettings(id, changed);
+    return error;
+}
+
+QString PluginManager::removeConfig(const QString& id, const QStringList& keys)
+{
+    QStringList changed;
+    const QString error = config_.remove(id, keys, &changed);
+    this->restartForSettings(id, changed);
+    return error;
+}
+
+QString PluginManager::resetConfig(const QString& id)
+{
+    QStringList changed;
+    const QString error = config_.reset(id, &changed);
+    this->restartForSettings(id, changed);
+    return error;
+}
+
+void PluginManager::restartForSettings(const QString& id, const QStringList& changed)
+{
+    bool restart = false;
+    for(const auto& key: changed)
+    {
+        restart = restart || config_.entry(id, key).value("applies") == "restart";
+    }
+    auto it = plugins_.find(id);
+    if(!restart || it == plugins_.end() || !it->second->process || it->second->process->state() == QProcess::NotRunning)
+    {
+        return;
+    }
+    // after the answer to the request that changed it (stopping waits for the process)
+    OPENAUTO_LOG(info) << "[PluginManager] " << id.toStdString() << ": a setting changed, restarting";
+    QTimer::singleShot(0, this, [this, id]() { this->restart(id); });
 }
 
 void PluginManager::setQmlCacheClearer(std::function<void()> clearer)
@@ -561,7 +612,7 @@ void PluginManager::startProcess(Plugin& plugin)
         return;
     }
 
-    // Scripts do not need the executable bit
+    // Scripts do not need the executable bit: .py with python3, .sh with bash, .ts/.js with bun
     QString command = program;
     QStringList arguments = process.value("args").toStringList();
     if(!QFileInfo(program).isExecutable())
@@ -575,6 +626,12 @@ void PluginManager::startProcess(Plugin& plugin)
         {
             arguments.prepend(program);
             command = "bash";
+        }
+        else if(program.endsWith(".ts") || program.endsWith(".js"))
+        {
+            // TypeScript/JavaScript plugins with common/openhu.ts (needs bun on the head unit)
+            arguments.prepend(program);
+            command = "bun";
         }
     }
 
@@ -594,6 +651,13 @@ void PluginManager::startProcess(Plugin& plugin)
     // at the start; a switch later comes as the topic ui.language
     environment.insert("OPENHU_LANGUAGE", core::EventBus::instance().last("ui.language").value("language").toString());
     environment.insert("PYTHONUNBUFFERED", "1");
+    if(environmentProvider_)
+    {
+        for(const auto& entry: environmentProvider_(plugin.id, plugin.manifest))
+        {
+            environment.insert(entry.first, entry.second);
+        }
+    }
 
     plugin.process = std::make_unique<QProcess>();
     plugin.process->setProcessEnvironment(environment);
@@ -701,6 +765,24 @@ void PluginManager::onProcessFinished(const QString& id, int exitCode, QProcess:
     plugin.restartTimer.start(plugin.restartDelay);
 }
 
+QHash<QString, QVariantMap> PluginManager::activeManifests() const
+{
+    QHash<QString, QVariantMap> result;
+    for(const auto& entry: plugins_)
+    {
+        if(entry.second->enabled && entry.second->compatible)
+        {
+            result.insert(entry.first, entry.second->manifest);
+        }
+    }
+    return result;
+}
+
+void PluginManager::setEnvironmentProvider(EnvironmentProvider provider)
+{
+    environmentProvider_ = std::move(provider);
+}
+
 QVariantMap PluginManager::toVariant(const Plugin& plugin) const
 {
     const QVariantMap ui = plugin.manifest.value("ui").toMap();
@@ -722,17 +804,31 @@ QVariantMap PluginManager::toVariant(const Plugin& plugin) const
     result["requires"] = requiresOf(plugin.manifest);
     result["recommends"] = recommendsOf(plugin.manifest);
     result["missing"] = this->missingRequirements(plugin.id);
+    const QVariantList settings = config_.schema(plugin.id);
+    if(!settings.isEmpty())
+    {
+        // shown in Settings → Apps (openhu#152), values in the topic plugin.config.<id>
+        result["settings"] = settings;
+    }
     if(!plugin.androidAuto.isEmpty())
     {
         // enable, disable, update and remove wait for the phone to disconnect (changeBlocked)
         result["androidAuto"] = plugin.androidAuto;
+    }
+    const QVariantMap companion = core::companionOf(plugin.manifest);
+    if(!companion.isEmpty())
+    {
+        // its extension app on the phone (openhu-companion#3)
+        result["companion"] = companion;
     }
     return result;
 }
 
 void PluginManager::publishState()
 {
-    core::EventBus::instance().publish("plugins.state", {{"plugins", this->plugins()}});
+    const QVariantList plugins = this->plugins();
+    core::EventBus::instance().publish("plugins.state", {{"plugins", plugins}});
+    core::EventBus::instance().publish("companion.extensions", core::companionExtensions(plugins));
 }
 
 void PluginManager::saveState() const

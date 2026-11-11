@@ -3,12 +3,15 @@ import QtQuick.Controls
 import QtQuick.Layouts
 import OpenHU 1.0
 import "PluginText.js" as PluginText
+import "settings"
 
 // Plugin store: packages from the sources in ~/.openhu/sources.list
 Item {
     id: page
 
     property int tab: 0  // 0 available, 1 installed, 2 updates, 3 sources
+    // a plugin whose settings are shown instead of the list (SettingsPage: "settings/apps/<id>", openhu#152)
+    property string settingsFor: ""
 
     readonly property var filtered: {
         var all = store.packages
@@ -104,7 +107,17 @@ Item {
 
     Component.onCompleted: if (store.packages.length === 0) store.refresh()
 
+    Loader {
+        anchors.fill: parent
+        active: page.settingsFor !== ""
+        sourceComponent: PluginSettings {
+            pluginId: page.settingsFor
+            onBack: shell.navigate("settings/apps")
+        }
+    }
+
     ColumnLayout {
+        visible: page.settingsFor === ""
         anchors.fill: parent
         anchors.margins: Theme.spacing * 1.5
         spacing: Theme.spacing
@@ -269,6 +282,13 @@ Item {
                                  && page.pluginInfo(modelData.id).page !== "" && page.pluginInfo(modelData.id).enabled
                         text: qsTrId("store.open")
                         onClicked: shell.navigate("plugin:" + modelData.id)
+                    }
+                    Button {
+                        // the plugin's own settings (manifest "settings"), also while it is disabled
+                        visible: modelData.installed && page.pluginInfo(modelData.id).compatible !== false
+                                 && (page.pluginInfo(modelData.id).settings || []).length > 0
+                        text: qsTrId("store.settings")
+                        onClicked: shell.navigate("settings/apps/" + modelData.id)
                     }
                     Switch {
                         visible: modelData.installed && !!page.pluginInfo(modelData.id).page

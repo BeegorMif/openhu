@@ -11,27 +11,30 @@ Rectangle {
     color: Theme.surface
     clip: true
 
-    BusTopic { id: metadata; topic: "media.metadata" }
-    BusTopic { id: playback; topic: "media.status" }
+    // the source that plays (or started last): its metadata also after a switch, not that of the last publisher
+    BusTopic { id: current; topic: "media.current" }
+    // the plugin behind the source (its page opens on a tap), empty for Android Auto
+    readonly property string plugin: current.data.plugin || ""
+    // "androidauto" or a source of the head unit ("music", "radio")
+    readonly property string source: current.data.source || ""
+    readonly property var metadata: current.data.metadata || ({})
+    readonly property var playback: current.data.status || ({})
 
-    readonly property bool hasTrack: !!metadata.data.title && playback.data.state !== undefined && playback.data.state !== "stopped"
+    readonly property bool hasTrack: !!card.metadata.title && card.playback.state !== undefined && card.playback.state !== "stopped"
 
     // Position advances locally between the (sparse) status updates while playing.
-    property real position: playback.data.position || 0
-    Connections {
-        target: playback
-        function onDataChanged() { card.position = playback.data.position || 0 }
-    }
+    property real position: card.playback.position || 0
+    onPlaybackChanged: card.position = card.playback.position || 0
     Timer {
         interval: 1000
         repeat: true
-        running: card.visible && playback.data.state === "playing"
-        onTriggered: card.position = Math.min(card.position + 1, metadata.data.duration || card.position + 1)
+        running: card.visible && card.playback.state === "playing"
+        onTriggered: card.position = Math.min(card.position + 1, card.metadata.duration || card.position + 1)
     }
 
     Image {
         anchors.fill: parent
-        source: metadata.data.cover || ""
+        source: card.metadata.cover || ""
         fillMode: Image.PreserveAspectCrop
         opacity: 0.18
         visible: card.hasTrack
@@ -52,10 +55,10 @@ Rectangle {
 
             Image {
                 anchors.fill: parent
-                anchors.margins: metadata.data.cover ? 0 : parent.width * 0.25
-                source: metadata.data.cover || "qrc:/mp3-hot.png"
-                fillMode: metadata.data.cover ? Image.PreserveAspectCrop : Image.PreserveAspectFit
-                opacity: metadata.data.cover ? 1 : 0.5
+                anchors.margins: card.metadata.cover ? 0 : parent.width * 0.25
+                source: card.metadata.cover || "qrc:/mp3-hot.png"
+                fillMode: card.metadata.cover ? Image.PreserveAspectCrop : Image.PreserveAspectFit
+                opacity: card.metadata.cover ? 1 : 0.5
             }
         }
 
@@ -65,7 +68,7 @@ Rectangle {
 
             Text {
                 Layout.fillWidth: true
-                text: metadata.data.title || ""
+                text: card.metadata.title || ""
                 color: Theme.text
                 font.pixelSize: Theme.fontLarge
                 font.bold: true
@@ -73,13 +76,13 @@ Rectangle {
             }
             Text {
                 Layout.fillWidth: true
-                text: [metadata.data.artist, metadata.data.album].filter(function(part) { return part }).join(" · ")
+                text: [card.metadata.artist, card.metadata.album].filter(function(part) { return part }).join(" · ")
                 color: Theme.textDim
                 font.pixelSize: Theme.fontNormal
                 elide: Text.ElideRight
             }
             Text {
-                text: (playback.data.state === "paused" ? qsTrId("home.media.paused") : qsTrId("home.media.playing")) + (playback.data.app ? " · " + playback.data.app : "")
+                text: (card.playback.state === "paused" ? qsTrId("home.media.paused") : qsTrId("home.media.playing")) + (card.playback.app ? " · " + card.playback.app : "")
                 color: Theme.textDim
                 font.pixelSize: Theme.fontSmall
             }
@@ -90,10 +93,10 @@ Rectangle {
                 Layout.preferredHeight: Math.max(3, Theme.spacing / 4)
                 radius: height / 2
                 color: Theme.outline
-                visible: (metadata.data.duration || 0) > 0
+                visible: (card.metadata.duration || 0) > 0
 
                 Rectangle {
-                    width: parent.width * Math.min(1, card.position / Math.max(1, metadata.data.duration))
+                    width: parent.width * Math.min(1, card.position / Math.max(1, card.metadata.duration))
                     height: parent.height
                     radius: height / 2
                     color: Theme.primary

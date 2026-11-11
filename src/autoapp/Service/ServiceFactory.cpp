@@ -43,8 +43,10 @@
 #include <f1x/openauto/autoapp/Service/Radio/RadioService.hpp>
 #include <f1x/openauto/autoapp/Plugins/AndroidAutoProviders.hpp>
 #include <f1x/openauto/autoapp/Service/CarControl/CarControlService.hpp>
+#include <f1x/openauto/autoapp/Service/CarLocalMedia/CarLocalMediaService.hpp>
 #include <f1x/openauto/autoapp/Core/EventBus.hpp>
 #include <f1x/openauto/autoapp/Projection/FfmpegVideoOutput.hpp>
+#include <f1x/openauto/autoapp/Audio/AudioSources.hpp>
 #include <f1x/openauto/autoapp/Projection/QtAudioOutput.hpp>
 #include <f1x/openauto/autoapp/Projection/QtAudioInput.hpp>
 #include <f1x/openauto/autoapp/Projection/InputDevice.hpp>
@@ -82,6 +84,11 @@ namespace f1x::openauto::autoapp::service {
         // The radio plugin as a media source in Android Auto (openhu#75). The services cannot change during a
         // connection: the plugin cannot be enabled or disabled while one runs.
         serviceList.emplace_back(std::make_shared<radio::RadioService>(ioService_, messenger));
+    }
+    if (carlocalmedia::CarLocalMediaService::available())
+    {
+        // The music player (and other plugins that declare "localMedia") in the phone's media card (openhu#147)
+        serviceList.emplace_back(std::make_shared<carlocalmedia::CarLocalMediaService>(ioService_, messenger));
     }
     if (carcontrol::CarControlService::available())
     {
@@ -134,7 +141,7 @@ namespace f1x::openauto::autoapp::service {
     if (configuration_->musicAudioChannelEnabled()) {
       OPENAUTO_LOG(info) << "[ServiceFactory] Media Audio Channel enabled";
       auto mediaAudioOutput =
-          projection::IAudioOutput::Pointer(new projection::QtAudioOutput(2, 16, 48000, "media"),
+          projection::IAudioOutput::Pointer(new projection::QtAudioOutput(2, 16, 48000, "media", audio::sinkName("aa.media")),
                                             std::bind(&QObject::deleteLater, std::placeholders::_1));
 
       serviceList.emplace_back(
@@ -144,7 +151,7 @@ namespace f1x::openauto::autoapp::service {
     if (configuration_->guidanceAudioChannelEnabled()) {
       OPENAUTO_LOG(info) << "[ServiceFactory] Guidance Audio Channel enabled";
       auto guidanceAudioOutput =
-          projection::IAudioOutput::Pointer(new projection::QtAudioOutput(1, 16, 16000, "guidance"),
+          projection::IAudioOutput::Pointer(new projection::QtAudioOutput(1, 16, 16000, "guidance", audio::sinkName("aa.guidance")),
                                             std::bind(&QObject::deleteLater, std::placeholders::_1));
 
       serviceList.emplace_back(
@@ -156,7 +163,7 @@ namespace f1x::openauto::autoapp::service {
     if (configuration_->telephonyAudioChannelEnabled()) {
       OPENAUTO_LOG(info) << "[ServiceFactory] Telephony Audio Channel enabled";
       auto telephonyAudioOutput =
-          projection::IAudioOutput::Pointer(new projection::QtAudioOutput(1, 16, 16000, "telephony"),
+          projection::IAudioOutput::Pointer(new projection::QtAudioOutput(1, 16, 16000, "telephony", audio::sinkName("aa.call")),
                                             std::bind(&QObject::deleteLater, std::placeholders::_1));
 
       serviceList.emplace_back(
@@ -170,7 +177,7 @@ namespace f1x::openauto::autoapp::service {
 
     OPENAUTO_LOG(info) << "[ServiceFactory] System Audio Channel enabled";
     auto systemAudioOutput =
-        projection::IAudioOutput::Pointer(new projection::QtAudioOutput(1, 16, 16000, "system"),
+        projection::IAudioOutput::Pointer(new projection::QtAudioOutput(1, 16, 16000, "system", audio::sinkName("aa.system")),
                                           std::bind(&QObject::deleteLater, std::placeholders::_1));
 
     serviceList.emplace_back(

@@ -369,6 +369,38 @@
         <source></source>
         <translation>Stumm</translation>
     </message>
+    <message id="settings.audio.source_levels">
+        <source></source>
+        <translation>Pegel der Quellen</translation>
+    </message>
+    <message id="settings.audio.source_levels_description">
+        <source></source>
+        <translation>Lautere Quellen absenken, bis beim Wechseln alle gleich laut sind. Die Pegel gehen nur nach unten, damit nichts übersteuert.</translation>
+    </message>
+    <message id="settings.audio.source_not_ready">
+        <source></source>
+        <translation>nicht bereit</translation>
+    </message>
+    <message id="settings.audio.source_normalized">
+        <source></source>
+        <translation>vom Plugin normalisiert: %1</translation>
+    </message>
+    <message id="settings.audio.source.aa_media">
+        <source></source>
+        <translation>Android Auto: Medien</translation>
+    </message>
+    <message id="settings.audio.source.aa_guidance">
+        <source></source>
+        <translation>Android Auto: Navigation</translation>
+    </message>
+    <message id="settings.audio.source.aa_call">
+        <source></source>
+        <translation>Android Auto: Telefonate</translation>
+    </message>
+    <message id="settings.audio.source.aa_system">
+        <source></source>
+        <translation>Android Auto: Systemtöne</translation>
+    </message>
     <message id="settings.audio.car_radio_bluetooth">
         <source></source>
         <translation>Autoradio (Bluetooth)</translation>
@@ -1935,7 +1967,7 @@
     </message>
     <message id="settings.debug.video_decoder_description">
         <source></source>
-        <translation>Automatisch: Hardware, wenn vorhanden (Raspberry Pi), sonst Software. Gilt ab der nächsten Verbindung.</translation>
+        <translation>Automatisch: Hardware, wenn vorhanden (Raspberry Pi), sonst Software.</translation>
     </message>
     <message id="settings.debug.auto">
         <source></source>
@@ -1951,7 +1983,7 @@
     </message>
     <message id="settings.debug.video_codec_description">
         <source></source>
-        <translation>Was OpenHU dem Handy anbietet. Gilt ab der nächsten Verbindung.</translation>
+        <translation>Was OpenHU dem Handy anbietet.</translation>
     </message>
     <message id="settings.info.debug_mode">
         <source></source>
@@ -2004,6 +2036,50 @@
     <message id="store.requirement_not_offered">
         <source></source>
         <translation>%1 braucht %2, das keine Quelle anbietet</translation>
+    </message>
+    <message id="shell.car_audio_connected">
+        <source></source>
+        <translation>Autoradio verbunden</translation>
+    </message>
+    <message id="shell.car_audio_disconnected">
+        <source></source>
+        <translation>Autoradio getrennt</translation>
+    </message>
+    <message id="settings.aa.fullscreen">
+        <source></source>
+        <translation>Vollbild</translation>
+    </message>
+    <message id="settings.aa.fullscreen_description">
+        <source></source>
+        <translation>Android Auto nutzt den ganzen Bildschirm, ohne Dock und Statusleiste. Ein Wisch vom linken Rand zeigt das Dock.</translation>
+    </message>
+    <message id="settings.plugin.restarts_plugin">
+        <source></source>
+        <translation>Eine Änderung startet das Plugin neu.</translation>
+    </message>
+    <message id="settings.plugin.back">
+        <source></source>
+        <translation>Zurück</translation>
+    </message>
+    <message id="settings.plugin.reset">
+        <source></source>
+        <translation>Zurücksetzen</translation>
+    </message>
+    <message id="settings.plugin.reset_confirm">
+        <source></source>
+        <translation>Nochmal tippen zum Zurücksetzen</translation>
+    </message>
+    <message id="settings.plugin.not_installed">
+        <source></source>
+        <translation>Dieses Plugin ist nicht installiert.</translation>
+    </message>
+    <message id="settings.plugin.disabled_hint">
+        <source></source>
+        <translation>Das Plugin ist deaktiviert: Die Einstellungen gelten, sobald es aktiviert ist.</translation>
+    </message>
+    <message id="store.settings">
+        <source></source>
+        <translation>Einstellungen</translation>
     </message>
 </context>
 </TS>

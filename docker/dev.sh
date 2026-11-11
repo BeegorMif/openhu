@@ -11,6 +11,8 @@
 #   ./dev.sh clean        delete the build volumes and ccache (the next build starts from scratch)
 #
 # Start without building: ./dev.sh run --no-build, resolution: OPENHU_RESOLUTION=800x480 ./dev.sh run
+# Fullscreen: OPENHU_FULLSCREEN=1 ./dev.sh run (the whole host display, all monitors) or OPENHU_FULLSCREEN=<output>
+#   (one monitor, a name from xrandr, e.g. eDP-1); OPENHU_RESOLUTION is ignored then. Leave it with docker stop openhu
 # aasdk source: AASDK_DIR=<checkout>, default ../aasdk-ref or ../aasdk next to the main checkout (also from a worktree)
 # Protocol capture of the Android Auto connection (aasdk AASDK_CAPTURE, average-web-dev/aasdk#14):
 #   OPENHU_CAPTURE=1 ./dev.sh run    writes data/capture-<time>.jsonl (with OPENHU_CAPTURE=media also audio/video
@@ -29,6 +31,17 @@ if [ -z "${AASDK_DIR:-}" ]; then
 fi
 AASDK_DIR="$(realpath -m "$AASDK_DIR")"
 IMAGE="openhu:dev"
+# The desktop user, also under sudo: their audio sockets are mounted and the files the container writes go back to them
+if [ "$(id -u)" = 0 ] && [ -n "${SUDO_UID:-}" ]; then
+  HOST_UID="$SUDO_UID"
+  HOST_GID="${SUDO_GID:-$SUDO_UID}"
+  # sudo drops XDG_RUNTIME_DIR (root's would be /run/user/0, without the user's audio server)
+  HOST_RUNTIME_DIR="/run/user/$SUDO_UID"
+else
+  HOST_UID="$(id -u)"
+  HOST_GID="$(id -g)"
+  HOST_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/run/user/$HOST_UID}"
+fi
 
 # Builds, installed aasdk and ccache live in Docker volumes: incremental builds stay fast
 # and no root-owned files end up in the source tree.
@@ -131,7 +144,7 @@ cmd_package() {
     rm -f ./*.deb
     cpack -G DEB >/dev/null
     cp -v ./*.deb /output/
-    chown $(id -u):$(id -g) /output/*.deb
+    chown $HOST_UID:$HOST_GID /output/*.deb
   "
 }
 
@@ -147,14 +160,29 @@ cmd_run() {
   # root in the container may use the X server (XWayland)
   xhost +SI:localuser:root >/dev/null
 
-  local pulse_sock="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/pulse/native"
+  # Audio server of the host (PulseAudio protocol, pipewire-pulse) and PipeWire: OpenHU creates the sinks of its audio
+  # sources there (#154), they go when it ends. A missing socket is not mounted (Docker would create an empty
+  # directory in its place) and OpenHU runs without sound.
+  local audio=()
+  local pulse_sock="$HOST_RUNTIME_DIR/pulse/native"
+  local pipewire_sock="$HOST_RUNTIME_DIR/pipewire-0"
+  if [ -S "$pulse_sock" ]; then
+    audio+=(-e PULSE_SERVER=unix:/run/pulse/native -v "$pulse_sock:/run/pulse/native")
+  else
+    echo "WARNING: no audio server socket at $pulse_sock - OpenHU runs without sound" >&2
+  fi
+  if [ -S "$pipewire_sock" ]; then
+    audio+=(-e PIPEWIRE_RUNTIME_DIR=/run/pipewire -v "$pipewire_sock:/run/pipewire/pipewire-0")
+  else
+    echo "WARNING: no PipeWire socket at $pipewire_sock - no sinks for the audio sources" >&2
+  fi
   local host_display="${DISPLAY:-:0}"
   local host_xsock="/tmp/.X11-unix/X${host_display#:}"
 
   # Plugins, store sources, cache and logs survive restarts.
   # The container writes as root, afterwards the files belong to the own user again.
   mkdir -p config data
-  trap 'docker run --rm -v "$DOCKER_DIR/data:/data" "$IMAGE" chown -R "$(id -u):$(id -g)" /data' EXIT
+  trap 'docker run --rm -v "$DOCKER_DIR/data:/data" "$IMAGE" chown -R "$HOST_UID:$HOST_GID" /data' EXIT
 
   # Local plugin repository (store source "file /opt/openhu-plugins") for plugin development,
   # default: next to this repository
@@ -171,6 +199,9 @@ cmd_run() {
     [ "$OPENHU_CAPTURE" = media ] && extra+=(-e AASDK_CAPTURE_MEDIA=1)
     echo "Protocol capture: $DOCKER_DIR/data/$capture"
   fi
+  # Android Auto through its head unit server (developer settings) instead of USB: OPENHU_AA_SERVER=127.0.0.1:5277
+  # after `adb forward tcp:5277 tcp:5277`; the phone keeps USB debugging (openhu#158)
+  [ -n "${OPENHU_AA_SERVER:-}" ] && extra+=(-e "OPENHU_AA_SERVER=$OPENHU_AA_SERVER")
   # Protocol version aasdk asks the phone for (aasdk AASDK_VERSION, e.g. 5.1)
   [ -n "${AASDK_VERSION:-}" ] && extra+=(-e "AASDK_VERSION=$AASDK_VERSION")
 
@@ -190,11 +221,11 @@ cmd_run() {
     --network host \
     -e DISPLAY="$host_display" \
     -e OPENHU_RESOLUTION="${OPENHU_RESOLUTION:-1280x720}" \
+    -e OPENHU_FULLSCREEN="${OPENHU_FULLSCREEN:-}" \
     -e QT_QPA_PLATFORM=xcb \
     -v /etc/localtime:/etc/localtime:ro \
     -v "$host_xsock:$host_xsock" \
-    -e PULSE_SERVER=unix:/run/pulse/native \
-    -v "$pulse_sock:/run/pulse/native" \
+    "${audio[@]}" \
     -v /dev/bus/usb:/dev/bus/usb \
     -v /run/udev:/run/udev:ro \
     -v /run/dbus/system_bus_socket:/run/dbus/system_bus_socket \

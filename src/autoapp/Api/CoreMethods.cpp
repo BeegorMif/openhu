@@ -145,6 +145,27 @@ void registerCoreMethods(ApiServer& server, audio::VolumeController& volume, she
     });
 }
 
+void registerAudioMethods(ApiServer& server, audio::AudioGraph& graph)
+{
+    server.registerMethod("audio.sources", [&graph](const QVariantMap&) -> QVariant {
+        return QVariantMap{{"sources", graph.sources()}, {"min", audio::cMinSourceLevel}, {"max", audio::cMaxSourceLevel}};
+    });
+    server.registerMethod("audio.level.set", [&graph](const QVariantMap& params) -> QVariant {
+        const QString source = require(params, "source").toString();
+        bool ok = false;
+        const int level = require(params, "level").toInt(&ok);
+        if(!ok)
+        {
+            throw ApiError("level must be a number (dB)");
+        }
+        if(!graph.setLevel(source, level))
+        {
+            throw ApiError("unknown audio source: " + source.toStdString());
+        }
+        return QVariantMap{{"source", source}, {"level", graph.level(source)}};
+    });
+}
+
 }
 }
 }
